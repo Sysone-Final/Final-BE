@@ -1,4 +1,4 @@
-package org.example.finalbe.common.domain;
+package org.example.finalbe.domains.common.domain;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 

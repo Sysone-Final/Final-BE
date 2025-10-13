@@ -32,7 +32,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
-    // PostgreSQL JDBC 드라이버 (Oracle 드라이버 대체)
+    // PostgreSQL JDBC 드라이버
     implementation 'org.postgresql:postgresql:42.7.3'
 
     // lombok

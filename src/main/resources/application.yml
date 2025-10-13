@@ -3,16 +3,11 @@ spring:
     name: Final-BE
 
   datasource:
-    driver-class-name: oracle.jdbc.OracleDriver
+    driver-class-name: org.postgresql.Driver
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+
 
   jpa:
     database-platform: org.hibernate.dialect.OracleDialect

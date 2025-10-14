@@ -4,7 +4,7 @@ name: Spring Boot CI/CD to GCP
 # 언제 이 워크플로우를 실행할지 지정 (main 브랜치에 push 될 때)
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" , "ci/SYSONE-38-backend-deploy"]
 
 # 실행될 작업들
 jobs:

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # 1. 스프링 부트 애플리케이션 서비스 (이름: app)
+  app:
+    # 현재 폴더의 Dockerfile을 사용하여 이미지를 빌드합니다.
+    build: .
+    # 컨테이너 이름을 final-be-app으로 지정합니다.
+    container_name: final-be-app
+    # 외부에 노출하지 않고 Nginx와의 통신에만 사용합니다.
+    expose:
+      - "8080"
+
+  # 2. Nginx 서비스
+  nginx:
+    # 공식 Nginx 이미지를 사용합니다.
+    image: nginx:latest
+    # 컨테이너 이름을 final-be-nginx로 지정합니다.
+    container_name: final-be-nginx
+    ports:
+      # 외부에서 들어오는 80번 포트 요청을 Nginx의 80번 포트로 연결합니다.
+      - "80:80"
+    volumes:
+      # 위에서 작성한 nginx.conf 파일을 컨테이너 안의 설정 파일 위치에 덮어씌웁니다.
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    # app 서비스가 먼저 실행된 후에 nginx 서비스를 실행합니다.
+    depends_on:
+      - app

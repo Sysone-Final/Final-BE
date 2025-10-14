@@ -18,43 +18,26 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # 2. JDK 17 설치하기 (프로젝트에 맞는 버전으로 변경 가능)
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      # 3. Gradle 빌드 권한 부여하기
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
-
-      # 4. Gradle로 프로젝트 빌드하기 (빌드하면 .jar 파일이 생성됨)
-      - name: Build with Gradle
-        run: ./gradlew build
-
-      # 5. Google Cloud 인증하기 (GitHub Secrets 사용)
+      # 2. Google Cloud 인증하기 (GitHub Secrets 사용)
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # 6. gcloud CLI를 통해 VM에 접속해서 배포 스크립트 실행
-      - name: Deploy to Compute Engine
+      # 3. gcloud CLI를 통해 VM에 접속해서 Docker로 배포
+      - name: Deploy to Compute Engine with Docker
         run: |
           gcloud compute ssh --zone "${{ secrets.GCP_ZONE }}" "${{ secrets.INSTANCE_NAME }}" \
             --project "${{ secrets.GCP_PROJECT_ID }}" \
             --command="
-              # 프로젝트 폴더가 없으면 GitHub에서 새로 클론하고, 있으면 최신 코드를 받아옴
-              if [ ! -d /home/sana2d2v/app ]; then
-                git clone https://github.com/Sysone-Final/Final-BE.git /home/sana2d2v/app
-              fi
+              # 프로젝트 폴더로 이동 (이미 클론 되어 있다고 가정)
               cd /home/sana2d2v/app
+          
+              # 1. GitHub에서 최신 코드를 받아옵니다.
               git pull
           
-              # 기존에 실행 중이던 스프링 부트 앱 종료 (오류가 나도 무시하고 계속 진행)
-              fuser -k 8080/tcp || true
-          
-              # 새로 빌드된 .jar 파일을 백그라운드에서 실행 (로그는 nohup.out 파일에 저장)
-              nohup java -jar build/libs/*.jar > nohup.out 2>&1 &
+              # 2. Docker Compose로 애플리케이션을 빌드하고 재시작합니다.
+              # --build: 코드가 변경되었으니 이미지를 새로 빌드합니다.
+              # -d: 백그라운드에서 실행합니다.
+              docker-compose up --build -d
             "

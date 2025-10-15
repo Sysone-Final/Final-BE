@@ -1,20 +1,33 @@
-# ... (jobs: deploy: runs-on: ubuntu-latest 바로 아랫줄부터)
-steps:
-  # 1. GitHub 레포지토리의 코드를 가상 환경으로 가져오기
-  - name: Checkout source code
-    uses: actions/checkout@v3
+# 워크플로우의 이름
+name: Spring Boot CI/CD to GCP
 
-  # 2. Google Cloud 인증하기 (GitHub Secrets 사용)
-  - id: 'auth'
-    uses: 'google-github-actions/auth@v1'
-    with:
-      credentials_json: '${{ secrets.GCP_SA_KEY }}'
+# 언제 이 워크플로우를 실행할지 지정 (main 브랜치에 push 될 때)
+on:
+  push:
+    branches: [ "main" , "ci/SYSONE-38-backend-deploy"]
 
-  # 3. [테스트] 인증이 성공했는지 gcloud 명령어로 확인
-  - name: 🧪 [Debug] Check gcloud authentication
-    run: |
-      echo "--- Checking gcloud auth info ---"
-      gcloud auth list
-      
-      echo "--- Checking project info using authenticated account ---"
-      gcloud projects describe ${{ secrets.GCP_PROJECT_ID }}
+# 실행될 작업들
+jobs:
+  deploy:
+    # 이 작업을 실행할 가상 환경 (Ubuntu 최신 버전)
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. GitHub 레포지토리의 코드를 가상 환경으로 가져오기
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    # 2. Google Cloud 인증하기 (GitHub Secrets 사용)
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    # 3. [테스트] 인증이 성공했는지 gcloud 명령어로 확인
+    - name: 🧪 [Debug] Check gcloud authentication
+      run: |
+        echo "--- Checking gcloud auth info ---"
+        gcloud auth list
+        
+        echo "--- Checking project info using authenticated account ---"
+        gcloud projects describe ${{ secrets.GCP_PROJECT_ID }}

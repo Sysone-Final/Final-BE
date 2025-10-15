@@ -18,7 +18,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx:/etc/nginx/nginx.conf
     depends_on:
       - app
     # 서버가 재시작되어도 자동으로 컨테이너가 실행되도록 합니다.

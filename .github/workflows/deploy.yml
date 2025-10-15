@@ -1,43 +1,20 @@
-# 워크플로우의 이름
-name: Spring Boot CI/CD to GCP
+# ... (jobs: deploy: runs-on: ubuntu-latest 바로 아랫줄부터)
+steps:
+  # 1. GitHub 레포지토리의 코드를 가상 환경으로 가져오기
+  - name: Checkout source code
+    uses: actions/checkout@v3
 
-# 언제 이 워크플로우를 실행할지 지정 (main 브랜치에 push 될 때)
-on:
-  push:
-    branches: [ "main" , "ci/SYSONE-38-backend-deploy"]
+  # 2. Google Cloud 인증하기 (GitHub Secrets 사용)
+  - id: 'auth'
+    uses: 'google-github-actions/auth@v1'
+    with:
+      credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-# 실행될 작업들
-jobs:
-  deploy:
-    # 이 작업을 실행할 가상 환경 (Ubuntu 최신 버전)
-    runs-on: ubuntu-latest
-
-    # 작업 단계들
-    steps:
-      # 1. GitHub 레포지토리의 코드를 가상 환경으로 가져오기
-      - name: Checkout source code
-        uses: actions/checkout@v3
-
-      # 2. Google Cloud 인증하기 (GitHub Secrets 사용)
-      - id: 'auth'
-        uses: 'google-github-actions/auth@v1'
-        with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-      # 3. gcloud CLI를 통해 VM에 접속해서 Docker로 배포
-      - name: Deploy to Compute Engine with Docker
-        run: |
-          gcloud compute ssh --zone "${{ secrets.GCP_ZONE }}" "${{ secrets.INSTANCE_NAME }}" \
-            --project "${{ secrets.GCP_PROJECT_ID }}" \
-            --command="
-              # 프로젝트 폴더로 이동 (이미 클론 되어 있다고 가정)
-              cd /home/sana2d2v/app
-          
-              # 1. GitHub에서 최신 코드를 받아옵니다.
-              git pull
-          
-              # 2. Docker Compose로 애플리케이션을 빌드하고 재시작합니다.
-              # --build: 코드가 변경되었으니 이미지를 새로 빌드합니다.
-              # -d: 백그라운드에서 실행합니다.
-              docker-compose up --build -d
-            "
+  # 3. [테스트] 인증이 성공했는지 gcloud 명령어로 확인
+  - name: 🧪 [Debug] Check gcloud authentication
+    run: |
+      echo "--- Checking gcloud auth info ---"
+      gcloud auth list
+      
+      echo "--- Checking project info using authenticated account ---"
+      gcloud projects describe ${{ secrets.GCP_PROJECT_ID }}

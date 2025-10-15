@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.MappedSuperclass;
 import lombok.*;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.hibernate.annotations.CreationTimestamp;
 
 

@@ -20,6 +20,12 @@ spring:
         use_sql_comments: true
     open-in-view: false
 
+
+  jwt:
+    secret: your-256-bit-secret-key-here-make-it-long-enough-for-security-purposes
+    access-token-validity: 3600000  # 1시간 (밀리초)
+    refresh-token-validity: 604800000  # 7일 (밀리초)
+
 logging:
   level:
     root: INFO

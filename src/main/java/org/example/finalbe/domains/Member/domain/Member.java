@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.user.domain;
+package org.example.finalbe.domains.Member.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -14,10 +14,11 @@ import org.example.finalbe.domains.common.enumdir.UserStatus;
 @AllArgsConstructor
 @Getter
 @Builder
-public class User extends BaseTimeEntity {
+public class Member extends BaseTimeEntity {
     @Id
-    @Column(name = "user_id", length = 50)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "member_id", length = 50)
+    private Long id;
 
     @Column(name = "username", nullable = false, length = 100)
     private String username;

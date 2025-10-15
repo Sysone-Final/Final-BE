@@ -1,9 +1,9 @@
-package org.example.finalbe.domains.user.dto;
+package org.example.finalbe.domains.Member.dto;
 
 import lombok.Builder;
 
 @Builder
-public record UserLoginRequest(
+public record MemberLoginRequest(
         String username,
         String password
 ) {

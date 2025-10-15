@@ -7,12 +7,19 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 600000
+      keepalive-time: 300000
+      validation-timeout: 5000
 
   jpa:
-    database-platform: org.hibernate.dialect.OracleDialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     show-sql: true
     properties:
       hibernate:
@@ -20,11 +27,10 @@ spring:
         use_sql_comments: true
     open-in-view: false
 
-
-  jwt:
-    secret: your-256-bit-secret-key-here-make-it-long-enough-for-security-purposes
-    access-token-validity: 3600000  # 1시간 (밀리초)
-    refresh-token-validity: 604800000  # 7일 (밀리초)
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-validity: 3600000
+  refresh-token-validity: 604800000
 
 logging:
   level:
@@ -32,3 +38,4 @@ logging:
     com.finalbe: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.zaxxer.hikari: WARN

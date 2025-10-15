@@ -1,21 +1,30 @@
-version: '3.8'
-
 services:
+  # 스프링 부트 애플리케이션 서비스
+  # Spring Boot application service
   app:
     image: sana2d2v/final-be:latest
     container_name: final-be-app
     expose:
       - "8080"
+    # 서버가 재시작되어도 자동으로 컨테이너가 실행되도록 합니다.
+    # Ensures the container restarts automatically if the server reboots.
     restart: always
 
+  # Nginx 서비스
+  # Nginx service
   nginx:
     image: nginx:latest
     container_name: final-be-nginx
     ports:
       # [수정] 외부 8080 포트를 Nginx 컨테이너의 80번 포트로 연결합니다.
+      # [Modified] Maps external port 8080 to Nginx container's port 80.
       - "8080:80"
     volumes:
+      # 최상위 폴더의 'nginx' 파일을 설정 파일로 사용합니다.
+      # Uses the 'nginx' file from the root directory as the configuration file.
       - ./nginx:/etc/nginx/nginx.conf
     depends_on:
       - app
+    # 서버가 재시작되어도 자동으로 컨테이너가 실행되도록 합니다.
+    # Ensures the container restarts automatically if the server reboots.
     restart: always

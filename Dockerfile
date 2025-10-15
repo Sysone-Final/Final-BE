@@ -5,7 +5,10 @@ FROM eclipse-temurin:17-jdk-jammy
 WORKDIR /app
 
 # 3. 빌드에 필요한 Gradle 관련 파일 및 폴더를 모두 복사합니다.
-COPY ./gradlew ./settings.gradle ./build.gradle ./gradle/ ./gradle/
+COPY gradlew .
+COPY build.gradle .
+COPY settings.gradle .
+COPY gradle gradle
 
 # 4. Docker 컨테이너 안에서 gradlew를 실행할 수 있도록 실행 권한을 부여합니다.
 RUN chmod +x ./gradlew

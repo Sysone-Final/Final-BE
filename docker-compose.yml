@@ -1,25 +1,21 @@
 version: '3.8'
 
 services:
-  # 1. 스프링 부트 애플리케이션 서비스
   app:
-    #  Docker Hub 이미지를 사용하도록 합니다.
     image: sana2d2v/final-be:latest
     container_name: final-be-app
     expose:
       - "8080"
-    # 서버가 재시작되어도 자동으로 컨테이너가 실행되도록 합니다.
     restart: always
 
-  # 2. Nginx 서비스 (수정할 필요 없음)
   nginx:
     image: nginx:latest
     container_name: final-be-nginx
     ports:
-      - "80:80"
+      # [수정] 외부 8080 포트를 Nginx 컨테이너의 80번 포트로 연결합니다.
+      - "8080:80"
     volumes:
       - ./nginx:/etc/nginx/nginx.conf
     depends_on:
       - app
-    # 서버가 재시작되어도 자동으로 컨테이너가 실행되도록 합니다.
     restart: always

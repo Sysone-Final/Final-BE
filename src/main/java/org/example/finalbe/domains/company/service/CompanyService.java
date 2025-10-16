@@ -106,7 +106,7 @@ public class CompanyService {
     }
 
     /**
-     * 회사 삭제 (Soft Delete)
+     * 회사 삭제
      */
     @Transactional
     public void deleteCompany(Long id) {

@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.common.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.dto.CommonErrorDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -7,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     /**
@@ -28,13 +30,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonErrorDto> handleException(Exception e) {
+        log.error("Unexpected error occurred", e);
         CommonErrorDto errorDto = new CommonErrorDto(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "서버 내부 오류가 발생했습니다."
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
     }
-
     /**
      * NullPointerException 처리
      */

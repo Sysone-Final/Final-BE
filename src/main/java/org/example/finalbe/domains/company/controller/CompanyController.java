@@ -53,7 +53,7 @@ public class CompanyController {
      * POST /companies
      */
     @PostMapping
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CommonResDto> createCompany(@RequestBody CompanyCreateRequest request) {
         CompanyDetailResponse company = companyService.createCompany(request);
         CommonResDto response = new CommonResDto(

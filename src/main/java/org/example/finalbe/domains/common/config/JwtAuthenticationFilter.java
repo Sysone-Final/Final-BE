@@ -88,7 +88,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private boolean isTokenBlacklisted(String token) {
         try {
-            return Boolean.TRUE.equals(redisTemplate.hasKey("BLACKLIST:" + token));
+            return redisTemplate.hasKey("BLACKLIST:" + token);
         } catch (Exception e) {
             log.error("Redis connection error while checking blacklist", e);
             // Redis 장애 시에도 서비스 가능하도록 false 반환 (보안 vs 가용성 트레이드오프)

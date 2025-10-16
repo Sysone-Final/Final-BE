@@ -37,12 +37,13 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
 
     // 사용자가 접근 가능한 전산실 목록 조회 (회사-전산실 매핑 테이블 참고)
     @Query("""
-        SELECT dc FROM DataCenter dc
-        JOIN CompanyDataCenter cdc ON dc.id = cdc.dataCenter.id
-        WHERE cdc.company.id = :companyId
-        AND dc.delYn = 'N'
-        AND cdc.delYn = 'N'
-        ORDER BY dc.name
+    SELECT dc FROM DataCenter dc
+    JOIN FETCH dc.manager
+    JOIN CompanyDataCenter cdc ON dc.id = cdc.dataCenter.id
+    WHERE cdc.company.id = :companyId
+    AND dc.delYn = 'N'
+    AND cdc.delYn = 'N'
+    ORDER BY dc.name
     """)
     List<DataCenter> findAccessibleDataCentersByCompanyId(@Param("companyId") Long companyId);
 

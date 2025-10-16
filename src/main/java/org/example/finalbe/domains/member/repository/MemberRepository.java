@@ -13,7 +13,12 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     boolean existsByEmail(String email);
 
     // 활성 사용자 조회
-    @Query("SELECT m FROM Member m WHERE m.username = :username AND m.delYn = 'N'")
+    @Query("""
+    SELECT m FROM Member m
+    JOIN FETCH m.company
+    WHERE m.username = :username
+    AND m.delYn = 'N'
+    """)
     Optional<Member> findActiveByUsername(@Param("username") String username);
 
     // ID로 활성 사용자 조회

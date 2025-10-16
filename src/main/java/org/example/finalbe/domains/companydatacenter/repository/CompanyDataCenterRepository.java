@@ -12,7 +12,13 @@ import java.util.Optional;
 public interface CompanyDataCenterRepository extends JpaRepository<CompanyDataCenter, Long> {
 
     // 회사별 전산실 목록 조회
-    @Query("SELECT cdc FROM CompanyDataCenter cdc WHERE cdc.company.id = :companyId AND cdc.delYn = 'N'")
+    @Query("""
+    SELECT cdc FROM CompanyDataCenter cdc
+    JOIN FETCH cdc.company c
+    JOIN FETCH cdc.dataCenter dc
+    WHERE cdc.company.id = :companyId 
+    AND cdc.delYn = 'N'
+    """)
     List<CompanyDataCenter> findByCompanyId(@Param("companyId") Long companyId);
 
     // 전산실별 회사 목록 조회

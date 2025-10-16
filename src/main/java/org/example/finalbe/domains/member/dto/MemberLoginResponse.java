@@ -1,7 +1,7 @@
-package org.example.finalbe.domains.Member.dto;
+package org.example.finalbe.domains.member.dto;
 
 import lombok.Builder;
-import org.example.finalbe.domains.Member.domain.Member;
+import org.example.finalbe.domains.member.domain.Member;
 
 @Builder
 public record MemberLoginResponse(
@@ -9,7 +9,9 @@ public record MemberLoginResponse(
         String refreshToken,
         Long userId,
         String username,
-        String role
+        String role,
+        Long companyId,      // 추가
+        String companyName   // 추가
 ) {
     public static MemberLoginResponse from(Member member, String accessToken, String refreshToken) {
         return MemberLoginResponse.builder()
@@ -18,6 +20,8 @@ public record MemberLoginResponse(
                 .userId(member.getId())
                 .username(member.getUsername())
                 .role(member.getRole().name())
+                .companyId(member.getCompany().getId())        // 추가
+                .companyName(member.getCompany().getName())    // 추가
                 .build();
     }
 }

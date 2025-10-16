@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.Member.domain;
+package org.example.finalbe.domains.member.domain;
 
 import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;

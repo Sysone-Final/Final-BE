@@ -1,8 +1,8 @@
-package org.example.finalbe.domains.Member.controller;
+package org.example.finalbe.domains.member.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.example.finalbe.domains.Member.dto.*;
-import org.example.finalbe.domains.Member.service.MemberAuthService;
+import org.example.finalbe.domains.member.dto.*;
+import org.example.finalbe.domains.member.service.MemberAuthService;
 import org.example.finalbe.domains.common.dto.CommonResDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

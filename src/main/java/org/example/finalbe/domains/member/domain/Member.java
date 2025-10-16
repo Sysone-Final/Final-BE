@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.Member.domain;
+package org.example.finalbe.domains.member.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.enumdir.UserStatus;
+import org.example.finalbe.domains.company.domain.Company;
 
 @Entity
 @NoArgsConstructor
@@ -45,4 +46,8 @@ public class Member extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     private Role role;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 }

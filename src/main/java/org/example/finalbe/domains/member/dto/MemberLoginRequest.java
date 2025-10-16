@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.Member.dto;
+package org.example.finalbe.domains.member.dto;
 
 import lombok.Builder;
 

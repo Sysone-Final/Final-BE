@@ -9,6 +9,7 @@ import jakarta.persistence.MappedSuperclass;
 import lombok.*;
 import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ public abstract class BaseTimeEntity {
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @UpdateTimestamp
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

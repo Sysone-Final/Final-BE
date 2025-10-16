@@ -1,10 +1,11 @@
-package org.example.finalbe.domains.Member.dto;
+package org.example.finalbe.domains.member.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.enumdir.UserStatus;
-import org.example.finalbe.domains.Member.domain.Address;
-import org.example.finalbe.domains.Member.domain.Member;
+import org.example.finalbe.domains.company.domain.Company;
+import org.example.finalbe.domains.member.domain.Address;
+import org.example.finalbe.domains.member.domain.Member;
 import org.springframework.web.multipart.MultipartFile;
 
 @Builder
@@ -17,9 +18,10 @@ public record MemberSignupRequest(
         String profileImgUrl,
         Address address,
         MultipartFile profileImage,
-        Role role
+        Role role,
+        Long companyId
 ) {
-    public Member toEntity(String encodedPassword) {
+    public Member toEntity(String encodedPassword, Company company) {
         return Member.builder()
                 .username(this.username)
                 .password(encodedPassword)
@@ -29,6 +31,7 @@ public record MemberSignupRequest(
                 .address(this.address)
                 .status(UserStatus.ACTIVE)
                 .role(this.role != null ? this.role : Role.VIEWER)
+                .company(company)
                 .build();
     }
 }

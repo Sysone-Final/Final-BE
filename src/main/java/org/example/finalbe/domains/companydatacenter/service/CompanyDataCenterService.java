@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.company.domain.Company;
 import org.example.finalbe.domains.company.repository.CompanyRepository;
+import org.example.finalbe.domains.common.exception.AccessDeniedException;
+import org.example.finalbe.domains.common.exception.DuplicateException;
+import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companydatacenter.domain.CompanyDataCenter;
 import org.example.finalbe.domains.companydatacenter.dto.CompanyDataCenterCreateRequest;
 import org.example.finalbe.domains.companydatacenter.dto.CompanyDataCenterResponse;
@@ -38,9 +41,23 @@ public class CompanyDataCenterService {
      */
     private Member getCurrentMember() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+
         String userId = authentication.getName();
-        return memberRepository.findById(Long.parseLong(userId))
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (userId == null || userId.equals("anonymousUser")) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+
+        try {
+            return memberRepository.findById(Long.parseLong(userId))
+                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
+        }
     }
 
     /**
@@ -52,7 +69,10 @@ public class CompanyDataCenterService {
         log.info("Creating company-datacenter mappings for company: {} by user: {}",
                 request.companyId(), currentMember.getId());
 
-        // 1. 입력 검증
+        // 1. 입력값 검증
+        if (request.companyId() == null) {
+            throw new IllegalArgumentException("회사 ID를 입력해주세요.");
+        }
         if (request.dataCenterIds() == null || request.dataCenterIds().isEmpty()) {
             throw new IllegalArgumentException("전산실을 하나 이상 선택해주세요.");
         }
@@ -65,14 +85,17 @@ public class CompanyDataCenterService {
 
         // 3. 회사 조회
         Company company = companyRepository.findActiveById(request.companyId())
-                .orElseThrow(() -> new IllegalArgumentException("회사를 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("회사", request.companyId()));
 
         // 4. 모든 전산실 존재 여부 사전 검증 (원자성을 위해)
         List<DataCenter> datacenters = new ArrayList<>();
         for (Long dataCenterId : uniqueDataCenterIds) {
+            if (dataCenterId == null) {
+                throw new IllegalArgumentException("전산실 ID는 null일 수 없습니다.");
+            }
+
             DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "전산실을 찾을 수 없습니다. ID: " + dataCenterId));
+                    .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
             datacenters.add(dataCenter);
         }
 
@@ -87,12 +110,11 @@ public class CompanyDataCenterService {
 
         // 중복이 있으면 전체 실패 (원자성 보장)
         if (!duplicateIds.isEmpty()) {
-            throw new IllegalArgumentException(
-                    String.format("이미 매핑된 전산실이 있습니다. 전산실 ID: %s",
-                            duplicateIds.stream()
-                                    .map(String::valueOf)
-                                    .collect(Collectors.joining(", ")))
-            );
+            String duplicateIdsStr = duplicateIds.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(", "));
+            throw new DuplicateException(
+                    String.format("이미 매핑된 전산실이 있습니다. 전산실 ID: %s", duplicateIdsStr));
         }
 
         // 6. 모든 검증 통과 후 일괄 저장
@@ -131,14 +153,21 @@ public class CompanyDataCenterService {
     public List<CompanyDataCenterResponse> getCompanyDataCentersByCompanyId(Long companyId) {
         log.info("Fetching company-datacenter mappings for company: {}", companyId);
 
+        if (companyId == null) {
+            throw new IllegalArgumentException("회사 ID를 입력해주세요.");
+        }
+
         // 회사 존재 확인
         companyRepository.findActiveById(companyId)
-                .orElseThrow(() -> new IllegalArgumentException("회사를 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("회사", companyId));
 
-        return companyDataCenterRepository.findByCompanyId(companyId)
+        List<CompanyDataCenterResponse> mappings = companyDataCenterRepository.findByCompanyId(companyId)
                 .stream()
                 .map(CompanyDataCenterResponse::from)
                 .collect(Collectors.toList());
+
+        log.info("Found {} mappings for company: {}", mappings.size(), companyId);
+        return mappings;
     }
 
     /**
@@ -147,14 +176,21 @@ public class CompanyDataCenterService {
     public List<CompanyDataCenterResponse> getCompanyDataCentersByDataCenterId(Long dataCenterId) {
         log.info("Fetching company-datacenter mappings for datacenter: {}", dataCenterId);
 
+        if (dataCenterId == null) {
+            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+        }
+
         // 전산실 존재 확인
         dataCenterRepository.findActiveById(dataCenterId)
-                .orElseThrow(() -> new IllegalArgumentException("전산실을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
 
-        return companyDataCenterRepository.findByDataCenterId(dataCenterId)
+        List<CompanyDataCenterResponse> mappings = companyDataCenterRepository.findByDataCenterId(dataCenterId)
                 .stream()
                 .map(CompanyDataCenterResponse::from)
                 .collect(Collectors.toList());
+
+        log.info("Found {} mappings for datacenter: {}", mappings.size(), dataCenterId);
+        return mappings;
     }
 
     /**
@@ -162,11 +198,20 @@ public class CompanyDataCenterService {
      */
     @Transactional
     public void deleteCompanyDataCenterMapping(Long companyId, Long dataCenterId) {
-        log.info("Deleting company-datacenter mapping: company={}, datacenter={}", companyId, dataCenterId);
+        log.info("Deleting company-datacenter mapping: company={}, datacenter={}",
+                companyId, dataCenterId);
+
+        if (companyId == null) {
+            throw new IllegalArgumentException("회사 ID를 입력해주세요.");
+        }
+        if (dataCenterId == null) {
+            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+        }
 
         CompanyDataCenter companyDataCenter = companyDataCenterRepository
                 .findByCompanyIdAndDataCenterId(companyId, dataCenterId)
-                .orElseThrow(() -> new IllegalArgumentException("매핑을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, dataCenterId)));
 
         companyDataCenter.softDelete();
         log.info("Company-DataCenter mapping deleted successfully");
@@ -181,22 +226,32 @@ public class CompanyDataCenterService {
         log.info("Deleting multiple company-datacenter mappings: company={}, datacenterIds={}",
                 companyId, dataCenterIds);
 
+        // 입력값 검증
+        if (companyId == null) {
+            throw new IllegalArgumentException("회사 ID를 입력해주세요.");
+        }
         if (dataCenterIds == null || dataCenterIds.isEmpty()) {
-            throw new IllegalArgumentException("삭제할 전산실을 선택해주세요.");
+            throw new IllegalArgumentException("삭제할 전산실을 하나 이상 선택해주세요.");
+        }
+
+        // null 체크
+        for (Long dataCenterId : dataCenterIds) {
+            if (dataCenterId == null) {
+                throw new IllegalArgumentException("전산실 ID는 null일 수 없습니다.");
+            }
         }
 
         // 회사 존재 확인
         companyRepository.findActiveById(companyId)
-                .orElseThrow(() -> new IllegalArgumentException("회사를 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("회사", companyId));
 
         // 모든 매핑 존재 여부 사전 검증
         List<CompanyDataCenter> mappingsToDelete = new ArrayList<>();
         for (Long dataCenterId : dataCenterIds) {
             CompanyDataCenter mapping = companyDataCenterRepository
                     .findByCompanyIdAndDataCenterId(companyId, dataCenterId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            String.format("매핑을 찾을 수 없습니다. Company: %d, DataCenter: %d",
-                                    companyId, dataCenterId)));
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, dataCenterId)));
             mappingsToDelete.add(mapping);
         }
 
@@ -216,9 +271,13 @@ public class CompanyDataCenterService {
     public int deleteAllCompaniesByDataCenter(Long dataCenterId) {
         log.info("Deleting all company mappings for datacenter: {}", dataCenterId);
 
+        if (dataCenterId == null) {
+            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+        }
+
         // 전산실 존재 확인
         dataCenterRepository.findActiveById(dataCenterId)
-                .orElseThrow(() -> new IllegalArgumentException("전산실을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
 
         // 해당 전산실과 연결된 모든 매핑 조회
         List<CompanyDataCenter> mappingsToDelete = companyDataCenterRepository.findByDataCenterId(dataCenterId);
@@ -245,22 +304,32 @@ public class CompanyDataCenterService {
         log.info("Deleting specific company mappings for datacenter: {}, companyIds={}",
                 dataCenterId, companyIds);
 
+        // 입력값 검증
+        if (dataCenterId == null) {
+            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+        }
         if (companyIds == null || companyIds.isEmpty()) {
-            throw new IllegalArgumentException("삭제할 회사를 선택해주세요.");
+            throw new IllegalArgumentException("삭제할 회사를 하나 이상 선택해주세요.");
+        }
+
+        // null 체크
+        for (Long companyId : companyIds) {
+            if (companyId == null) {
+                throw new IllegalArgumentException("회사 ID는 null일 수 없습니다.");
+            }
         }
 
         // 전산실 존재 확인
         dataCenterRepository.findActiveById(dataCenterId)
-                .orElseThrow(() -> new IllegalArgumentException("전산실을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
 
         // 모든 매핑 존재 여부 사전 검증
         List<CompanyDataCenter> mappingsToDelete = new ArrayList<>();
         for (Long companyId : companyIds) {
             CompanyDataCenter mapping = companyDataCenterRepository
                     .findByCompanyIdAndDataCenterId(companyId, dataCenterId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            String.format("매핑을 찾을 수 없습니다. Company: %d, DataCenter: %d",
-                                    companyId, dataCenterId)));
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, dataCenterId)));
             mappingsToDelete.add(mapping);
         }
 

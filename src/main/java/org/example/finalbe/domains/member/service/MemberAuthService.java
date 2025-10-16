@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.company.domain.Company;
 import org.example.finalbe.domains.company.repository.CompanyRepository;
+import org.example.finalbe.domains.common.exception.DuplicateException;
+import org.example.finalbe.domains.common.exception.EntityNotFoundException;
+import org.example.finalbe.domains.common.exception.InvalidTokenException;
 import org.example.finalbe.domains.member.dto.*;
 import org.example.finalbe.domains.common.config.JwtTokenProvider;
 import org.example.finalbe.domains.common.enumdir.UserStatus;
@@ -32,12 +35,24 @@ public class MemberAuthService {
     public MemberSignupResponse signup(MemberSignupRequest request) {
         log.info("Signup attempt for username: {}", request.username());
 
+        // 입력값 검증
+        if (request.username() == null || request.username().trim().isEmpty()) {
+            throw new IllegalArgumentException("아이디를 입력해주세요.");
+        }
+        if (request.password() == null || request.password().trim().isEmpty()) {
+            throw new IllegalArgumentException("비밀번호를 입력해주세요.");
+        }
+        if (request.name() == null || request.name().trim().isEmpty()) {
+            throw new IllegalArgumentException("이름을 입력해주세요.");
+        }
+
         // 중복 검증
         if (memberRepository.existsByUsername(request.username())) {
-            throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
+            throw new DuplicateException("아이디", request.username());
         }
-        if (request.email() != null && memberRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
+        if (request.email() != null && !request.email().trim().isEmpty()
+                && memberRepository.existsByEmail(request.email())) {
+            throw new DuplicateException("이메일", request.email());
         }
 
         // 회사 검증
@@ -46,7 +61,7 @@ public class MemberAuthService {
         }
 
         Company company = companyRepository.findActiveById(request.companyId())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회사입니다."));
+                .orElseThrow(() -> new EntityNotFoundException("회사", request.companyId()));
 
         // DTO의 toEntity 메서드로 Member 엔티티 생성
         Member member = request.toEntity(
@@ -66,6 +81,14 @@ public class MemberAuthService {
     public MemberLoginResponse login(MemberLoginRequest request) {
         log.info("Login attempt for username: {}", request.username());
 
+        // 입력값 검증
+        if (request.username() == null || request.username().trim().isEmpty()) {
+            throw new IllegalArgumentException("아이디를 입력해주세요.");
+        }
+        if (request.password() == null || request.password().trim().isEmpty()) {
+            throw new IllegalArgumentException("비밀번호를 입력해주세요.");
+        }
+
         // 사용자 조회 (삭제되지 않은 사용자만)
         Member member = memberRepository.findActiveByUsername(request.username())
                 .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다."));
@@ -77,7 +100,7 @@ public class MemberAuthService {
 
         // 계정 상태 확인
         if (member.getStatus() != UserStatus.ACTIVE) {
-            throw new IllegalArgumentException("비활성화된 계정입니다.");
+            throw new IllegalStateException("비활성화된 계정입니다. 관리자에게 문의하세요.");
         }
 
         // 토큰 생성
@@ -94,20 +117,34 @@ public class MemberAuthService {
     public MemberLogoutResponse logout(String token) {
         log.info("Logout attempt");
 
+        // 토큰 형식 검증
+        if (token == null || token.trim().isEmpty()) {
+            throw new InvalidTokenException("토큰이 제공되지 않았습니다.");
+        }
+
         if (token.startsWith("Bearer ")) {
             token = token.substring(7);
         }
 
+        // 토큰 유효성 검증
         if (!jwtTokenProvider.validateToken(token)) {
-            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+            throw new InvalidTokenException();
         }
 
+        // 사용자 ID 추출
         String userId = jwtTokenProvider.getUserId(token);
-        redisTemplate.opsForValue().set(
-                "BLACKLIST:" + token,
-                userId,
-                Duration.ofHours(1)
-        );
+
+        // Redis에 블랙리스트 등록
+        try {
+            redisTemplate.opsForValue().set(
+                    "BLACKLIST:" + token,
+                    userId,
+                    Duration.ofHours(1)
+            );
+        } catch (Exception e) {
+            log.error("Failed to add token to blacklist", e);
+            throw new IllegalStateException("로그아웃 처리 중 오류가 발생했습니다.");
+        }
 
         log.info("Logout successful for user: {}", userId);
         return MemberLogoutResponse.of("로그아웃 성공");

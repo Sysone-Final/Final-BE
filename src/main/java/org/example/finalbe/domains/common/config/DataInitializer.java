@@ -60,7 +60,7 @@ public class DataInitializer implements CommandLineRunner {
 
             log.info("=".repeat(80));
             log.info("🎉 초기 더미 데이터 로딩 완료!");
-            printSummary(companies, members, dataCenters);
+            printTestAccounts(members);
             log.info("=".repeat(80));
 
         } catch (Exception e) {
@@ -341,40 +341,18 @@ public class DataInitializer implements CommandLineRunner {
         return companyDataCenterRepository.saveAll(mappings);
     }
 
-    private void printSummary(List<Company> companies, List<Member> members, List<DataCenter> dataCenters) {
+    private void printTestAccounts(List<Member> members) {
         log.info("");
-        log.info("📊 생성된 데이터 요약");
+        log.info("💡 테스트 계정 (비밀번호: password123)");
         log.info("-".repeat(80));
 
-        log.info("🏢 회사 정보:");
-        for (Company company : companies) {
-            log.info("   - {} ({}) - {}", company.getName(), company.getCode(), company.getEmail());
-        }
-
-        log.info("");
-        log.info("👤 사용자 정보 (비밀번호: password123):");
         for (Member member : members) {
-            log.info("   - {} / {} / {} / {}",
+            log.info("   {} / {} / {}",
                     member.getUsername(),
                     member.getRole(),
-                    member.getName(),
                     member.getCompany().getName());
         }
 
         log.info("");
-        log.info("🖥️  전산실 정보:");
-        for (DataCenter dc : dataCenters) {
-            log.info("   - {} ({}) - {} / 상태: {}",
-                    dc.getName(),
-                    dc.getCode(),
-                    dc.getLocation(),
-                    dc.getStatus());
-        }
-
-        log.info("");
-        log.info("💡 테스트 계정:");
-        log.info("   - admin1 / password123 (COMP001 - 관리자)");
-        log.info("   - operator1 / password123 (COMP001 - 운영자)");
-        log.info("   - viewer1 / password123 (COMP001 - 조회자)");
     }
 }

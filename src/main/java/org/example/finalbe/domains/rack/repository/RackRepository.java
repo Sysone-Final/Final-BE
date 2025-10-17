@@ -1,4 +1,8 @@
 package org.example.finalbe.domains.rack.repository;
 
-public class RackRepository {
+import org.example.finalbe.domains.rack.domain.Rack;
+import org.springframework.data.repository.CrudRepository;
+
+public interface RackRepository extends CrudRepository<Rack, Long> {
+
 }

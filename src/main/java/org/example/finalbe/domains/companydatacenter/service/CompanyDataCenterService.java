@@ -125,7 +125,7 @@ public class CompanyDataCenterService {
                         .company(company)
                         .dataCenter(dataCenter)
                         .description(request.description())
-                        .grantedBy(currentMember.getUsername())
+                        .grantedBy(currentMember.getUserName())
                         .build();
 
                 CompanyDataCenter saved = companyDataCenterRepository.save(companyDataCenter);

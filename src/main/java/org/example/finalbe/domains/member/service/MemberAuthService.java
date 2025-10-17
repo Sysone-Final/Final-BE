@@ -33,10 +33,10 @@ public class MemberAuthService {
 
     @Transactional
     public MemberSignupResponse signup(MemberSignupRequest request) {
-        log.info("Signup attempt for username: {}", request.username());
+        log.info("Signup attempt for userName: {}", request.userName());
 
         // 입력값 검증
-        if (request.username() == null || request.username().trim().isEmpty()) {
+        if (request.userName() == null || request.userName().trim().isEmpty()) {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
         }
         if (request.password() == null || request.password().trim().isEmpty()) {
@@ -47,8 +47,8 @@ public class MemberAuthService {
         }
 
         // 중복 검증
-        if (memberRepository.existsByUsername(request.username())) {
-            throw new DuplicateException("아이디", request.username());
+        if (memberRepository.existsByUserName(request.userName())) {
+            throw new DuplicateException("아이디", request.userName());
         }
         if (request.email() != null && !request.email().trim().isEmpty()
                 && memberRepository.existsByEmail(request.email())) {
@@ -71,26 +71,26 @@ public class MemberAuthService {
 
         memberRepository.save(member);
 
-        log.info("Member created successfully: username={}, company={}",
-                member.getUsername(), company.getName());
+        log.info("Member created successfully: userName={}, company={}",
+                member.getUserName(), company.getName());
 
         // DTO의 from 메서드로 Response 생성
         return MemberSignupResponse.from(member, "회원가입이 완료되었습니다.");
     }
 
     public MemberLoginResponse login(MemberLoginRequest request) {
-        log.info("Login attempt for username: {}", request.username());
+        log.info("Login attempt for userName: {}", request.userName());
 
         // 입력값 검증
-        if (request.username() == null || request.username().trim().isEmpty()) {
+        if (request.userName() == null || request.userName().trim().isEmpty()) {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
         }
         if (request.password() == null || request.password().trim().isEmpty()) {
-            throw new IllegalArgumentException("비밀번호를 입력해주세요.");
+            throw new IllegalArgumentException("비x밀번호를 입력해주세요.");
         }
 
         // 사용자 조회 (삭제되지 않은 사용자만)
-        Member member = memberRepository.findActiveByUsername(request.username())
+        Member member = memberRepository.findActiveByUserName(request.userName())
                 .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다."));
 
         // 비밀번호 검증
@@ -107,8 +107,8 @@ public class MemberAuthService {
         String accessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getRole().name());
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
 
-        log.info("Login successful: username={}, company={}",
-                member.getUsername(), member.getCompany().getName());
+        log.info("Login successful: userName={}, company={}",
+                member.getUserName(), member.getCompany().getName());
 
         // DTO의 from 메서드로 Response 생성
         return MemberLoginResponse.from(member, accessToken, refreshToken);

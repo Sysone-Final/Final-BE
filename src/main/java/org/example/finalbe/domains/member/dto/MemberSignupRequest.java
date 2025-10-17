@@ -10,7 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Builder
 public record MemberSignupRequest(
-        String username,
+        String userName,
         String password,
         String name,
         String email,
@@ -23,7 +23,7 @@ public record MemberSignupRequest(
 ) {
     public Member toEntity(String encodedPassword, Company company) {
         return Member.builder()
-                .username(this.username)
+                .userName(this.userName)
                 .password(encodedPassword)
                 .name(this.name)
                 .email(this.email)

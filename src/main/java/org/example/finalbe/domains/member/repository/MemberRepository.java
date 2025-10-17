@@ -8,18 +8,18 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
-    Optional<Member> findByUsername(String username);
-    boolean existsByUsername(String username);
+    Optional<Member> findByUserName(String userName);
+    boolean existsByUserName(String userName);
     boolean existsByEmail(String email);
 
     // 활성 사용자 조회
     @Query("""
     SELECT m FROM Member m
     JOIN FETCH m.company
-    WHERE m.username = :username
+    WHERE m.userName = :userName
     AND m.delYn = 'N'
     """)
-    Optional<Member> findActiveByUsername(@Param("username") String username);
+    Optional<Member> findActiveByUserName(@Param("username") String username);
 
     // ID로 활성 사용자 조회
     @Query("SELECT m FROM Member m WHERE m.id = :id AND m.delYn = 'N'")

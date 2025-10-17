@@ -8,7 +8,7 @@ public record MemberLoginResponse(
         String accessToken,
         String refreshToken,
         Long userId,
-        String username,
+        String userName,
         String role,
         Long companyId,      // 추가
         String companyName   // 추가
@@ -18,7 +18,7 @@ public record MemberLoginResponse(
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .userId(member.getId())
-                .username(member.getUsername())
+                .userName(member.getUserName())
                 .role(member.getRole().name())
                 .companyId(member.getCompany().getId())        // 추가
                 .companyName(member.getCompany().getName())    // 추가

@@ -134,7 +134,7 @@ public class DataInitializer implements CommandLineRunner {
         for (Company company : companies) {
             // ADMIN
             members.add(Member.builder()
-                    .username("admin" + userIndex)
+                    .userName("admin" + userIndex)
                     .password(password)
                     .name("관리자" + userIndex)
                     .email("admin" + userIndex + "@" + company.getCode().toLowerCase() + ".com")
@@ -151,7 +151,7 @@ public class DataInitializer implements CommandLineRunner {
 
             // OPERATOR
             members.add(Member.builder()
-                    .username("operator" + userIndex)
+                    .userName("operator" + userIndex)
                     .password(password)
                     .name("운영자" + userIndex)
                     .email("operator" + userIndex + "@" + company.getCode().toLowerCase() + ".com")
@@ -168,7 +168,7 @@ public class DataInitializer implements CommandLineRunner {
 
             // VIEWER
             members.add(Member.builder()
-                    .username("viewer" + userIndex)
+                    .userName("viewer" + userIndex)
                     .password(password)
                     .name("조회자" + userIndex)
                     .email("viewer" + userIndex + "@" + company.getCode().toLowerCase() + ".com")
@@ -216,7 +216,7 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager1)
-                .createdBy(manager1.getUsername())
+                .createdBy(manager1.getUserName())
                 .build());
 
         dataCenters.add(DataCenter.builder()
@@ -239,7 +239,7 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager1)
-                .createdBy(manager1.getUsername())
+                .createdBy(manager1.getUserName())
                 .build());
 
         dataCenters.add(DataCenter.builder()
@@ -262,7 +262,7 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager2)
-                .createdBy(manager2.getUsername())
+                .createdBy(manager2.getUserName())
                 .build());
 
         dataCenters.add(DataCenter.builder()
@@ -285,7 +285,7 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager2)
-                .createdBy(manager2.getUsername())
+                .createdBy(manager2.getUserName())
                 .build());
 
         return dataCenterRepository.saveAll(dataCenters);
@@ -303,14 +303,14 @@ public class DataInitializer implements CommandLineRunner {
                 .company(companies.get(0))
                 .dataCenter(dataCenters.get(0))
                 .description("메인 전산실 사용 계약")
-                .grantedBy(members.get(0).getUsername())
+                .grantedBy(members.get(0).getUserName())
                 .build());
 
         mappings.add(CompanyDataCenter.builder()
                 .company(companies.get(0))
                 .dataCenter(dataCenters.get(1))
                 .description("백업 전산실 사용 계약")
-                .grantedBy(members.get(0).getUsername())
+                .grantedBy(members.get(0).getUserName())
                 .build());
 
         // COMP002 (데이터센터 운영사) -> 모든 DC 접근 가능
@@ -319,7 +319,7 @@ public class DataInitializer implements CommandLineRunner {
                     .company(companies.get(1))
                     .dataCenter(dc)
                     .description("전산실 운영사 - 전체 접근 권한")
-                    .grantedBy(members.get(3).getUsername())
+                    .grantedBy(members.get(3).getUserName())
                     .build());
         }
 
@@ -328,14 +328,14 @@ public class DataInitializer implements CommandLineRunner {
                 .company(companies.get(2))
                 .dataCenter(dataCenters.get(0))
                 .description("서울 메인 전산실 사용")
-                .grantedBy(members.get(0).getUsername())
+                .grantedBy(members.get(0).getUserName())
                 .build());
 
         mappings.add(CompanyDataCenter.builder()
                 .company(companies.get(2))
                 .dataCenter(dataCenters.get(2))
                 .description("부산 전산실 사용")
-                .grantedBy(members.get(3).getUsername())
+                .grantedBy(members.get(3).getUserName())
                 .build());
 
         return companyDataCenterRepository.saveAll(mappings);
@@ -348,7 +348,7 @@ public class DataInitializer implements CommandLineRunner {
 
         for (Member member : members) {
             log.info("   {} / {} / {}",
-                    member.getUsername(),
+                    member.getUserName(),
                     member.getRole(),
                     member.getCompany().getName());
         }

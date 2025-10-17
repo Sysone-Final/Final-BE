@@ -164,7 +164,7 @@ public class DataCenterService {
         Member manager = memberRepository.findById(request.managerId())
                 .orElseThrow(() -> new EntityNotFoundException("담당자", request.managerId()));
 
-        DataCenter dataCenter = request.toEntity(manager, currentMember.getUsername());
+        DataCenter dataCenter = request.toEntity(manager, currentMember.getUserName());
         DataCenter savedDataCenter = dataCenterRepository.save(dataCenter);
 
         log.info("Data center created successfully with id: {}", savedDataCenter.getId());
@@ -228,7 +228,7 @@ public class DataCenterService {
                 request.humidityMin(),
                 request.humidityMax(),
                 manager,
-                currentMember.getUsername()
+                currentMember.getUserName()
         );
 
         log.info("Data center updated successfully with id: {}", id);

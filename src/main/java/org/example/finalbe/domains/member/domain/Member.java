@@ -22,7 +22,7 @@ public class Member extends BaseTimeEntity {
     private Long id;
 
     @Column(name = "username", nullable = false, length = 100)
-    private String username;
+    private String userName;
 
     @Column(name = "password", nullable = false, length = 250)
     private String password;

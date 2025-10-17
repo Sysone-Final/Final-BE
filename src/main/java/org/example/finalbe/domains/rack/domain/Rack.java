@@ -8,6 +8,8 @@ import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.common.enumdir.RackType;
 import org.example.finalbe.domains.common.enumdir.ZoneDirection;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.rack.dto.RackUpdateRequest;
 
 
 @Entity
@@ -113,4 +115,174 @@ public class Rack extends BaseTimeEntity {
     @JoinColumn(name = "datacenter_id", nullable = false)
     private DataCenter datacenter;
 
+    /**
+     * 랙 정보 업데이트
+     */
+    public void updateInfo(RackUpdateRequest request, String updatedBy) {
+        if (request.rackName() != null && !request.rackName().trim().isEmpty()) {
+            this.rackName = request.rackName();
+        }
+        if (request.groupNumber() != null) {
+            this.groupNumber = request.groupNumber();
+        }
+        if (request.rackLocation() != null) {
+            this.rackLocation = request.rackLocation();
+        }
+        if (request.totalUnits() != null) {
+            // 총 유닛 수 변경 시 사용 가능 유닛 재계산
+            this.totalUnits = request.totalUnits();
+            this.availableUnits = this.totalUnits - this.usedUnits;
+        }
+        if (request.doorDirection() != null) {
+            this.doorDirection = request.doorDirection();
+        }
+        if (request.zoneDirection() != null) {
+            this.zoneDirection = request.zoneDirection();
+        }
+        if (request.width() != null) {
+            this.width = request.width();
+        }
+        if (request.depth() != null) {
+            this.depth = request.depth();
+        }
+        if (request.height() != null) {
+            this.height = request.height();
+        }
+        if (request.department() != null) {
+            this.department = request.department();
+        }
+        if (request.maxPowerCapacity() != null) {
+            this.maxPowerCapacity = request.maxPowerCapacity();
+        }
+        if (request.maxWeightCapacity() != null) {
+            this.maxWeightCapacity = request.maxWeightCapacity();
+        }
+        if (request.manufacturer() != null) {
+            this.manufacturer = request.manufacturer();
+        }
+        if (request.serialNumber() != null) {
+            this.serialNumber = request.serialNumber();
+        }
+        if (request.managementNumber() != null) {
+            this.managementNumber = request.managementNumber();
+        }
+        if (request.status() != null) {
+            this.status = request.status();
+        }
+        if (request.rackType() != null) {
+            this.rackType = request.rackType();
+        }
+        if (request.colorCode() != null) {
+            this.colorCode = request.colorCode();
+        }
+        if (request.notes() != null) {
+            this.notes = request.notes();
+        }
+        if (request.managerId() != null) {
+            this.managerId = request.managerId();
+        }
+
+        this.updatedBy = updatedBy;
+        this.updateTimestamp();
+    }
+
+    /**
+     * 랙 상태 변경
+     */
+    public void changeStatus(RackStatus newStatus, String reason, String updatedBy) {
+        this.status = newStatus;
+
+        // 상태 변경 이력을 notes에 추가
+        String statusChangeLog = String.format("[%s] 상태 변경: %s → %s (사유: %s, 변경자: %s)",
+                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                this.status,
+                newStatus,
+                reason != null ? reason : "없음",
+                updatedBy);
+
+        if (this.notes == null || this.notes.trim().isEmpty()) {
+            this.notes = statusChangeLog;
+        } else {
+            this.notes = this.notes + "\n" + statusChangeLog;
+        }
+
+        this.updatedBy = updatedBy;
+        this.updateTimestamp();
+    }
+
+    /**
+     * 장비 배치
+     */
+    public void placeEquipment(Equipment equipment, Integer startUnit, Integer unitSize) {
+        // 장비에 랙 정보 설정
+        equipment.setRack(this);
+        equipment.setStartUnit(startUnit);
+        equipment.setUnitSize(unitSize);
+
+        // 사용중 유닛 증가
+        this.usedUnits += unitSize;
+        this.availableUnits = this.totalUnits - this.usedUnits;
+
+        // 전력 사용량 증가
+        if (equipment.getPowerConsumption() != null) {
+            this.currentPowerUsage += equipment.getPowerConsumption();
+        }
+
+        // 무게 증가
+        if (equipment.getWeight() != null) {
+            this.currentWeight += equipment.getWeight();
+        }
+
+        this.updateTimestamp();
+    }
+
+    /**
+     * 장비 제거
+     */
+    public void removeEquipment(Equipment equipment) {
+        // 사용중 유닛 감소
+        this.usedUnits -= equipment.getUnitSize();
+        this.availableUnits = this.totalUnits - this.usedUnits;
+
+        // 전력 사용량 감소
+        if (equipment.getPowerConsumption() != null) {
+            this.currentPowerUsage -= equipment.getPowerConsumption();
+        }
+
+        // 무게 감소
+        if (equipment.getWeight() != null) {
+            this.currentWeight -= equipment.getWeight();
+        }
+
+        this.updateTimestamp();
+    }
+
+    /**
+     * 장비 이동
+     */
+    public void moveEquipment(Equipment equipment, Integer fromUnit, Integer toUnit) {
+        // 장비의 시작 유닛만 변경
+        equipment.setStartUnit(toUnit);
+        this.updateTimestamp();
+    }
+
+    /**
+     * 사용률 계산
+     */
+    public Double getUsageRate() {
+        if (this.totalUnits == null || this.totalUnits == 0) {
+            return 0.0;
+        }
+        return (this.usedUnits.doubleValue() / this.totalUnits.doubleValue()) * 100;
+    }
+
+    /**
+     * 전력 사용률 계산
+     */
+    public Double getPowerUsageRate() {
+        if (this.maxPowerCapacity == null || this.maxPowerCapacity == 0) {
+            return 0.0;
+        }
+        return (this.currentPowerUsage / this.maxPowerCapacity) * 100;
+    }
 }

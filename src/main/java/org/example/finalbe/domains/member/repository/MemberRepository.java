@@ -19,7 +19,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     WHERE m.userName = :userName
     AND m.delYn = 'N'
     """)
-    Optional<Member> findActiveByUserName(@Param("username") String username);
+    Optional<Member> findActiveByUserName(@Param("userName") String userName);
 
     // ID로 활성 사용자 조회
     @Query("SELECT m FROM Member m WHERE m.id = :id AND m.delYn = 'N'")

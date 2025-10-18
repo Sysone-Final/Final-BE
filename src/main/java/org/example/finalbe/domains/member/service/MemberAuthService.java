@@ -86,7 +86,7 @@ public class MemberAuthService {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
         }
         if (request.password() == null || request.password().trim().isEmpty()) {
-            throw new IllegalArgumentException("비x밀번호를 입력해주세요.");
+            throw new IllegalArgumentException("비밀번호를 입력해주세요.");
         }
 
         // 사용자 조회 (삭제되지 않은 사용자만)

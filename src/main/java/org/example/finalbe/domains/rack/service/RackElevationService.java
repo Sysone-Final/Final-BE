@@ -52,6 +52,7 @@ public class RackElevationService {
     /**
      * 장비 배치 (드래그 앤 드롭)
      */
+    // RackElevationService.java
     @Transactional
     public void placeEquipment(Long rackId, Long equipmentId, EquipmentPlacementRequest request) {
         log.info("Placing equipment {} on rack {} at unit {}",
@@ -70,6 +71,14 @@ public class RackElevationService {
         Equipment equipment = equipmentRepository.findById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
+
+        if (request.powerConsumption() != null) {
+            equipment.setPowerConsumption(request.powerConsumption());
+        }
+        if (request.weight() != null) {
+            equipment.setWeight(request.weight());
+        }
+
         // 배치 검증
         Map<String, Object> validation = validateEquipmentPlacement(rackId, request);
         if (!(Boolean) validation.get("isValid")) {
@@ -79,7 +88,8 @@ public class RackElevationService {
         // 장비 배치
         rack.placeEquipment(equipment, request.startUnit(), request.unitSize());
 
-        log.info("Equipment placed successfully");
+        log.info("Equipment placed successfully with power: {}W, weight: {}kg",
+                equipment.getPowerConsumption(), equipment.getWeight());
     }
 
     /**

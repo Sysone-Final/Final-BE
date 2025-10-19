@@ -59,7 +59,6 @@ public record RackDetailResponse(
                 .zoneDirection(rack.getZoneDirection())
                 .width(rack.getWidth())
                 .depth(rack.getDepth())
-                .height(rack.getHeight())
                 .department(rack.getDepartment())
                 .maxPowerCapacity(rack.getMaxPowerCapacity())
                 .currentPowerUsage(rack.getCurrentPowerUsage())

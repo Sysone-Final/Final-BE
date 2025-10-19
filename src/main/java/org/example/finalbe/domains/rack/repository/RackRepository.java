@@ -88,4 +88,6 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     Integer countByDatacenterIdAndStatus(
             @Param("datacenterId") Long datacenterId,
             @Param("status") RackStatus status);
+
+    boolean existsByRackNameAndDatacenterIdAndDelYn(String rackName, Long datacenterId, DelYN delYn);
 }

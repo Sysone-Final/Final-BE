@@ -58,9 +58,6 @@ public class Rack extends BaseTimeEntity {
     @Column(name = "depth")
     private Double depth;
 
-    @Column(name = "height")
-    private Double height;
-
     @Column(name = "department", length = 100)
     private String department;
 
@@ -144,9 +141,6 @@ public class Rack extends BaseTimeEntity {
         }
         if (request.depth() != null) {
             this.depth = request.depth();
-        }
-        if (request.height() != null) {
-            this.height = request.height();
         }
         if (request.department() != null) {
             this.department = request.department();

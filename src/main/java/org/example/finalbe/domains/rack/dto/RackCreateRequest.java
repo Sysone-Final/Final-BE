@@ -44,7 +44,6 @@ public record RackCreateRequest(
                 .zoneDirection(this.zoneDirection != null ? this.zoneDirection : ZoneDirection.EAST)
                 .width(this.width)
                 .depth(this.depth)
-                .height(this.height)
                 .department(this.department)
                 .maxPowerCapacity(this.maxPowerCapacity)
                 .currentPowerUsage(0.0)

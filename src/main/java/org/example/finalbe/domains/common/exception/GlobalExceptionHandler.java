@@ -1,6 +1,8 @@
 package org.example.finalbe.domains.common.exception;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.dto.CommonErrorDto;
 import org.springframework.http.HttpStatus;
@@ -17,7 +19,16 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+/**
+ * 전역 예외 처리 핸들러
+ *
+ * 개선사항:
+ * - ConstraintViolationException 처리 추가 (PathVariable, RequestParam 검증)
+ * - 더 명확한 에러 메시지
+ * - 일관된 응답 형식
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -29,6 +40,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(EntityNotFoundException e) {
         log.warn("EntityNotFoundException: {}", e.getMessage());
+        CommonErrorDto errorDto = new CommonErrorDto(
+                HttpStatus.NOT_FOUND,
+                e.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+    }
+
+    /**
+     * 커스텀 EntityNotFoundException 처리
+     * - 엔티티를 찾을 수 없는 경우 (404 Not Found)
+     */
+    @ExceptionHandler(org.example.finalbe.domains.common.exception.EntityNotFoundException.class)
+    public ResponseEntity<CommonErrorDto> handleCustomEntityNotFoundException(
+            org.example.finalbe.domains.common.exception.EntityNotFoundException e) {
+        log.warn("Custom EntityNotFoundException: {}", e.getMessage());
         CommonErrorDto errorDto = new CommonErrorDto(
                 HttpStatus.NOT_FOUND,
                 e.getMessage()
@@ -151,7 +177,7 @@ public class GlobalExceptionHandler {
 
     /**
      * MethodArgumentNotValidException 처리
-     * - @Valid 검증 실패 (400 Bad Request)
+     * - @Valid 검증 실패 (RequestBody) (400 Bad Request)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonErrorDto> handleMethodArgumentNotValidException(
@@ -165,9 +191,33 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
+        String errorMessage = errors.isEmpty()
+                ? "입력값 검증에 실패했습니다."
+                : errors.values().stream().collect(Collectors.joining(", "));
+
         CommonErrorDto errorDto = new CommonErrorDto(
                 HttpStatus.BAD_REQUEST,
-                "입력값 검증에 실패했습니다: " + errors.toString()
+                errorMessage
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+    }
+
+    /**
+     * ConstraintViolationException 처리 (신규 추가 - 매우 중요!)
+     * - @Validated 검증 실패 (PathVariable, RequestParam) (400 Bad Request)
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<CommonErrorDto> handleConstraintViolationException(
+            ConstraintViolationException e) {
+        log.warn("ConstraintViolationException: {}", e.getMessage());
+
+        String errorMessage = e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+
+        CommonErrorDto errorDto = new CommonErrorDto(
+                HttpStatus.BAD_REQUEST,
+                errorMessage
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }

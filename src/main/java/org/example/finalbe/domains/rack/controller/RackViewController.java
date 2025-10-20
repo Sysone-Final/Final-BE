@@ -7,17 +7,26 @@ import org.example.finalbe.domains.rack.dto.RackStatisticsResponse;
 import org.example.finalbe.domains.rack.service.RackViewService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.constraints.Min;
+
+
 
 import java.util.List;
 
 /**
  * 랙 뷰 & 통계 컨트롤러
  * 대시보드 및 통계 분석용
+ *
+ * 개선사항:
+ * - Bean Validation 적용으로 선언적 검증
+ * - Controller 검증 로직 제거
  */
 @RestController
 @RequestMapping("/racks")
 @RequiredArgsConstructor
+@Validated
 public class RackViewController {
 
     private final RackViewService rackViewService;
@@ -28,12 +37,12 @@ public class RackViewController {
      * 대시보드 화면에서 여러 랙을 한눈에 보기 좋게 표시할 때 사용
      * 예: 랙 이름, 사용률, 상태 등을 카드로 나열
      * 권한: 모든 사용자 접근 가능
+     *
+     * @param dataCenterId 전산실 ID (1 이상의 양수)
      */
     @GetMapping("/datacenter/{dataCenterId}/cards")
-    public ResponseEntity<CommonResDto> getRackCards(@PathVariable Long dataCenterId) {
-        if (dataCenterId == null || dataCenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
-        }
+    public ResponseEntity<CommonResDto> getRackCards(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
 
         List<RackCardResponse> cards = rackViewService.getRackCards(dataCenterId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 카드 뷰 조회 완료", cards));
@@ -45,12 +54,12 @@ public class RackViewController {
      * 대시보드에서 전체적인 현황 파악에 활용
      * 예: 총 50개 랙, 평균 사용률 65%, 정상 운영 중 40개, 점검 중 10개
      * 권한: 모든 사용자 접근 가능
+     *
+     * @param dataCenterId 전산실 ID (1 이상의 양수)
      */
     @GetMapping("/datacenter/{dataCenterId}/statistics")
-    public ResponseEntity<CommonResDto> getRackStatistics(@PathVariable Long dataCenterId) {
-        if (dataCenterId == null || dataCenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
-        }
+    public ResponseEntity<CommonResDto> getRackStatistics(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
 
         RackStatisticsResponse statistics = rackViewService.getRackStatistics(dataCenterId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 통계 조회 완료", statistics));

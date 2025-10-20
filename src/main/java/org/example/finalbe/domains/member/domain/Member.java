@@ -9,6 +9,7 @@ import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.enumdir.UserStatus;
 import org.example.finalbe.domains.company.domain.Company;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @NoArgsConstructor
@@ -50,4 +51,7 @@ public class Member extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
+
+    @Column(name = "department")
+    private String department;
 }

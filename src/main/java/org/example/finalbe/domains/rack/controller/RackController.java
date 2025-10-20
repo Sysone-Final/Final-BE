@@ -101,7 +101,7 @@ public class RackController {
     }
 
     @GetMapping("/manager/{managerId}")
-    public ResponseEntity<CommonResDto> getRacksByManager(@PathVariable String managerId) {
+    public ResponseEntity<CommonResDto> getRacksByManager(@PathVariable Long managerId) {
         List<RackListResponse> racks = rackService.getRacksByManager(managerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "담당자별 랙 목록 조회 완료", racks));
     }

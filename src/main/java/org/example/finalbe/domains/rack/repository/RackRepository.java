@@ -30,7 +30,7 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     List<Rack> findByDepartmentAndDelYn(String department, DelYN delYn);
 
     // 담당자별 조회
-    List<Rack> findByManagerIdAndDelYn(String managerId, DelYN delYn);
+    List<Rack> findByManagerIdAndDelYn(Long managerId, DelYN delYn);
 
     // 키워드 검색 (전체)
     @Query("""

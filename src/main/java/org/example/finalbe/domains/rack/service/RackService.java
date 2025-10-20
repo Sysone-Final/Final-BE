@@ -198,7 +198,7 @@ public class RackService {
         if (request.datacenterId() == null) {
             throw new IllegalArgumentException("전산실을 선택해주세요.");
         }
-        if (request.managerId() == null || request.managerId().trim().isEmpty()) {
+        if (request.managerId() == null) {
             throw new IllegalArgumentException("담당자를 지정해주세요.");
         }
 
@@ -367,10 +367,10 @@ public class RackService {
     /**
      * 담당자별 랙 목록 조회
      */
-    public List<RackListResponse> getRacksByManager(String managerId) {
+    public List<RackListResponse> getRacksByManager(Long managerId) {
         log.info("Fetching racks by manager: {}", managerId);
 
-        if (managerId == null || managerId.trim().isEmpty()) {
+        if (managerId == null) {
             throw new IllegalArgumentException("담당자 ID를 입력해주세요.");
         }
 

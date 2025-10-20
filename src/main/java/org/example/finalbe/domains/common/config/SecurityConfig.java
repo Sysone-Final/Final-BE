@@ -43,6 +43,8 @@ public class SecurityConfig {
                         // 회사-전산실 매핑 API - 인증 필요 (세부 권한은 @PreAuthorize로 제어)
                         .requestMatchers("/company-datacenters/**").authenticated()
 
+                        .requestMatchers("/equipments/**").authenticated()
+
                         // 그 외 모든 요청 - 인증 필요
                         .anyRequest().authenticated()
                 )

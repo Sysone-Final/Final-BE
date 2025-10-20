@@ -19,7 +19,7 @@ public record RackListResponse(
         Double currentPowerUsage,
         Double maxPowerCapacity,
         String department,
-        String managerId
+        Long managerId
 ) {
     public static RackListResponse from(Rack rack) {
         return RackListResponse.builder()

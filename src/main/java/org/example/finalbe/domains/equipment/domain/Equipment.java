@@ -1,16 +1,14 @@
 package org.example.finalbe.domains.equipment.domain;
 
 import jakarta.persistence.*;
-
 import lombok.*;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
-import org.example.finalbe.domains.common.enumdir.EquipmentStatus;
-import org.example.finalbe.domains.common.enumdir.EquipmentType;
-import org.example.finalbe.domains.common.enumdir.PositionType;
+import org.example.finalbe.domains.common.enumdir.*;
+import org.example.finalbe.domains.equipment.dto.EquipmentUpdateRequest;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Entity
 @Table(name = "equipment")
@@ -44,7 +42,7 @@ public class Equipment extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "position_type", length = 50)
-    private PositionType positionType;
+    private EquipmentPositionType positionType;
 
     @Column(name = "model_name", length = 100)
     private String modelName;
@@ -73,11 +71,11 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "disk_spec", length = 255)
     private String diskSpec;
 
-    @Column(name = "power_consumption")
-    private Double powerConsumption; // W
+    @Column(name = "power_consumption", precision = 10, scale = 2)
+    private Double powerConsumption;
 
-    @Column(name = "weight")
-    private Double weight; // kg
+    @Column(name = "weight", precision = 10, scale = 2)
+    private Double weight;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
@@ -86,9 +84,8 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
-    @Temporal(TemporalType.DATE)
     @Column(name = "installation_date")
-    private Date installationDate;
+    private LocalDate installationDate;
 
     @Lob
     @Column(name = "notes")
@@ -101,7 +98,7 @@ public class Equipment extends BaseTimeEntity {
     private LocalDateTime updatedAt;
 
     @Column(name = "maneger_id", nullable = false, length = 50)
-    private String managerId;
+    private Long managerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id", nullable = false)
@@ -112,4 +109,117 @@ public class Equipment extends BaseTimeEntity {
 
     @Column(name = "height", nullable = false)
     private Integer height;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "del_yn", nullable = false)
+    @Builder.Default
+    private DelYN delYn = DelYN.N;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        if (this.delYn == null) {
+            this.delYn = DelYN.N;
+        }
+        if (this.status == null) {
+            this.status = EquipmentStatus.NORMAL;
+        }
+        if (this.positionType == null) {
+            this.positionType = EquipmentPositionType.NORMAL;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateTimestamp() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void softDelete() {
+        this.delYn = DelYN.Y;
+        this.updateTimestamp();
+    }
+
+    public void updateInfo(EquipmentUpdateRequest request) {
+        if (request.equipmentName() != null && !request.equipmentName().trim().isEmpty()) {
+            this.name = request.equipmentName();
+        }
+        if (request.equipmentCode() != null) {
+            this.code = request.equipmentCode();
+        }
+        if (request.equipmentType() != null) {
+            this.type = EquipmentType.valueOf(request.equipmentType());
+        }
+        if (request.positionType() != null) {
+            this.positionType = EquipmentPositionType.valueOf(request.positionType());
+        }
+        if (request.modelName() != null) {
+            this.modelName = request.modelName();
+        }
+        if (request.manufacturer() != null) {
+            this.manufacturer = request.manufacturer();
+        }
+        if (request.serialNumber() != null) {
+            this.serialNumber = request.serialNumber();
+        }
+        if (request.ipAddress() != null) {
+            this.ipAddress = request.ipAddress();
+        }
+        if (request.macAddress() != null) {
+            this.macAddress = request.macAddress();
+        }
+        if (request.os() != null) {
+            this.os = request.os();
+        }
+        if (request.cpuSpec() != null) {
+            this.cpuSpec = request.cpuSpec();
+        }
+        if (request.memorySpec() != null) {
+            this.memorySpec = request.memorySpec();
+        }
+        if (request.diskSpec() != null) {
+            this.diskSpec = request.diskSpec();
+        }
+        if (request.powerConsumption() != null) {
+            this.powerConsumption = request.powerConsumption();
+        }
+        if (request.weight() != null) {
+            this.weight = request.weight();
+        }
+        if (request.imageUrl() != null) {
+            this.imageUrl = request.imageUrl();
+        }
+        if (request.installationDate() != null) {
+            this.installationDate = request.installationDate();
+        }
+        if (request.notes() != null) {
+            this.notes = request.notes();
+        }
+
+        this.updateTimestamp();
+    }
+
+    public void changeStatus(EquipmentStatus newStatus, String reason, String updatedBy) {
+        String statusChangeLog = String.format(
+                "[%s] 상태 변경: %s → %s (변경자: %s, 사유: %s)",
+                LocalDateTime.now(),
+                this.status != null ? this.status.name() : "UNKNOWN",
+                newStatus.name(),
+                updatedBy,
+                reason != null ? reason : "없음"
+        );
+
+        this.status = newStatus;
+
+        if (this.notes == null || this.notes.trim().isEmpty()) {
+            this.notes = statusChangeLog;
+        } else {
+            this.notes = this.notes + "\n" + statusChangeLog;
+        }
+
+        this.updateTimestamp();
+    }
 }

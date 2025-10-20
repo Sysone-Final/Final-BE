@@ -4,19 +4,21 @@ import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
+
 @Builder
 public record RackCardResponse(
         Long id,
         String rackName,
         String rackLocation,
         RackStatus status,
-        Double usageRate,
-        Double powerUsageRate,
+        BigDecimal usageRate,
+        BigDecimal powerUsageRate,
         Integer usedUnits,
         Integer totalUnits,
-        Double currentPowerUsage,
-        Double maxPowerCapacity,
-        Double temperature,
+        BigDecimal currentPowerUsage,
+        BigDecimal maxPowerCapacity,
+        BigDecimal temperature,
         Long managerId,
         String department
 ) {

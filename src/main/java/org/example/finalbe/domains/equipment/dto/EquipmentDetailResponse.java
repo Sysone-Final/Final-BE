@@ -3,6 +3,7 @@ package org.example.finalbe.domains.equipment.dto;
 import lombok.Builder;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -24,8 +25,8 @@ public record EquipmentDetailResponse(
         String cpuSpec,
         String memorySpec,
         String diskSpec,
-        Double powerConsumption,
-        Double weight,
+        BigDecimal powerConsumption,
+        BigDecimal weight,
         String status,
         String imageUrl,
         LocalDate installationDate,

@@ -6,6 +6,8 @@ import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.common.enumdir.RackType;
 import org.example.finalbe.domains.common.enumdir.ZoneDirection;
 
+import java.math.BigDecimal;
+
 @Builder
 public record RackUpdateRequest(
         String rackName,
@@ -14,12 +16,12 @@ public record RackUpdateRequest(
         Integer totalUnits,
         DoorDirection doorDirection,
         ZoneDirection zoneDirection,
-        Double width,
-        Double depth,
-        Double height,
+        BigDecimal width,
+        BigDecimal depth,
+        BigDecimal height,
         String department,
-        Double maxPowerCapacity,
-        Double maxWeightCapacity,
+        BigDecimal maxPowerCapacity,
+        BigDecimal maxWeightCapacity,
         String manufacturer,
         String serialNumber,
         String managementNumber,

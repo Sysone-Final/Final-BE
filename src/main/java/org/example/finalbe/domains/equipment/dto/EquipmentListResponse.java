@@ -3,6 +3,8 @@ package org.example.finalbe.domains.equipment.dto;
 import lombok.Builder;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 
+import java.math.BigDecimal;
+
 @Builder
 public record EquipmentListResponse(
         Long equipmentId,
@@ -16,7 +18,7 @@ public record EquipmentListResponse(
         String modelName,
         String manufacturer,
         String ipAddress,
-        Double powerConsumption,
+        BigDecimal powerConsumption,
         String imageUrl
 ) {
     public static EquipmentListResponse from(Equipment equipment) {

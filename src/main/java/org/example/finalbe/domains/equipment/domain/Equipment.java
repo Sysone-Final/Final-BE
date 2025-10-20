@@ -7,6 +7,7 @@ import org.example.finalbe.domains.common.enumdir.*;
 import org.example.finalbe.domains.equipment.dto.EquipmentUpdateRequest;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -72,10 +73,10 @@ public class Equipment extends BaseTimeEntity {
     private String diskSpec;
 
     @Column(name = "power_consumption", precision = 10, scale = 2)
-    private Double powerConsumption;
+    private BigDecimal powerConsumption;
 
     @Column(name = "weight", precision = 10, scale = 2)
-    private Double weight;
+    private BigDecimal weight;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)

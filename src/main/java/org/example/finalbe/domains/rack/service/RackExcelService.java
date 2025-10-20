@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -268,15 +269,15 @@ public class RackExcelService {
                 row.createCell(colNum++).setCellValue(rack.getTotalUnits());
                 row.createCell(colNum++).setCellValue(rack.getUsedUnits());
                 row.createCell(colNum++).setCellValue(rack.getAvailableUnits());
-                row.createCell(colNum++).setCellValue(rack.getUsageRate());
+                row.createCell(colNum++).setCellValue(rack.getUsageRate() != null ? rack.getUsageRate().doubleValue() : 0.0);
                 row.createCell(colNum++).setCellValue(rack.getDoorDirection() != null ? rack.getDoorDirection().name() : "");
                 row.createCell(colNum++).setCellValue(rack.getZoneDirection() != null ? rack.getZoneDirection().name() : "");
                 row.createCell(colNum++).setCellValue(rack.getDepartment());
-                row.createCell(colNum++).setCellValue(rack.getMaxPowerCapacity() != null ? rack.getMaxPowerCapacity() : 0);
-                row.createCell(colNum++).setCellValue(rack.getCurrentPowerUsage());
-                row.createCell(colNum++).setCellValue(rack.getPowerUsageRate());
-                row.createCell(colNum++).setCellValue(rack.getMaxWeightCapacity() != null ? rack.getMaxWeightCapacity() : 0);
-                row.createCell(colNum++).setCellValue(rack.getCurrentWeight());
+                row.createCell(colNum++).setCellValue(rack.getMaxPowerCapacity() != null ? rack.getMaxPowerCapacity().doubleValue() : 0.0);
+                row.createCell(colNum++).setCellValue(rack.getCurrentPowerUsage() != null ? rack.getCurrentPowerUsage().doubleValue() : 0.0);
+                row.createCell(colNum++).setCellValue(rack.getPowerUsageRate() != null ? rack.getPowerUsageRate().doubleValue() : 0.0);
+                row.createCell(colNum++).setCellValue(rack.getMaxWeightCapacity() != null ? rack.getMaxWeightCapacity().doubleValue() : 0.0);
+                row.createCell(colNum++).setCellValue(rack.getCurrentWeight() != null ? rack.getCurrentWeight().doubleValue() : 0.0);
                 row.createCell(colNum++).setCellValue(rack.getManufacturer());
                 row.createCell(colNum++).setCellValue(rack.getSerialNumber());
                 row.createCell(colNum++).setCellValue(rack.getStatus() != null ? rack.getStatus().name() : "");
@@ -647,12 +648,11 @@ public class RackExcelService {
                     Integer totalUnits = getCellValueAsInteger(row.getCell(3));
                     String doorDirectionStr = getCellValueAsString(row.getCell(4));
                     String zoneDirectionStr = getCellValueAsString(row.getCell(5));
-                    Double width = getCellValueAsDouble(row.getCell(6));
-                    Double depth = getCellValueAsDouble(row.getCell(7));
-                    Double height = getCellValueAsDouble(row.getCell(8));
+                    BigDecimal width = getCellValueAsBigDecimal(row.getCell(6));
+                    BigDecimal depth = getCellValueAsBigDecimal(row.getCell(7));
                     String department = getCellValueAsString(row.getCell(9));
-                    Double maxPowerCapacity = getCellValueAsDouble(row.getCell(10));
-                    Double maxWeightCapacity = getCellValueAsDouble(row.getCell(11));
+                    BigDecimal maxPowerCapacity = getCellValueAsBigDecimal(row.getCell(10));
+                    BigDecimal maxWeightCapacity = getCellValueAsBigDecimal(row.getCell(11));
                     String manufacturer = getCellValueAsString(row.getCell(12));
                     String serialNumber = getCellValueAsString(row.getCell(13));
                     String statusStr = getCellValueAsString(row.getCell(14));
@@ -711,7 +711,7 @@ public class RackExcelService {
                     ZoneDirection zoneDirection = ZoneDirection.valueOf(zoneDirectionStr.toUpperCase());
                     RackStatus status = RackStatus.valueOf(statusStr.toUpperCase());
                     RackType rackType = RackType.valueOf(rackTypeStr.toUpperCase());
-                    Optional<Member> member = memberRepository.findByUserId(managerId);
+                    Optional<Member> member = memberRepository.findById(managerId);
                     String memberName = member.isPresent() ? member.get().getName() : "";
 
 
@@ -729,10 +729,10 @@ public class RackExcelService {
                             .depth(depth)
                             .department(department)
                             .maxPowerCapacity(maxPowerCapacity)
-                            .currentPowerUsage(0.0)
-                            .measuredPower(0.0)
+                            .currentPowerUsage(BigDecimal.ZERO)
+                            .measuredPower(BigDecimal.ZERO)
                             .maxWeightCapacity(maxWeightCapacity)
-                            .currentWeight(0.0)
+                            .currentWeight(BigDecimal.ZERO)
                             .manufacturer(manufacturer)
                             .serialNumber(serialNumber)
                             .status(status)
@@ -813,6 +813,25 @@ public class RackExcelService {
             }
         } catch (NumberFormatException e) {
             log.warn("Failed to parse cell as double: {}", cell);
+        }
+
+        return null;
+    }
+
+    private BigDecimal getCellValueAsBigDecimal(Cell cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        try {
+            if (cell.getCellType() == CellType.NUMERIC) {
+                return BigDecimal.valueOf(cell.getNumericCellValue());
+            } else if (cell.getCellType() == CellType.STRING) {
+                String value = cell.getStringCellValue().trim();
+                return value.isEmpty() ? null : new BigDecimal(value);
+            }
+        } catch (NumberFormatException e) {
+            log.warn("Failed to parse cell as BigDecimal: {}", cell);
         }
 
         return null;

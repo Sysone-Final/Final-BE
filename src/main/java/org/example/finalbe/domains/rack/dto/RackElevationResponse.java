@@ -7,6 +7,7 @@ import org.example.finalbe.domains.common.enumdir.EquipmentType;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Builder
@@ -15,8 +16,8 @@ public record RackElevationResponse(
         String rackName,
         Integer totalUnits,
         Integer usedUnits,
-        Double usageRate,
-        Double powerUsageRate,
+        BigDecimal usageRate,
+        BigDecimal powerUsageRate,
         String view,
         List<UnitSlot> units
 ) {
@@ -76,7 +77,7 @@ public record RackElevationResponse(
             Integer unitSize,
             EquipmentPositionType positionType,
             EquipmentStatus status,
-            Double powerConsumption
+            BigDecimal powerConsumption
     ) {
     }
 }

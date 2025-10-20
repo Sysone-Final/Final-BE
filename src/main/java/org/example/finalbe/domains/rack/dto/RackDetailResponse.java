@@ -7,6 +7,7 @@ import org.example.finalbe.domains.common.enumdir.RackType;
 import org.example.finalbe.domains.common.enumdir.ZoneDirection;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Builder
@@ -20,15 +21,15 @@ public record RackDetailResponse(
         Integer availableUnits,
         DoorDirection doorDirection,
         ZoneDirection zoneDirection,
-        Double width,
-        Double depth,
-        Double height,
+        BigDecimal width,
+        BigDecimal depth,
+        BigDecimal height,
         String department,
-        Double maxPowerCapacity,
-        Double currentPowerUsage,
-        Double measuredPower,
-        Double maxWeightCapacity,
-        Double currentWeight,
+        BigDecimal maxPowerCapacity,
+        BigDecimal currentPowerUsage,
+        BigDecimal measuredPower,
+        BigDecimal maxWeightCapacity,
+        BigDecimal currentWeight,
         String manufacturer,
         String serialNumber,
         String managementNumber,
@@ -39,8 +40,8 @@ public record RackDetailResponse(
         Long managerId,
         Long datacenterId,
         String datacenterName,
-        Double usageRate,
-        Double powerUsageRate,
+        BigDecimal usageRate,
+        BigDecimal powerUsageRate,
         String createdBy,
         LocalDateTime createdAt,
         String updatedBy,

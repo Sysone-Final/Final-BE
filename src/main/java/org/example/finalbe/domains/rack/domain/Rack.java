@@ -11,6 +11,9 @@ import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.rack.dto.RackUpdateRequest;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 
 @Entity
 @Table(name = "rack")
@@ -53,28 +56,28 @@ public class Rack extends BaseTimeEntity {
     private ZoneDirection zoneDirection;
 
     @Column(name = "width")
-    private Double width;
+    private BigDecimal width;
 
     @Column(name = "depth")
-    private Double depth;
+    private BigDecimal depth;
 
     @Column(name = "department", length = 100)
     private String department;
 
     @Column(name = "max_power_capacity")
-    private Double maxPowerCapacity;
+    private BigDecimal maxPowerCapacity;
 
     @Column(name = "current_power_usage")
-    private Double currentPowerUsage;
+    private BigDecimal currentPowerUsage;
 
     @Column(name = "measured_power")
-    private Double measuredPower;
+    private BigDecimal measuredPower;
 
     @Column(name = "max_weight_capacity")
-    private Double maxWeightCapacity;
+    private BigDecimal maxWeightCapacity;
 
     @Column(name = "current_weight")
-    private Double currentWeight;
+    private BigDecimal currentWeight;
 
     @Column(name = "manufacturer", length = 100)
     private String manufacturer;
@@ -204,9 +207,6 @@ public class Rack extends BaseTimeEntity {
         this.updateTimestamp();
     }
 
-    /**
-     * 장비 배치
-     */
     public void placeEquipment(Equipment equipment, Integer startUnit, Integer unitSize) {
         // 장비에 랙 정보 설정
         equipment.setRack(this);
@@ -217,14 +217,20 @@ public class Rack extends BaseTimeEntity {
         this.usedUnits += unitSize;
         this.availableUnits = this.totalUnits - this.usedUnits;
 
-        // 전력 사용량 증가
+        // 전력 사용량 증가 (BigDecimal 연산)
         if (equipment.getPowerConsumption() != null) {
-            this.currentPowerUsage += equipment.getPowerConsumption();
+            if (this.currentPowerUsage == null) {
+                this.currentPowerUsage = BigDecimal.ZERO;
+            }
+            this.currentPowerUsage = this.currentPowerUsage.add(equipment.getPowerConsumption());
         }
 
-        // 무게 증가
+        // 무게 증가 (BigDecimal 연산)
         if (equipment.getWeight() != null) {
-            this.currentWeight += equipment.getWeight();
+            if (this.currentWeight == null) {
+                this.currentWeight = BigDecimal.ZERO;
+            }
+            this.currentWeight = this.currentWeight.add(equipment.getWeight());
         }
 
         this.updateTimestamp();
@@ -238,18 +244,25 @@ public class Rack extends BaseTimeEntity {
         this.usedUnits -= equipment.getUnitSize();
         this.availableUnits = this.totalUnits - this.usedUnits;
 
-        // 전력 사용량 감소
-        if (equipment.getPowerConsumption() != null) {
-            this.currentPowerUsage -= equipment.getPowerConsumption();
+        // 전력 사용량 감소 (BigDecimal 연산)
+        if (equipment.getPowerConsumption() != null && this.currentPowerUsage != null) {
+            this.currentPowerUsage = this.currentPowerUsage.subtract(equipment.getPowerConsumption());
+            if (this.currentPowerUsage.compareTo(BigDecimal.ZERO) < 0) {
+                this.currentPowerUsage = BigDecimal.ZERO; // 음수 방지
+            }
         }
 
-        // 무게 감소
-        if (equipment.getWeight() != null) {
-            this.currentWeight -= equipment.getWeight();
+        // 무게 감소 (BigDecimal 연산)
+        if (equipment.getWeight() != null && this.currentWeight != null) {
+            this.currentWeight = this.currentWeight.subtract(equipment.getWeight());
+            if (this.currentWeight.compareTo(BigDecimal.ZERO) < 0) {
+                this.currentWeight = BigDecimal.ZERO; // 음수 방지
+            }
         }
 
         this.updateTimestamp();
     }
+
 
     /**
      * 장비 이동
@@ -260,23 +273,37 @@ public class Rack extends BaseTimeEntity {
         this.updateTimestamp();
     }
 
-    /**
-     * 사용률 계산
-     */
-    public Double getUsageRate() {
+    public BigDecimal getUsageRate() {
         if (this.totalUnits == null || this.totalUnits == 0) {
-            return 0.0;
+            return BigDecimal.ZERO;
         }
-        return (this.usedUnits.doubleValue() / this.totalUnits.doubleValue()) * 100;
+
+        // Integer → BigDecimal 변환
+        BigDecimal used = BigDecimal.valueOf(this.usedUnits);
+        BigDecimal total = BigDecimal.valueOf(this.totalUnits);
+
+        return used
+                .divide(total, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
      * 전력 사용률 계산
      */
-    public Double getPowerUsageRate() {
-        if (this.maxPowerCapacity == null || this.maxPowerCapacity == 0) {
-            return 0.0;
+    public BigDecimal getPowerUsageRate() {
+        if (this.maxPowerCapacity == null || this.maxPowerCapacity.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
         }
-        return (this.currentPowerUsage / this.maxPowerCapacity) * 100;
+
+        if (this.currentPowerUsage == null) {
+            return BigDecimal.ZERO;
+        }
+
+        // 둘 다 BigDecimal이므로 그대로 사용 가능
+        return this.currentPowerUsage
+                .divide(this.maxPowerCapacity, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 }

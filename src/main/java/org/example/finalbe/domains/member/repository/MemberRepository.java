@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.member.repository;
 
 import org.example.finalbe.domains.member.domain.Member;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -8,10 +9,10 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
-    Optional<Member> findByUserName(String userName);
+    Optional<Member>findByUserName(String userName);
     boolean existsByUserName(String userName);
     boolean existsByEmail(String email);
-    Optional<Member> findByUserId(Long userId);
+    Optional<Member> findById(Long id);
 
 
     // 활성 사용자 조회

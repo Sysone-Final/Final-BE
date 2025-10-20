@@ -39,13 +39,15 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     @Query("SELECT e FROM Equipment e " +
             "JOIN e.rack r " +
+            "JOIN CompanyDataCenter cdc ON r.datacenter.id = cdc.dataCenter.id " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.code) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.manufacturer) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND r.datacenter.company.id = :companyId " +
-            "AND e.delYn = :delYn")
+            "AND cdc.company.id = :companyId " +
+            "AND e.delYn = :delYn " +
+            "AND cdc.delYn = 'N'")
     List<Equipment> searchByKeywordAndCompanyIdAndDelYn(
             @Param("keyword") String keyword,
             @Param("companyId") Long companyId,
@@ -54,26 +56,4 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     @Query("SELECT e FROM Equipment e WHERE e.id = :id AND e.delYn = 'N'")
     Optional<Equipment> findActiveById(@Param("id") Long id);
 
-    List<Equipment> findByManagerIdAndDelYn(Long managerId, DelYN delYn);
-
-    @Query("SELECT COUNT(e) FROM Equipment e " +
-            "WHERE e.status = :status " +
-            "AND e.delYn = :delYn")
-    Long countByStatusAndDelYn(
-            @Param("status") EquipmentStatus status,
-            @Param("delYn") DelYN delYn);
-
-    @Query("SELECT COALESCE(SUM(e.powerConsumption), 0) FROM Equipment e " +
-            "WHERE e.rack.id = :rackId " +
-            "AND e.delYn = :delYn")
-    Double sumPowerConsumptionByRackIdAndDelYn(
-            @Param("rackId") Long rackId,
-            @Param("delYn") DelYN delYn);
-
-    @Query("SELECT COALESCE(SUM(e.weight), 0) FROM Equipment e " +
-            "WHERE e.rack.id = :rackId " +
-            "AND e.delYn = :delYn")
-    Double sumWeightByRackIdAndDelYn(
-            @Param("rackId") Long rackId,
-            @Param("delYn") DelYN delYn);
 }

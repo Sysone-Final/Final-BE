@@ -7,6 +7,7 @@ import org.example.finalbe.domains.common.enumdir.EquipmentType;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Builder
@@ -26,8 +27,8 @@ public record EquipmentCreateRequest(
         String cpuSpec,
         String memorySpec,
         String diskSpec,
-        Double powerConsumption,
-        Double weight,
+        BigDecimal powerConsumption,
+        BigDecimal weight,
         String status,
         String imageUrl,
         LocalDate installationDate,

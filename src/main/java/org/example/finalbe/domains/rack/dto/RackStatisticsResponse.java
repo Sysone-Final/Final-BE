@@ -3,6 +3,8 @@ package org.example.finalbe.domains.rack.dto;
 import lombok.Builder;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -12,8 +14,8 @@ public record RackStatisticsResponse(
         Integer totalRacks,
         Integer activeRacks,
         Integer maintenanceRacks,
-        Double averageUsageRate,
-        Double averagePowerUsageRate,
+        BigDecimal averageUsageRate,
+        BigDecimal averagePowerUsageRate,
         Integer totalUsedUnits,
         Integer totalAvailableUnits,
         List<RackUsageData> rackUsageData,
@@ -30,15 +32,19 @@ public record RackStatisticsResponse(
                 .filter(r -> r.getStatus() == org.example.finalbe.domains.common.enumdir.RackStatus.MAINTENANCE)
                 .count();
 
-        double avgUsage = racks.stream()
-                .mapToDouble(Rack::getUsageRate)
-                .average()
-                .orElse(0.0);
+        BigDecimal avgUsage = racks.isEmpty() ? BigDecimal.ZERO :
+                racks.stream()
+                        .map(Rack::getUsageRate)
+                        .filter(rate -> rate != null)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(racks.size()), 2, RoundingMode.HALF_UP);
 
-        double avgPower = racks.stream()
-                .mapToDouble(Rack::getPowerUsageRate)
-                .average()
-                .orElse(0.0);
+        BigDecimal avgPower = racks.isEmpty() ? BigDecimal.ZERO :
+                racks.stream()
+                        .map(Rack::getPowerUsageRate)
+                        .filter(rate -> rate != null)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(racks.size()), 2, RoundingMode.HALF_UP);
 
         int totalUsed = racks.stream()
                 .mapToInt(Rack::getUsedUnits)
@@ -85,6 +91,6 @@ public record RackStatisticsResponse(
                 .build();
     }
 
-    public record RackUsageData(String rackName, Double usageRate) {}
-    public record RackPowerData(String rackName, Double currentPower, Double maxPower) {}
+    public record RackUsageData(String rackName, BigDecimal usageRate) {}
+    public record RackPowerData(String rackName, BigDecimal currentPower, BigDecimal maxPower) {}
 }

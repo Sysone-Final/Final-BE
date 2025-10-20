@@ -4,6 +4,8 @@ import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
+
 @Builder
 public record RackListResponse(
         Long id,
@@ -14,10 +16,10 @@ public record RackListResponse(
         Integer usedUnits,
         Integer availableUnits,
         RackStatus status,
-        Double usageRate,
-        Double powerUsageRate,
-        Double currentPowerUsage,
-        Double maxPowerCapacity,
+        BigDecimal usageRate,
+        BigDecimal powerUsageRate,
+        BigDecimal currentPowerUsage,
+        BigDecimal maxPowerCapacity,
         String department,
         Long managerId
 ) {

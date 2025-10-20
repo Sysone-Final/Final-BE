@@ -21,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,9 +38,9 @@ public class EquipmentService {
 
     private Member getCurrentMember() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = authentication.getName();
-        return memberRepository.findByUserName(userId)
-                .orElseThrow(() -> new EntityNotFoundException("사용자", userId));
+        String userName = authentication.getName();
+        return memberRepository.findByUserName(userName)
+                .orElseThrow(() -> new EntityNotFoundException("사용자", userName));
     }
 
     private void validateWritePermission(Member member) {
@@ -196,19 +197,27 @@ public class EquipmentService {
         }
 
         Rack rack = equipment.getRack();
-        Double oldPower = equipment.getPowerConsumption();
-        Double oldWeight = equipment.getWeight();
+        BigDecimal oldPower = equipment.getPowerConsumption();
+        BigDecimal oldWeight = equipment.getWeight();
 
         equipment.updateInfo(request);
 
-        Double newPower = equipment.getPowerConsumption();
-        Double newWeight = equipment.getWeight();
+        BigDecimal newPower = equipment.getPowerConsumption();
+        BigDecimal newWeight = equipment.getWeight();
 
         if (oldPower != null && newPower != null && !oldPower.equals(newPower)) {
-            rack.setCurrentPowerUsage(rack.getCurrentPowerUsage() - oldPower + newPower);
+            rack.setCurrentPowerUsage(
+                    rack.getCurrentPowerUsage()
+                            .subtract(oldPower)
+                            .add(newPower)
+            );
         }
         if (oldWeight != null && newWeight != null && !oldWeight.equals(newWeight)) {
-            rack.setCurrentWeight(rack.getCurrentWeight() - oldWeight + newWeight);
+            rack.setCurrentWeight(
+                    rack.getCurrentWeight()
+                            .subtract(oldWeight)
+                            .add(newWeight)
+            );
         }
 
         log.info("Equipment updated successfully with id: {}", id);

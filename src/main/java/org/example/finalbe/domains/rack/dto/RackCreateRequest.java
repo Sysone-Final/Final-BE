@@ -8,6 +8,8 @@ import org.example.finalbe.domains.common.enumdir.ZoneDirection;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.rack.domain.Rack;
 
+import java.math.BigDecimal;
+
 @Builder
 public record RackCreateRequest(
         String rackName,
@@ -16,11 +18,11 @@ public record RackCreateRequest(
         Integer totalUnits,
         DoorDirection doorDirection,
         ZoneDirection zoneDirection,
-        Double width,
-        Double depth,
+        BigDecimal width,
+        BigDecimal depth,
         String department,
-        Double maxPowerCapacity,
-        Double maxWeightCapacity,
+        BigDecimal maxPowerCapacity,
+        BigDecimal maxWeightCapacity,
         String manufacturer,
         String serialNumber,
         String managementNumber,
@@ -45,10 +47,10 @@ public record RackCreateRequest(
                 .depth(this.depth)
                 .department(this.department)
                 .maxPowerCapacity(this.maxPowerCapacity)
-                .currentPowerUsage(0.0)
-                .measuredPower(0.0)
+                .currentPowerUsage(BigDecimal.ZERO)
+                .measuredPower(BigDecimal.ZERO)
                 .maxWeightCapacity(this.maxWeightCapacity)
-                .currentWeight(0.0)
+                .currentWeight(BigDecimal.ZERO)
                 .manufacturer(this.manufacturer)
                 .serialNumber(this.serialNumber)
                 .managementNumber(this.managementNumber)

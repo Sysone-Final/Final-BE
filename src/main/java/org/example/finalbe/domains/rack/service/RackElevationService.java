@@ -13,6 +13,7 @@ import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -180,8 +181,8 @@ public class RackElevationService {
 
         // 전력 용량 검증
         if (rack.getMaxPowerCapacity() != null && request.powerConsumption() != null) {
-            double newPowerUsage = rack.getCurrentPowerUsage() + request.powerConsumption();
-            if (newPowerUsage > rack.getMaxPowerCapacity()) {
+            BigDecimal newPowerUsage = rack.getCurrentPowerUsage().add(request.powerConsumption());
+            if (newPowerUsage.compareTo(rack.getMaxPowerCapacity()) > 0) {
                 result.put("isValid", false);
                 result.put("message", String.format("랙의 최대 전력 용량을 초과합니다. (현재: %.2fW, 추가: %.2fW, 최대: %.2fW)",
                         rack.getCurrentPowerUsage(), request.powerConsumption(), rack.getMaxPowerCapacity()));
@@ -189,10 +190,10 @@ public class RackElevationService {
             }
         }
 
-        // 무게 용량 검증
+// 무게 용량 검증
         if (rack.getMaxWeightCapacity() != null && request.weight() != null) {
-            double newWeight = rack.getCurrentWeight() + request.weight();
-            if (newWeight > rack.getMaxWeightCapacity()) {
+            BigDecimal newWeight = rack.getCurrentWeight().add(request.weight());
+            if (newWeight.compareTo(rack.getMaxWeightCapacity()) > 0) {
                 result.put("isValid", false);
                 result.put("message", String.format("랙의 최대 무게 용량을 초과합니다. (현재: %.2fkg, 추가: %.2fkg, 최대: %.2fkg)",
                         rack.getCurrentWeight(), request.weight(), rack.getMaxWeightCapacity()));
@@ -202,11 +203,11 @@ public class RackElevationService {
 
         result.put("isValid", true);
         result.put("message", "배치 가능합니다.");
-        result.put("availablePower", rack.getMaxPowerCapacity() != null
-                ? rack.getMaxPowerCapacity() - rack.getCurrentPowerUsage()
+        result.put("availablePower", rack.getMaxPowerCapacity() != null && rack.getCurrentPowerUsage() != null
+                ? rack.getMaxPowerCapacity().subtract(rack.getCurrentPowerUsage())
                 : null);
-        result.put("availableWeight", rack.getMaxWeightCapacity() != null
-                ? rack.getMaxWeightCapacity() - rack.getCurrentWeight()
+        result.put("availableWeight", rack.getMaxWeightCapacity() != null && rack.getCurrentWeight() != null
+                ? rack.getMaxWeightCapacity().subtract(rack.getCurrentWeight())
                 : null);
         return result;
     }

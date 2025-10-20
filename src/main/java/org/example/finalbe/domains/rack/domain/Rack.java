@@ -106,7 +106,7 @@ public class Rack extends BaseTimeEntity {
     private String updatedBy;
 
     @Column(name = "manager_id", nullable = false, length = 50)
-    private String managerId;
+    private Long managerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "datacenter_id", nullable = false)

@@ -73,7 +73,7 @@ public class Device extends BaseTimeEntity {
     private DeviceType deviceType;
 
     @Column(name = "manager_id", nullable = false, length = 50)
-    private String managerId;
+    private Long managerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "datacenter_id", nullable = false)

@@ -17,7 +17,7 @@ public record RackCardResponse(
         Double currentPowerUsage,
         Double maxPowerCapacity,
         Double temperature,
-        String managerId,
+        Long managerId,
         String department
 ) {
     public static RackCardResponse from(Rack rack) {

@@ -7,6 +7,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.finalbe.domains.common.enumdir.*;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.member.domain.Member;
+import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.dto.*;
 import org.example.finalbe.domains.rack.repository.RackRepository;
@@ -18,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -27,6 +30,7 @@ public class RackExcelService {
 
     private final RackRepository rackRepository;
     private final DataCenterRepository dataCenterRepository;
+    private final MemberRepository memberRepository;
 
     /**
      * 일괄 등록 템플릿 생성
@@ -498,6 +502,8 @@ public class RackExcelService {
         }
     }
 
+
+
     /**
      * 셀 값을 정수로 읽기
      */
@@ -519,6 +525,48 @@ public class RackExcelService {
 
         return null;
     }
+
+    private Long getCellValueAsLong(Cell cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        switch (cell.getCellType()) {
+            case NUMERIC:
+                // 숫자형 셀
+                return (long) cell.getNumericCellValue();
+
+            case STRING:
+                String value = cell.getStringCellValue().trim();
+                if (value.isEmpty()) return null;
+                try {
+                    return Long.parseLong(value);
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid long value: " + value);
+                    return null;
+                }
+
+            case FORMULA:
+                try {
+                    // 수식 결과가 숫자일 수 있음
+                    return (long) cell.getNumericCellValue();
+                } catch (Exception e) {
+                    String formulaValue = cell.getCellFormula();
+                    try {
+                        return Long.parseLong(formulaValue);
+                    } catch (NumberFormatException ex) {
+                        return null;
+                    }
+                }
+
+            case BOOLEAN:
+                return cell.getBooleanCellValue() ? 1L : 0L;
+
+            default:
+                return null;
+        }
+    }
+
 
     /**
      * 행이 비어있는지 확인
@@ -609,7 +657,7 @@ public class RackExcelService {
                     String serialNumber = getCellValueAsString(row.getCell(13));
                     String statusStr = getCellValueAsString(row.getCell(14));
                     String rackTypeStr = getCellValueAsString(row.getCell(15));
-                    String managerId = getCellValueAsString(row.getCell(16));
+                    Long managerId = getCellValueAsLong(row.getCell(16));
 
                     // 검증
                     List<String> errors = new ArrayList<>();
@@ -635,7 +683,7 @@ public class RackExcelService {
                     if (rackTypeStr == null || rackTypeStr.trim().isEmpty()) {
                         errors.add("랙타입은 필수입니다");
                     }
-                    if (managerId == null || managerId.trim().isEmpty()) {
+                    if (managerId == null) {
                         errors.add("담당자ID는 필수입니다");
                     }
 
@@ -663,6 +711,9 @@ public class RackExcelService {
                     ZoneDirection zoneDirection = ZoneDirection.valueOf(zoneDirectionStr.toUpperCase());
                     RackStatus status = RackStatus.valueOf(statusStr.toUpperCase());
                     RackType rackType = RackType.valueOf(rackTypeStr.toUpperCase());
+                    Optional<Member> member = memberRepository.findByUserId(managerId);
+                    String memberName = member.isPresent() ? member.get().getName() : "";
+
 
                     // Rack 엔티티 생성
                     Rack rack = Rack.builder()
@@ -688,7 +739,7 @@ public class RackExcelService {
                             .rackType(rackType)
                             .managerId(managerId)
                             .datacenter(dataCenter)
-                            .createdBy(managerId)
+                            .createdBy(memberName)
                             .build();
 
                     // DB 저장

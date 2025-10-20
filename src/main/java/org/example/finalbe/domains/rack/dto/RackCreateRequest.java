@@ -18,7 +18,6 @@ public record RackCreateRequest(
         ZoneDirection zoneDirection,
         Double width,
         Double depth,
-        Double height,
         String department,
         Double maxPowerCapacity,
         Double maxWeightCapacity,
@@ -29,7 +28,7 @@ public record RackCreateRequest(
         RackType rackType,
         String colorCode,
         String notes,
-        String managerId,
+        Long managerId,
         Long datacenterId
 ) {
     public Rack toEntity(DataCenter datacenter, String createdBy) {

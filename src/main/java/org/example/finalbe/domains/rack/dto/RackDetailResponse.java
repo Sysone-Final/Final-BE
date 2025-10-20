@@ -36,7 +36,7 @@ public record RackDetailResponse(
         RackType rackType,
         String colorCode,
         String notes,
-        String managerId,
+        Long managerId,
         Long datacenterId,
         String datacenterName,
         Double usageRate,

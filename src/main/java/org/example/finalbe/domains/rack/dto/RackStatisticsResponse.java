@@ -19,7 +19,7 @@ public record RackStatisticsResponse(
         List<RackUsageData> rackUsageData,
         List<RackPowerData> rackPowerData,
         Map<String, Integer> departmentDistribution,
-        Map<String, Integer> managerDistribution
+        Map<Long, Integer> managerDistribution
 ) {
     public static RackStatisticsResponse from(List<Rack> racks) {
         int totalRacks = racks.size();
@@ -63,7 +63,7 @@ public record RackStatisticsResponse(
                         Collectors.collectingAndThen(Collectors.counting(), Long::intValue)
                 ));
 
-        Map<String, Integer> mgrDist = racks.stream()
+        Map<Long, Integer> mgrDist = racks.stream()
                 .filter(r -> r.getManagerId() != null)
                 .collect(Collectors.groupingBy(
                         Rack::getManagerId,

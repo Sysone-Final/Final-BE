@@ -27,6 +27,6 @@ public record RackUpdateRequest(
         RackType rackType,
         String colorCode,
         String notes,
-        String managerId
+        Long managerId
 ) {
 }

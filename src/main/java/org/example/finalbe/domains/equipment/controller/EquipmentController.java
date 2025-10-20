@@ -22,7 +22,10 @@ public class EquipmentController {
     private final EquipmentService equipmentService;
 
     /**
-     * 랙별 장비 목록 조회
+     * 특정 랙에 설치된 장비 목록을 조회하는 기능
+     * 상태, 타입, 정렬 기준으로 필터링 가능
+     * 예: 특정 랙의 모든 서버 장비만 보기
+     * 권한: 모든 사용자 접근 가능
      */
     @GetMapping("/rack/{rackId}")
     public ResponseEntity<CommonResDto> getEquipmentsByRack(
@@ -38,7 +41,9 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 상세 조회
+     * 특정 장비의 상세 정보를 조회하는 기능
+     * 장비의 모델명, 시리얼 번호, 설치 위치, 상태 등 모든 정보 제공
+     * 권한: 모든 사용자 접근 가능
      */
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getEquipmentById(@PathVariable Long id) {
@@ -51,7 +56,9 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 생성
+     * 새로운 장비를 등록하는 기능
+     * 장비 이름, 모델, 타입, 시리얼 번호 등의 정보를 입력받아 생성
+     * 권한: ADMIN 또는 OPERATOR만 가능
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -62,7 +69,9 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 수정
+     * 기존 장비의 정보를 수정하는 기능
+     * 장비의 이름, 모델, 담당자 등을 변경
+     * 권한: ADMIN 또는 OPERATOR만 가능
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -79,7 +88,9 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 삭제
+     * 장비를 삭제하는 기능
+     * 장비 정보를 시스템에서 제거
+     * 권한: ADMIN 또는 OPERATOR만 가능
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -93,7 +104,9 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 상태 변경
+     * 장비의 상태를 변경하는 기능
+     * 예: 정상 운영 중 -> 점검 중, 점검 중 -> 고장 등
+     * 권한: ADMIN 또는 OPERATOR만 가능
      */
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -110,7 +123,10 @@ public class EquipmentController {
     }
 
     /**
-     * 전산실별 장비 목록 조회
+     * 특정 데이터센터에 있는 모든 장비를 조회하는 기능
+     * 해당 데이터센터의 모든 랙에 설치된 장비들을 한 번에 확인
+     * 상태와 타입으로 필터링 가능
+     * 권한: 모든 사용자 접근 가능
      */
     @GetMapping("/datacenter/{datacenterId}")
     public ResponseEntity<CommonResDto> getEquipmentsByDatacenter(
@@ -125,7 +141,10 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 검색
+     * 키워드로 장비를 검색하는 기능
+     * 장비 이름, 모델명, 시리얼 번호 등에서 키워드를 찾아서 매칭되는 장비 목록 반환
+     * 타입과 상태로 추가 필터링 가능
+     * 권한: 모든 사용자 접근 가능
      */
     @GetMapping("/search")
     public ResponseEntity<CommonResDto> searchEquipments(

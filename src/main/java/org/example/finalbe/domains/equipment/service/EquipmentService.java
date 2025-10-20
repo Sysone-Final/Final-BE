@@ -38,9 +38,23 @@ public class EquipmentService {
 
     private Member getCurrentMember() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userName = authentication.getName();
-        return memberRepository.findByUserName(userName)
-                .orElseThrow(() -> new EntityNotFoundException("사용자", userName));
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+
+        String userId = authentication.getName();
+
+        if (userId == null || userId.equals("anonymousUser")) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+
+        try {
+            return memberRepository.findById(Long.parseLong(userId))
+                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
+        }
     }
 
     private void validateWritePermission(Member member) {

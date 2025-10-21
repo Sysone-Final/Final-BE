@@ -34,7 +34,7 @@ public class MemberAuthController {
     }
 
     /**
-     * 🆕 로그인 기능 (HttpServletResponse 추가)
+     * 로그인 기능 (HttpServletResponse 추가)
      * Refresh Token은 httpOnly Cookie로 전달
      */
     @PostMapping("/login")
@@ -53,7 +53,7 @@ public class MemberAuthController {
     }
 
     /**
-     * 🆕 로그아웃 기능 (Cookie 삭제 포함)
+     * 로그아웃 기능 (Cookie 삭제 포함)
      */
     @PostMapping("/logout")
     public ResponseEntity<CommonResDto> logout(
@@ -72,7 +72,7 @@ public class MemberAuthController {
     }
 
     /**
-     * 🆕 토큰 재발급 기능 (Cookie에서 자동 수신)
+     * 토큰 재발급 기능 (Cookie에서 자동 수신)
      * Refresh Token은 Cookie에서 자동으로 받아옴
      */
     @PostMapping("/refresh")

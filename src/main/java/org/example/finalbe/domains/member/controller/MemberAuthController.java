@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.member.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.member.dto.*;
@@ -10,14 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * 회원 인증 컨트롤러
- *
- * 개선사항:
- * - Bean Validation 적용
- * - @Valid를 통한 Request DTO 자동 검증
- * - 일관된 응답 형식
- */
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -28,11 +21,6 @@ public class MemberAuthController {
 
     /**
      * 회원가입 기능
-     * 새로운 사용자를 시스템에 등록
-     * 이메일, 비밀번호, 이름, 소속 회사 등의 정보를 받아서 계정 생성
-     * 권한: 인증 불필요 (누구나 가입 가능)
-     *
-     * @param request 회원가입 요청 (Validation 적용)
      */
     @PostMapping("/signup")
     public ResponseEntity<CommonResDto> signup(@Valid @RequestBody MemberSignupRequest request) {
@@ -46,41 +34,67 @@ public class MemberAuthController {
     }
 
     /**
-     * 로그인 기능
-     * 이메일과 비밀번호로 사용자 인증
-     * 성공 시 JWT 액세스 토큰과 리프레시 토큰을 발급
-     * 이후 API 호출 시 이 토큰을 사용하여 인증
-     * 권한: 인증 불필요 (누구나 로그인 시도 가능)
-     *
-     * @param request 로그인 요청 (Validation 적용)
+     * 🆕 로그인 기능 (HttpServletResponse 추가)
+     * Refresh Token은 httpOnly Cookie로 전달
      */
     @PostMapping("/login")
-    public ResponseEntity<CommonResDto> login(@Valid @RequestBody MemberLoginRequest request) {
-        MemberLoginResponse response = memberAuthService.login(request);
+    public ResponseEntity<CommonResDto> login(
+            @Valid @RequestBody MemberLoginRequest request,
+            HttpServletResponse response) {
+
+        MemberLoginResponse loginResponse = memberAuthService.login(request, response);
+
         CommonResDto commonResDto = new CommonResDto(
                 HttpStatus.OK,
                 "로그인이 완료되었습니다.",
-                response
+                loginResponse  // Access Token만 포함
         );
         return ResponseEntity.ok(commonResDto);
     }
 
     /**
-     * 로그아웃 기능
-     * 현재 로그인된 사용자의 세션을 종료
-     * 발급된 토큰을 무효화하여 더 이상 API 접근 불가하게 만듦
-     * Authorization 헤더에 토큰을 포함하여 요청
-     * 권한: 로그인된 사용자만 가능
-     *
-     * @param token Authorization 헤더의 Bearer 토큰
+     * 🆕 로그아웃 기능 (Cookie 삭제 포함)
      */
     @PostMapping("/logout")
-    public ResponseEntity<CommonResDto> logout(@RequestHeader("Authorization") String token) {
-        MemberLogoutResponse response = memberAuthService.logout(token);
+    public ResponseEntity<CommonResDto> logout(
+            @RequestHeader("Authorization") String accessToken,
+            @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+
+        MemberLogoutResponse logoutResponse = memberAuthService.logout(accessToken, refreshToken, response);
+
         CommonResDto commonResDto = new CommonResDto(
                 HttpStatus.OK,
                 "로그아웃이 완료되었습니다.",
-                response
+                logoutResponse
+        );
+        return ResponseEntity.ok(commonResDto);
+    }
+
+    /**
+     * 🆕 토큰 재발급 기능 (Cookie에서 자동 수신)
+     * Refresh Token은 Cookie에서 자동으로 받아옴
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<CommonResDto> refreshToken(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+
+        if (refreshToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new CommonResDto(
+                            HttpStatus.UNAUTHORIZED,
+                            "Refresh Token이 없습니다. 다시 로그인해주세요.",
+                            null
+                    ));
+        }
+
+        TokenRefreshResponse refreshResponse = memberAuthService.refreshAccessToken(refreshToken, response);
+
+        CommonResDto commonResDto = new CommonResDto(
+                HttpStatus.OK,
+                "토큰 재발급이 완료되었습니다.",
+                refreshResponse  // Access Token만 포함
         );
         return ResponseEntity.ok(commonResDto);
     }

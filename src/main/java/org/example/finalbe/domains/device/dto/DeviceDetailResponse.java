@@ -13,9 +13,9 @@ public record DeviceDetailResponse(
         String deviceCode,
         String deviceType,
         Long deviceTypeId,
-        Integer positionRow,
-        Integer positionCol,
-        Integer positionZ,
+        Integer gridY,
+        Integer gridX,
+        Integer gridZ,
         Integer rotation,
         String status,
         String modelName,
@@ -39,9 +39,9 @@ public record DeviceDetailResponse(
                 .deviceCode(device.getDeviceCode())
                 .deviceType(device.getDeviceType().getTypeName())
                 .deviceTypeId(device.getDeviceType().getId())
-                .positionRow(device.getPositionRow())
-                .positionCol(device.getPositionCol())
-                .positionZ(device.getPositionZ())
+                .gridY(device.getGridY())
+                .gridX(device.getGridX())
+                .gridZ(device.getGridZ())
                 .rotation(device.getRotation())
                 .status(device.getStatus() != null ? device.getStatus().name() : null)
                 .modelName(device.getModelName())

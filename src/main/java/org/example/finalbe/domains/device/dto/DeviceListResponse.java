@@ -9,9 +9,9 @@ public record DeviceListResponse(
         String deviceName,
         String deviceCode,
         String deviceType,
-        Integer positionRow,
-        Integer positionCol,
-        Integer positionZ,
+        Integer gridY,
+        Integer gridX,
+        Integer gridZ,
         Integer rotation,
         String status,
         String datacenterName,
@@ -25,9 +25,9 @@ public record DeviceListResponse(
                 .deviceName(device.getDeviceName())
                 .deviceCode(device.getDeviceCode())
                 .deviceType(device.getDeviceType().getTypeName())
-                .positionRow(device.getPositionRow())
-                .positionCol(device.getPositionCol())
-                .positionZ(device.getPositionZ())
+                .gridY(device.getGridY())
+                .gridX(device.getGridX())
+                .gridZ(device.getGridZ())
                 .rotation(device.getRotation())
                 .status(device.getStatus() != null ? device.getStatus().name() : null)
                 .datacenterName(device.getDatacenter().getName())

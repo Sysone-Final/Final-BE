@@ -1,6 +1,5 @@
 package org.example.finalbe.domains.device.domain;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
@@ -8,9 +7,12 @@ import org.example.finalbe.domains.common.enumdir.DeviceStatus;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.rack.domain.Rack;
 
-import java.time.LocalDateTime;
-import java.util.Date;
+import java.time.LocalDate;
 
+/**
+ * 장치 엔티티
+ * 전산실에 배치되는 물리적 장치 (server, door, aircon 등)
+ */
 @Entity
 @Table(name = "device")
 @Getter
@@ -26,20 +28,27 @@ public class Device extends BaseTimeEntity {
     private Long id;
 
     @Column(name = "deivce_name", nullable = false, length = 100)
-    private String name;  // 스키마 오타 주의: deivce_name → 그대로 매핑
+    private String deviceName;
 
     @Column(name = "device_code", length = 50)
-    private String code;
+    private String deviceCode;
 
+    // 그리드 좌표 (3D 배치)
     @Column(name = "position_row")
-    private Integer positionRow;
+    private Integer positionRow;  // gridY
 
     @Column(name = "position_col")
-    private Integer positionCol;
+    private Integer positionCol;  // gridX
+
+    @Column(name = "position_z")
+    private Integer positionZ;    // gridZ (추가)
+
+    @Column(name = "rotation")
+    private Integer rotation;     // 회전 각도 (0, 90, 180, 270)
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
-    private DeviceStatus status; // NORMAL, WARNING, ERROR, etc.
+    private DeviceStatus status;
 
     @Column(name = "model_name", length = 100)
     private String modelName;
@@ -50,29 +59,21 @@ public class Device extends BaseTimeEntity {
     @Column(name = "serial_number", length = 100)
     private String serialNumber;
 
-    @Temporal(TemporalType.DATE)
     @Column(name = "purchase_date")
-    private Date purchaseDate;
+    private LocalDate purchaseDate;
 
-    @Temporal(TemporalType.DATE)
     @Column(name = "warranty_end_date")
-    private Date warrantyEndDate;
+    private LocalDate warrantyEndDate;
 
-    @Lob
-    @Column(name = "notes")
+    @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
+    // 연관관계
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_type_id", nullable = false)
     private DeviceType deviceType;
 
-    @Column(name = "manager_id", nullable = false, length = 50)
+    @Column(name = "manager_id", nullable = false)
     private Long managerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -81,5 +82,27 @@ public class Device extends BaseTimeEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id")
-    private Rack rack;
+    private Rack rack;  // server 타입일 경우 rack 연결
+
+    /**
+     * 장치 상태 변경
+     */
+    public void changeStatus(DeviceStatus newStatus, String reason) {
+        this.status = newStatus;
+        if (reason != null && !reason.trim().isEmpty()) {
+            this.notes = (this.notes != null ? this.notes + "\n" : "")
+                    + "[" + java.time.LocalDateTime.now() + "] 상태 변경: "
+                    + this.status + " -> " + newStatus + " (사유: " + reason + ")";
+        }
+    }
+
+    /**
+     * 위치 업데이트
+     */
+    public void updatePosition(Integer row, Integer col, Integer z, Integer rotation) {
+        this.positionRow = row;
+        this.positionCol = col;
+        this.positionZ = z;
+        this.rotation = rotation;
+    }
 }

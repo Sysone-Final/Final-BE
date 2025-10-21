@@ -45,6 +45,10 @@ public class SecurityConfig {
 
                         .requestMatchers("/equipments/**").authenticated()
 
+                        .requestMatchers("/devices/**").authenticated()
+
+                        .requestMatchers("/device-types/**").authenticated()
+
                         // 그 외 모든 요청 - 인증 필요
                         .anyRequest().authenticated()
                 )

@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotBlank;
  * 토큰 재발급 요청 DTO
  */
 public record TokenRefreshRequest(
-        @NotBlank(message = "Refresh Token을 입력해주세요.")
         String refreshToken
 ) {
 }

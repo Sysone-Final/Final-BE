@@ -87,7 +87,7 @@ public class MemberAuthService {
     }
 
     /**
-     * 🆕 로그인 (httpOnly Cookie 적용)
+     * 로그인 (httpOnly Cookie 적용)
      */
     @Transactional
     public MemberLoginResponse login(MemberLoginRequest request, HttpServletResponse response) {
@@ -131,7 +131,7 @@ public class MemberAuthService {
             log.error("Failed to save refresh token to Redis", e);
         }
 
-        // 🆕 Refresh Token을 httpOnly Cookie로 설정
+        // Refresh Token을 httpOnly Cookie로 설정
         Cookie refreshTokenCookie = createRefreshTokenCookie(refreshToken);
         response.addCookie(refreshTokenCookie);
 
@@ -143,7 +143,7 @@ public class MemberAuthService {
     }
 
     /**
-     * 🆕 로그아웃 (Cookie 삭제 포함)
+     * 로그아웃 (Cookie 삭제 포함)
      */
     @Transactional
     public MemberLogoutResponse logout(String accessToken, String refreshToken, HttpServletResponse response) {
@@ -177,7 +177,7 @@ public class MemberAuthService {
             // Refresh Token 삭제
             redisTemplate.delete(REFRESH_TOKEN_PREFIX + userId);
 
-            // 🆕 Refresh Token Cookie 삭제
+            // Refresh Token Cookie 삭제
             Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, null);
             cookie.setHttpOnly(true);
             cookie.setSecure(true);
@@ -195,7 +195,7 @@ public class MemberAuthService {
     }
 
     /**
-     * 🆕 토큰 재발급 (Cookie 갱신 포함)
+     * 토큰 재발급 (Cookie 갱신 포함)
      */
     @Transactional
     public TokenRefreshResponse refreshAccessToken(String refreshToken, HttpServletResponse response) {
@@ -249,7 +249,7 @@ public class MemberAuthService {
                     Duration.ofDays(7)
             );
 
-            // 🆕 새 Refresh Token을 Cookie로 갱신
+            // 새 Refresh Token을 Cookie로 갱신
             Cookie refreshTokenCookie = createRefreshTokenCookie(newRefreshToken);
             response.addCookie(refreshTokenCookie);
 
@@ -264,7 +264,7 @@ public class MemberAuthService {
     }
 
     /**
-     * 🆕 Refresh Token Cookie 생성 헬퍼 메서드
+     * Refresh Token Cookie 생성 헬퍼 메서드
      */
     private Cookie createRefreshTokenCookie(String refreshToken) {
         Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken);

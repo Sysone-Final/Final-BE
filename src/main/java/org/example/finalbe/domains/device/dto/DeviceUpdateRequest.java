@@ -11,13 +11,13 @@ public record DeviceUpdateRequest(
         String deviceName,
 
         @Min(value = 0, message = "행 위치는 0 이상이어야 합니다.")
-        Integer positionRow,
+        Integer gridY,
 
         @Min(value = 0, message = "열 위치는 0 이상이어야 합니다.")
-        Integer positionCol,
+        Integer gridX,
 
         @Min(value = 0, message = "Z축 위치는 0 이상이어야 합니다.")
-        Integer positionZ,
+        Integer gridZ,
 
         @Min(value = 0, message = "회전 각도는 0 이상이어야 합니다.")
         @Max(value = 360, message = "회전 각도는 360 이하여야 합니다.")

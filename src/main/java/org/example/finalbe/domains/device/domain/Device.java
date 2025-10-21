@@ -34,14 +34,14 @@ public class Device extends BaseTimeEntity {
     private String deviceCode;
 
     // 그리드 좌표 (3D 배치)
-    @Column(name = "position_row")
-    private Integer positionRow;  // gridY
+    @Column(name = "gridY")
+    private Integer gridY;
 
-    @Column(name = "position_col")
-    private Integer positionCol;  // gridX
+    @Column(name = "gridX") //position_col
+    private Integer gridX;
 
-    @Column(name = "position_z")
-    private Integer positionZ;    // gridZ (추가)
+    @Column(name = "gridZ")
+    private Integer gridZ;
 
     @Column(name = "rotation")
     private Integer rotation;     // 회전 각도 (0, 90, 180, 270)
@@ -99,10 +99,10 @@ public class Device extends BaseTimeEntity {
     /**
      * 위치 업데이트
      */
-    public void updatePosition(Integer row, Integer col, Integer z, Integer rotation) {
-        this.positionRow = row;
-        this.positionCol = col;
-        this.positionZ = z;
+    public void updatePosition(Integer gridX, Integer gridY, Integer gridZ, Integer rotation) {
+        this.gridX = gridX;
+        this.gridY = gridY;
+        this.gridZ = gridZ;
         this.rotation = rotation;
     }
 }

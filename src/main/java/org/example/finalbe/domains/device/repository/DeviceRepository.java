@@ -23,7 +23,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     @Query("SELECT d FROM Device d " +
             "WHERE d.datacenter.id = :datacenterId " +
             "AND d.delYn = :delYn " +
-            "ORDER BY d.positionRow, d.positionCol")
+            "ORDER BY d.gridY, d.gridX")
     List<Device> findByDatacenterIdOrderByPosition(
             @Param("datacenterId") Long datacenterId,
             @Param("delYn") DelYN delYn);

@@ -189,14 +189,14 @@ public class DeviceService {
         if (request.deviceName() != null) {
             device.setDeviceName(request.deviceName());
         }
-        if (request.positionRow() != null) {
-            device.setPositionRow(request.positionRow());
+        if (request.gridY() != null) {
+            device.setGridY(request.gridY());
         }
-        if (request.positionCol() != null) {
-            device.setPositionCol(request.positionCol());
+        if (request.gridX() != null) {
+            device.setGridX(request.gridX());
         }
-        if (request.positionZ() != null) {
-            device.setPositionZ(request.positionZ());
+        if (request.gridZ() != null) {
+            device.setGridZ(request.gridZ());
         }
         if (request.rotation() != null) {
             device.setRotation(request.rotation());
@@ -247,9 +247,9 @@ public class DeviceService {
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
         device.updatePosition(
-                request.positionRow(),
-                request.positionCol(),
-                request.positionZ() != null ? request.positionZ() : 0,
+                request.gridY(),
+                request.gridX(),
+                request.gridZ() != null ? request.gridZ() : 0,
                 request.rotation() != null ? request.rotation() : 0
         );
 

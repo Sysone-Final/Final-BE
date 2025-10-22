@@ -15,7 +15,7 @@
 //                        "http://localhost:5173",      // Vite 개발 서버
 //                        "https://yourdomain.com"      // 프로덕션 도메인
 //                )
-//                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+//                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 //                .allowedHeaders("*")
 //                .allowCredentials(true)
 //                .maxAge(3600);

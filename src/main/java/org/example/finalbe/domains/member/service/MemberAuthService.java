@@ -14,6 +14,7 @@ import org.example.finalbe.domains.common.config.JwtTokenProvider;
 import org.example.finalbe.domains.common.enumdir.UserStatus;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,10 @@ public class MemberAuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
     private final CompanyRepository companyRepository;
+
+    // Cookie Secure 설정 (환경별 동적 설정)
+    @Value("${cookie.secure:false}")
+    private boolean cookieSecure;
 
     // Redis Key Prefix 상수
     private static final String REFRESH_TOKEN_PREFIX = "RT:";
@@ -180,7 +185,7 @@ public class MemberAuthService {
             // Refresh Token Cookie 삭제
             Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, null);
             cookie.setHttpOnly(true);
-            cookie.setSecure(true);
+            cookie.setSecure(cookieSecure);  // 🆕 동적 설정
             cookie.setPath("/");
             cookie.setMaxAge(0);  // 즉시 삭제
             response.addCookie(cookie);
@@ -265,15 +270,20 @@ public class MemberAuthService {
 
     /**
      * Refresh Token Cookie 생성 헬퍼 메서드
+     *
+     * 변경사항: Secure 설정을 환경변수로 동적 관리
+     * - 개발 환경(HTTP): cookieSecure = false
+     * - 프로덕션 환경(HTTPS): cookieSecure = true
      */
     private Cookie createRefreshTokenCookie(String refreshToken) {
         Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken);
         cookie.setHttpOnly(true);   // JS 접근 불가 (XSS 방어)
-        cookie.setSecure(true);     // HTTPS only (프로덕션)
+        cookie.setSecure(cookieSecure);  // 환경별 동적 설정 (개발: false, 프로덕션: true)
         cookie.setPath("/");        // 모든 경로에서 전송
         cookie.setMaxAge(REFRESH_TOKEN_COOKIE_AGE);  // 7일
         // cookie.setSameSite("Strict");  // CSRF 방어 (Spring 6+)
 
+        log.debug("Cookie created: secure={}", cookieSecure);
         return cookie;
     }
 }

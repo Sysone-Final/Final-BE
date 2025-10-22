@@ -116,10 +116,13 @@ public class DeviceController {
      * 드래그 앤 드롭으로 장치 이동 시 사용
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
+     * 변경사항: @PatchMapping → @PutMapping으로 변경
+     * 이유: PUT은 멱등성이 보장되며, 실무에서 더 안정적이고 명확한 의미 전달
+     *
      * @param id 장치 ID
      * @param request 위치 업데이트 요청 (Validation 적용)
      */
-    @PatchMapping("/{id}/position")
+    @PutMapping("/{id}/position")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> updateDevicePosition(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
@@ -139,10 +142,13 @@ public class DeviceController {
      * 장치의 작동 상태 변경 (NORMAL, WARNING, ERROR, MAINTENANCE, DECOMMISSIONED)
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
+     * 변경사항: @PatchMapping → @PutMapping으로 변경
+     * 이유: PUT은 멱등성이 보장되며, 실무에서 더 안정적이고 명확한 의미 전달
+     *
      * @param id 장치 ID
      * @param request 상태 변경 요청 (Validation 적용)
      */
-    @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> changeDeviceStatus(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,

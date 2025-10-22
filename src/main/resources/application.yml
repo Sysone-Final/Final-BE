@@ -47,10 +47,14 @@ jwt:
   access-token-validity: 3600000
   refresh-token-validity: 604800000
 
+# Cookie Secure 설정
+cookie:
+  secure: false  # 개발 환경: false, 프로덕션 환경: true
+
 logging:
   level:
     root: INFO
     com.finalbe: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     com.zaxxer.hikari: WARN

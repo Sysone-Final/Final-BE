@@ -3,7 +3,6 @@ package org.example.finalbe.domains.rack.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.DelYN;
-import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.BusinessException;
@@ -11,6 +10,7 @@ import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
@@ -22,18 +22,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 랙 기본 CRUD 서비스
- *
- * 개선사항:
- * - 모든 메서드 완전 구현
- * - 소프트 삭제 오류 수정
- * - Bean Validation으로 중복 검증 제거
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -42,23 +33,22 @@ public class RackService {
 
     private final RackRepository rackRepository;
     private final DataCenterRepository dataCenterRepository;
-    private final MemberRepository memberRepository;
     private final EquipmentRepository equipmentRepository;
+    private final MemberRepository memberRepository;
+    private final RackDepartmentRepository rackDepartmentRepository;
 
     /**
-     * 현재 인증된 사용자 조회
+     * 현재 로그인한 사용자 조회
      */
     private Member getCurrentMember() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AccessDeniedException("인증이 필요합니다.");
+            throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }
 
         String userId = authentication.getName();
-
-        if (userId == null || userId.equals("anonymousUser")) {
-            throw new AccessDeniedException("인증이 필요합니다.");
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalStateException("사용자 ID를 찾을 수 없습니다.");
         }
 
         try {
@@ -99,7 +89,6 @@ public class RackService {
 
     /**
      * 랙 목록 조회
-     * Bean Validation이 dataCenterId 검증을 처리하므로 중복 검증 제거
      */
     public List<RackListResponse> getRacksByDataCenter(Long dataCenterId) {
         Member currentMember = getCurrentMember();
@@ -138,7 +127,6 @@ public class RackService {
 
     /**
      * 랙 생성
-     * Bean Validation이 request 검증을 처리하므로 중복 검증 제거
      */
     @Transactional
     public RackDetailResponse createRack(RackCreateRequest request) {
@@ -170,7 +158,7 @@ public class RackService {
             throw new DuplicateException("랙 이름", request.rackName());
         }
 
-        // 랙 생성
+        // 랙 생성 (department 필드 없음)
         Rack rack = request.toEntity(dataCenter, currentMember.getUserName());
         Rack savedRack = rackRepository.save(rack);
 
@@ -215,10 +203,6 @@ public class RackService {
 
     /**
      * 랙 삭제 (소프트 삭제)
-     *
-     * 수정사항:
-     * - countByRackIdAndDelYn → existsByRackIdAndDelYn 사용
-     * - softDelete() 메서드에 파라미터 제거 (엔티티 내부에서 처리)
      */
     @Transactional
     public void deleteRack(Long id) {
@@ -236,13 +220,13 @@ public class RackService {
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));
 
-        // 랙에 장비가 있는지 확인 (수정: exists 메서드 사용)
+        // 랙에 장비가 있는지 확인
         boolean hasEquipment = equipmentRepository.existsByRackIdAndDelYn(id, DelYN.N);
         if (hasEquipment) {
             throw new BusinessException("랙에 장비가 존재하여 삭제할 수 없습니다. 먼저 장비를 제거해주세요.");
         }
 
-        // 소프트 삭제 (수정: 파라미터 없이 호출)
+        // 소프트 삭제
         rack.softDelete();
 
         // 전산실의 현재 랙 수 감소
@@ -314,12 +298,14 @@ public class RackService {
     }
 
     /**
-     * 부서별 랙 목록 조회
+     * 부서별 랙 목록 조회 (다대다 관계 사용)
+     * 드롭다운에서 선택한 부서 ID로 조회
      */
-    public List<RackListResponse> getRacksByDepartment(String department) {
-        log.debug("Fetching racks by department: {}", department);
+    public List<RackListResponse> getRacksByDepartment(Long departmentId) {
+        log.debug("Fetching racks by department ID: {}", departmentId);
 
-        List<Rack> racks = rackRepository.findByDepartmentAndDelYn(department, DelYN.N);
+        // RackDepartment를 통해 다대다 조회
+        List<Rack> racks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
 
         return racks.stream()
                 .map(RackListResponse::from)

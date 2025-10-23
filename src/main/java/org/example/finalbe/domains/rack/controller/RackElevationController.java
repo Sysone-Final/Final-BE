@@ -64,7 +64,7 @@ public class RackElevationController {
      * 예: 10번 유닛에 있던 장비를 20번 유닛으로 이동
      * 권한: ADMIN 또는 OPERATOR만 가능
      */
-    @PatchMapping("/{id}/equipment/{equipmentId}/move")
+    @PutMapping("/{id}/equipment/{equipmentId}/move")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> moveEquipment(
             @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id,

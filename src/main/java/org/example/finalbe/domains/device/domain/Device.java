@@ -27,7 +27,7 @@ public class Device extends BaseTimeEntity {
     @Column(name = "device_id")
     private Long id;
 
-    @Column(name = "deivce_name", nullable = false, length = 100)
+    @Column(name = "device_name", nullable = false, length = 100)
     private String deviceName;
 
     @Column(name = "device_code", length = 50)
@@ -37,7 +37,7 @@ public class Device extends BaseTimeEntity {
     @Column(name = "gridY")
     private Integer gridY;
 
-    @Column(name = "gridX") //position_col
+    @Column(name = "gridX")
     private Integer gridX;
 
     @Column(name = "gridZ")

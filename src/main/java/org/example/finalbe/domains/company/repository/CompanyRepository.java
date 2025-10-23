@@ -15,11 +15,11 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
     List<Company> findByDelYn(DelYN delYn);
 
     // ID로 조회 (삭제되지 않은 것만)
-    @Query("SELECT c FROM Company c WHERE c.id = :id AND c.delYn = 'N'")
+    @Query("SELECT c FROM Company c WHERE c.id = :id AND c.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
     Optional<Company> findActiveById(@Param("id") Long id);
 
     // 코드로 조회
-    @Query("SELECT c FROM Company c WHERE c.code = :code AND c.delYn = 'N'")
+    @Query("SELECT c FROM Company c WHERE c.code = :code AND c.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
     Optional<Company> findByCode(@Param("code") String code);
 
     // 코드 중복 체크
@@ -29,6 +29,6 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
     boolean existsByBusinessNumberAndDelYn(String businessNumber, DelYN delYn);
 
     // 이름으로 검색
-    @Query("SELECT c FROM Company c WHERE c.name LIKE %:name% AND c.delYn = 'N'")
+    @Query("SELECT c FROM Company c WHERE c.name LIKE %:name% AND c.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
     List<Company> searchByName(@Param("name") String name);
 }

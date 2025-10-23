@@ -35,11 +35,7 @@ public class RackElevationService {
      * 랙 실장도 조회 (Elevation View)
      */
     public RackElevationResponse getRackElevation(Long id, String view) {
-        log.info("Fetching rack elevation for id: {}, view: {}", id, view);
-
-        if (id == null || id <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
-        }
+        log.debug("Fetching rack elevation for id: {}, view: {}", id, view);
 
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));
@@ -53,32 +49,15 @@ public class RackElevationService {
     /**
      * 장비 배치 (드래그 앤 드롭)
      */
-    // RackElevationService.java
     @Transactional
     public void placeEquipment(Long rackId, Long equipmentId, EquipmentPlacementRequest request) {
-        log.info("Placing equipment {} on rack {} at unit {}",
-                equipmentId, rackId, request.startUnit());
-
-        if (rackId == null || rackId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
-        }
-        if (equipmentId == null || equipmentId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 장비 ID입니다.");
-        }
+        log.info("Placing equipment {} on rack {} at unit {}", equipmentId, rackId, request.startUnit());
 
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
-        Equipment equipment = equipmentRepository.findById(equipmentId)
+        Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
-
-
-        if (request.powerConsumption() != null) {
-            equipment.setPowerConsumption(request.powerConsumption());
-        }
-        if (request.weight() != null) {
-            equipment.setWeight(request.weight());
-        }
 
         // 배치 검증
         Map<String, Object> validation = validateEquipmentPlacement(rackId, request);
@@ -89,8 +68,7 @@ public class RackElevationService {
         // 장비 배치
         rack.placeEquipment(equipment, request.startUnit(), request.unitSize());
 
-        log.info("Equipment placed successfully with power: {}W, weight: {}kg",
-                equipment.getPowerConsumption(), equipment.getWeight());
+        log.info("Equipment placed successfully");
     }
 
     /**
@@ -98,23 +76,19 @@ public class RackElevationService {
      */
     @Transactional
     public void moveEquipment(Long rackId, Long equipmentId, EquipmentMoveRequest request) {
-        log.info("Moving equipment {} on rack {} from unit {} to {}",
+        log.info("Moving equipment {} on rack {} from unit {} to unit {}",
                 equipmentId, rackId, request.fromUnit(), request.toUnit());
-
-        if (rackId == null || rackId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
-        }
-        if (equipmentId == null || equipmentId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 장비 ID입니다.");
-        }
 
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
-        Equipment equipment = equipmentRepository.findById(equipmentId)
+        Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        // 이동 가능 여부 검증
+        // 기존 위치에서 제거
+        rack.removeEquipment(equipment);
+
+        // 새 위치 배치 검증
         EquipmentPlacementRequest placementRequest = EquipmentPlacementRequest.builder()
                 .startUnit(request.toUnit())
                 .unitSize(equipment.getUnitSize())
@@ -122,10 +96,7 @@ public class RackElevationService {
                 .weight(equipment.getWeight())
                 .build();
 
-        // 기존 장비 제거 후 검증
-        rack.removeEquipment(equipment);
         Map<String, Object> validation = validateEquipmentPlacement(rackId, placementRequest);
-
         if (!(Boolean) validation.get("isValid")) {
             // 검증 실패 시 원래 위치로 복구
             rack.placeEquipment(equipment, request.fromUnit(), equipment.getUnitSize());
@@ -143,12 +114,6 @@ public class RackElevationService {
      */
     public Map<String, Object> validateEquipmentPlacement(Long rackId, EquipmentPlacementRequest request) {
         Map<String, Object> result = new HashMap<>();
-
-        if (rackId == null || rackId <= 0) {
-            result.put("isValid", false);
-            result.put("message", "유효하지 않은 랙 ID입니다.");
-            return result;
-        }
 
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
@@ -190,7 +155,7 @@ public class RackElevationService {
             }
         }
 
-// 무게 용량 검증
+        // 무게 용량 검증
         if (rack.getMaxWeightCapacity() != null && request.weight() != null) {
             BigDecimal newWeight = rack.getCurrentWeight().add(request.weight());
             if (newWeight.compareTo(rack.getMaxWeightCapacity()) > 0) {
@@ -203,12 +168,6 @@ public class RackElevationService {
 
         result.put("isValid", true);
         result.put("message", "배치 가능합니다.");
-        result.put("availablePower", rack.getMaxPowerCapacity() != null && rack.getCurrentPowerUsage() != null
-                ? rack.getMaxPowerCapacity().subtract(rack.getCurrentPowerUsage())
-                : null);
-        result.put("availableWeight", rack.getMaxWeightCapacity() != null && rack.getCurrentWeight() != null
-                ? rack.getMaxWeightCapacity().subtract(rack.getCurrentWeight())
-                : null);
         return result;
     }
 
@@ -216,11 +175,7 @@ public class RackElevationService {
      * 랙 사용률 조회
      */
     public RackUtilizationResponse getRackUtilization(Long id) {
-        log.info("Fetching rack utilization for id: {}", id);
-
-        if (id == null || id <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
-        }
+        log.debug("Fetching rack utilization for id: {}", id);
 
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));

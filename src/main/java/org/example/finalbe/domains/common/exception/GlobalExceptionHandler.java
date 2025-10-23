@@ -1,6 +1,5 @@
 package org.example.finalbe.domains.common.exception;
 
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +25,8 @@ import java.util.stream.Collectors;
  *
  * 개선사항:
  * - ConstraintViolationException 처리 추가 (PathVariable, RequestParam 검증)
+ * - 불필요한 JPA EntityNotFoundException 핸들러 제거
+ * - AccessDeniedException HTTP 상태 코드 명확화 (403 Forbidden)
  * - 더 명확한 에러 메시지
  * - 일관된 응답 형식
  */
@@ -34,27 +35,13 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     /**
-     * EntityNotFoundException 처리
-     * - 엔티티를 찾을 수 없는 경우 (404 Not Found)
-     */
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(EntityNotFoundException e) {
-        log.warn("EntityNotFoundException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.NOT_FOUND,
-                e.getMessage()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-    }
-
-    /**
      * 커스텀 EntityNotFoundException 처리
      * - 엔티티를 찾을 수 없는 경우 (404 Not Found)
      */
     @ExceptionHandler(org.example.finalbe.domains.common.exception.EntityNotFoundException.class)
-    public ResponseEntity<CommonErrorDto> handleCustomEntityNotFoundException(
+    public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(
             org.example.finalbe.domains.common.exception.EntityNotFoundException e) {
-        log.warn("Custom EntityNotFoundException: {}", e.getMessage());
+        log.warn("EntityNotFoundException: {}", e.getMessage());
         CommonErrorDto errorDto = new CommonErrorDto(
                 HttpStatus.NOT_FOUND,
                 e.getMessage()
@@ -79,21 +66,26 @@ public class GlobalExceptionHandler {
     /**
      * 커스텀 AccessDeniedException 처리
      * - 접근 권한이 없는 경우 (403 Forbidden)
+     *
+     * 참고: "인증이 필요합니다" 같은 401 케이스는 InvalidTokenException 사용 권장
      */
     @ExceptionHandler(org.example.finalbe.domains.common.exception.AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleCustomAccessDeniedException(
             org.example.finalbe.domains.common.exception.AccessDeniedException e) {
         log.warn("AccessDeniedException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.FORBIDDEN,
-                e.getMessage()
-        );
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+
+        // 메시지로 인증(401)과 권한(403) 구분
+        HttpStatus status = e.getMessage().contains("인증")
+                ? HttpStatus.UNAUTHORIZED
+                : HttpStatus.FORBIDDEN;
+
+        CommonErrorDto errorDto = new CommonErrorDto(status, e.getMessage());
+        return ResponseEntity.status(status).body(errorDto);
     }
 
     /**
      * Spring Security AccessDeniedException 처리
-     * - 권한이 없는 경우 (403 Forbidden)
+     * - Spring Security에서 발생하는 권한 부족 (403 Forbidden)
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleSpringAccessDeniedException(AccessDeniedException e) {
@@ -121,7 +113,7 @@ public class GlobalExceptionHandler {
 
     /**
      * AuthenticationException 처리
-     * - 인증 실패 (401 Unauthorized)
+     * - Spring Security 인증 실패 (401 Unauthorized)
      */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<CommonErrorDto> handleAuthenticationException(AuthenticationException e) {
@@ -203,8 +195,9 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * ConstraintViolationException 처리 (신규 추가 - 매우 중요!)
+     * ConstraintViolationException 처리
      * - @Validated 검증 실패 (PathVariable, RequestParam) (400 Bad Request)
+     * - 컨트롤러의 @Min, @NotNull 등의 검증 실패 시 발생
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<CommonErrorDto> handleConstraintViolationException(

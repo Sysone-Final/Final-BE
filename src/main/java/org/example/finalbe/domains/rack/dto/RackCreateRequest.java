@@ -14,9 +14,9 @@ import java.math.BigDecimal;
 /**
  * 랙 생성 요청 DTO
  *
- * 개선사항:
- * - Bean Validation 추가
- * - 필수 필드에 대한 명확한 검증 규칙
+ * 수정사항:
+ * - department String 필드 제거
+ * - 부서는 RackDepartment를 통해 별도로 매핑
  */
 @Builder
 public record RackCreateRequest(
@@ -43,9 +43,6 @@ public record RackCreateRequest(
 
         @DecimalMin(value = "0.0", inclusive = false, message = "깊이는 0보다 커야 합니다.")
         BigDecimal depth,
-
-        @Size(max = 100, message = "부서명은 100자를 초과할 수 없습니다.")
-        String department,
 
         @DecimalMin(value = "0.0", message = "최대 전력 용량은 0 이상이어야 합니다.")
         BigDecimal maxPowerCapacity,
@@ -95,7 +92,6 @@ public record RackCreateRequest(
                 .zoneDirection(this.zoneDirection != null ? this.zoneDirection : ZoneDirection.EAST)
                 .width(this.width)
                 .depth(this.depth)
-                .department(this.department)
                 .maxPowerCapacity(this.maxPowerCapacity)
                 .currentPowerUsage(BigDecimal.ZERO)
                 .measuredPower(BigDecimal.ZERO)

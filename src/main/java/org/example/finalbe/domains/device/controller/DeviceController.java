@@ -15,8 +15,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 장치 컨트롤러
- * 전산실에 배치되는 물리적 장치(server, door, aircon 등) 관리
+ * 장치 관리 컨트롤러
+ *
+ * 수정사항:
+ * - @PatchMapping을 @PutMapping으로 변경
  */
 @RestController
 @RequestMapping("/devices")
@@ -28,20 +30,18 @@ public class DeviceController {
 
     /**
      * 전산실별 장치 목록 조회
-     * 특정 전산실에 배치된 모든 장치 목록 반환
-     * 그리드 위치 기준으로 정렬되어 반환
      * 권한: 모든 인증된 사용자 접근 가능
      *
-     * @param datacenterId 전산실 ID
+     * @param dataCenterId 전산실 ID
      */
-    @GetMapping("/datacenter/{datacenterId}")
-    public ResponseEntity<CommonResDto> getDevicesByDatacenter(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long datacenterId) {
+    @GetMapping("/datacenter/{dataCenterId}")
+    public ResponseEntity<CommonResDto> getDevicesByDataCenter(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
 
-        List<DeviceListResponse> devices = deviceService.getDevicesByDatacenter(datacenterId);
+        List<DeviceListResponse> devices = deviceService.getDevicesByDatacenter(dataCenterId);
         CommonResDto response = new CommonResDto(
                 HttpStatus.OK,
-                "전산실 장치 목록 조회 완료",
+                "장치 목록 조회 완료",
                 devices
         );
         return ResponseEntity.ok(response);
@@ -49,7 +49,6 @@ public class DeviceController {
 
     /**
      * 장치 상세 조회
-     * 특정 장치의 상세 정보 반환
      * 권한: 모든 인증된 사용자 접근 가능
      *
      * @param id 장치 ID
@@ -69,15 +68,13 @@ public class DeviceController {
 
     /**
      * 장치 생성
-     * 새로운 장치를 전산실에 추가
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
-     * @param request 장치 생성 요청 DTO
+     * @param request 장치 생성 요청 (Validation 적용)
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> createDevice(@Valid @RequestBody DeviceCreateRequest request) {
-
         DeviceDetailResponse device = deviceService.createDevice(request);
         CommonResDto response = new CommonResDto(
                 HttpStatus.CREATED,
@@ -89,11 +86,10 @@ public class DeviceController {
 
     /**
      * 장치 수정
-     * 기존 장치의 정보 업데이트
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
      * @param id 장치 ID
-     * @param request 장치 수정 요청 DTO
+     * @param request 장치 수정 요청 (Validation 적용)
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -112,7 +108,6 @@ public class DeviceController {
 
     /**
      * 장치 삭제 (소프트 삭제)
-     * 장치를 논리적으로 삭제
      * 권한: ADMIN만 가능
      *
      * @param id 장치 ID
@@ -135,11 +130,10 @@ public class DeviceController {
      * 장치 위치 변경
      * 전산실 내에서 장치의 그리드 위치 변경
      * 권한: ADMIN 또는 OPERATOR만 가능
-     *
      * @param id 장치 ID
      * @param request 위치 변경 요청 DTO
      */
-    @PatchMapping("/{id}/position")
+    @PutMapping("/{id}/position")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> updateDevicePosition(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
@@ -158,11 +152,11 @@ public class DeviceController {
      * 장치 상태 변경
      * 장치의 상태를 변경 (NORMAL, MAINTENANCE, ERROR 등)
      * 권한: ADMIN 또는 OPERATOR만 가능
-     *
+
      * @param id 장치 ID
      * @param request 상태 변경 요청 DTO
      */
-    @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> changeDeviceStatus(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,

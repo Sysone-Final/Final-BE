@@ -10,10 +10,9 @@ import org.example.finalbe.domains.member.domain.Member;
 /**
  * 회원가입 요청 DTO
  *
- * 개선사항:
- * - Bean Validation 추가
- * - 비밀번호, 이메일 형식 검증
- * - 필수 필드 명확화
+ * 수정사항:
+ * - department String 필드 제거
+ * - 부서는 MemberDepartment를 통해 별도로 매핑
  */
 @Builder
 public record MemberSignupRequest(
@@ -41,8 +40,6 @@ public record MemberSignupRequest(
                 message = "전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)")
         String phone,
 
-        @Size(max = 100, message = "부서명은 100자를 초과할 수 없습니다.")
-        String department,
 
         @Size(max = 100, message = "직급은 100자를 초과할 수 없습니다.")
         String position,
@@ -68,7 +65,6 @@ public record MemberSignupRequest(
                 .name(this.name)
                 .email(this.email)
                 .phone(this.phone)
-                .department(this.department)
                 .company(company)
                 .role(this.role != null ? Role.valueOf(this.role) : Role.VIEWER)
                 .status(UserStatus.ACTIVE)

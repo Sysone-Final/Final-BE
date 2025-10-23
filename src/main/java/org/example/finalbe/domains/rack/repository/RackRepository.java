@@ -26,8 +26,6 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     @Query("SELECT r FROM Rack r WHERE r.status = :status AND r.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
     List<Rack> findByStatus(@Param("status") RackStatus status);
 
-    // 부서별 조회
-    List<Rack> findByDepartmentAndDelYn(String department, DelYN delYn);
 
     // 담당자별 조회
     List<Rack> findByManagerIdAndDelYn(Long managerId, DelYN delYn);

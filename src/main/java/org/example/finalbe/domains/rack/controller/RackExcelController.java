@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.rack.controller;
 
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.common.dto.CommonResDto;
 import org.example.finalbe.domains.rack.dto.RackBulkUploadPreviewResponse;
@@ -9,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/racks")
 @RequiredArgsConstructor
+@Validated
 public class RackExcelController {
 
     private final RackExcelService rackExcelService;
@@ -30,10 +33,8 @@ public class RackExcelController {
      * 권한: 모든 사용자 접근 가능
      */
     @GetMapping("/datacenter/{dataCenterId}/export")
-    public ResponseEntity<byte[]> exportRacksToExcel(@PathVariable Long dataCenterId) {
-        if (dataCenterId == null || dataCenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
-        }
+    public ResponseEntity<byte[]> exportRacksToExcel(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
 
         byte[] excelData = rackExcelService.exportRacksToExcel(dataCenterId);
 
@@ -71,19 +72,7 @@ public class RackExcelController {
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> previewBulkUpload(
             @RequestParam("file") MultipartFile file,
-            @RequestParam Long dataCenterId) {
-
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("파일을 업로드해주세요.");
-        }
-        if (dataCenterId == null || dataCenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
-        }
-
-        String filename = file.getOriginalFilename();
-        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
-            throw new IllegalArgumentException("Excel 파일만 업로드 가능합니다. (.xlsx, .xls)");
-        }
+            @RequestParam @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
 
         RackBulkUploadPreviewResponse preview = rackExcelService.previewBulkUpload(file, dataCenterId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "일괄 등록 미리보기 완료", preview));
@@ -100,19 +89,7 @@ public class RackExcelController {
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> executeBulkUpload(
             @RequestParam("file") MultipartFile file,
-            @RequestParam Long dataCenterId) {
-
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("파일을 업로드해주세요.");
-        }
-        if (dataCenterId == null || dataCenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
-        }
-
-        String filename = file.getOriginalFilename();
-        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
-            throw new IllegalArgumentException("Excel 파일만 업로드 가능합니다. (.xlsx, .xls)");
-        }
+            @RequestParam @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
 
         RackBulkUploadResultResponse result = rackExcelService.executeBulkUpload(file, dataCenterId);
         return ResponseEntity.status(HttpStatus.CREATED)

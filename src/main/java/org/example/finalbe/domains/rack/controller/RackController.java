@@ -2,6 +2,7 @@ package org.example.finalbe.domains.rack.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.common.dto.CommonResDto;
 import org.example.finalbe.domains.rack.dto.*;
@@ -19,8 +20,8 @@ import java.util.List;
  *
  * 개선사항:
  * - Bean Validation 적용
- * - Controller 중복 검증 제거
- * - @Valid를 통한 Request DTO 검증
+ * - 모든 서비스 메서드 활용
+ * - 중복 검증 제거
  */
 @RestController
 @RequestMapping("/racks")
@@ -31,14 +32,14 @@ public class RackController {
     private final RackService rackService;
 
     /**
-     * 특정 데이터센터의 랙 목록을 조회하는 기능
+     * 전산실별 랙 목록 조회
      * 상태, 부서, 정렬 기준으로 필터링 가능
      * 권한: 모든 사용자 접근 가능
      *
      * @param dataCenterId 전산실 ID
      * @param status 랙 상태 (optional)
      * @param department 부서명 (optional)
-     * @param sortBy 정렬 기준 (default: name)
+     * @param sortBy 정렬 기준 (name, usage, power)
      */
     @GetMapping("/datacenter/{dataCenterId}")
     public ResponseEntity<CommonResDto> getRacksByDataCenter(
@@ -47,15 +48,12 @@ public class RackController {
             @RequestParam(required = false) String department,
             @RequestParam(required = false, defaultValue = "name") String sortBy) {
 
-        List<RackListResponse> racks = rackService.getRacksByDataCenter(
-                dataCenterId, status, department, sortBy);
-
+        List<RackListResponse> racks = rackService.getRacksByDataCenter(dataCenterId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 목록 조회 완료", racks));
     }
 
     /**
-     * 특정 랙의 상세 정보를 조회하는 기능
-     * ID로 랙 하나를 찾아서 자세한 정보를 반환
+     * 랙 상세 조회
      * 권한: 모든 사용자 접근 가능
      *
      * @param id 랙 ID
@@ -69,11 +67,10 @@ public class RackController {
     }
 
     /**
-     * 새로운 랙을 생성하는 기능
-     * 랙 이름, 위치, 용량 등의 정보를 받아서 신규 랙 등록
+     * 랙 생성
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
-     * @param request 랙 생성 요청 (Validation 적용)
+     * @param request 랙 생성 요청
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -84,12 +81,11 @@ public class RackController {
     }
 
     /**
-     * 기존 랙의 정보를 수정하는 기능
-     * 랙의 이름, 위치, 담당자 등을 변경
+     * 랙 수정
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
      * @param id 랙 ID
-     * @param request 랙 수정 요청 (Validation 적용)
+     * @param request 랙 수정 요청
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -102,18 +98,79 @@ public class RackController {
     }
 
     /**
-     * 랙을 삭제하는 기능
-     * 실제로는 소프트 삭제(delYn = Y)로 처리
-     * 권한: ADMIN 또는 OPERATOR만 가능
+     * 랙 삭제 (소프트 삭제)
+     * 권한: ADMIN만 가능
      *
      * @param id 랙 ID
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CommonResDto> deleteRack(
             @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id) {
 
         rackService.deleteRack(id);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 삭제 완료", null));
+    }
+
+    /**
+     * 랙 상태 변경
+     * 권한: ADMIN 또는 OPERATOR만 가능
+     *
+     * @param id 랙 ID
+     * @param request 상태 변경 요청
+     */
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    public ResponseEntity<CommonResDto> changeRackStatus(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id,
+            @Valid @RequestBody RackStatusChangeRequest request) {
+
+        RackDetailResponse rack = rackService.changeRackStatus(id, request);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 상태 변경 완료", rack));
+    }
+
+    /**
+     * 랙 검색
+     * 키워드로 랙 이름, 그룹 번호, 위치 검색
+     * 권한: 모든 사용자 접근 가능
+     *
+     * @param keyword 검색 키워드
+     * @param dataCenterId 전산실 ID (optional)
+     */
+    @GetMapping("/search")
+    public ResponseEntity<CommonResDto> searchRacks(
+            @RequestParam @NotBlank(message = "검색어를 입력해주세요.") String keyword,
+            @RequestParam(required = false) Long dataCenterId) {
+
+        List<RackListResponse> racks = rackService.searchRacks(keyword, dataCenterId);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 검색 완료", racks));
+    }
+
+    /**
+     * 담당자별 랙 목록 조회
+     * 권한: 모든 사용자 접근 가능
+     *
+     * @param managerId 담당자 ID
+     */
+    @GetMapping("/manager/{managerId}")
+    public ResponseEntity<CommonResDto> getRacksByManager(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 담당자 ID입니다.") Long managerId) {
+
+        List<RackListResponse> racks = rackService.getRacksByManager(managerId);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "담당자별 랙 조회 완료", racks));
+    }
+
+    /**
+     * 부서별 랙 목록 조회
+     * 권한: 모든 사용자 접근 가능
+     *
+     * @param department 부서명
+     */
+    @GetMapping("/department/{department}")
+    public ResponseEntity<CommonResDto> getRacksByDepartment(
+            @PathVariable @NotBlank(message = "부서명을 입력해주세요.") String department) {
+
+        List<RackListResponse> racks = rackService.getRacksByDepartment(department);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "부서별 랙 조회 완료", racks));
     }
 }

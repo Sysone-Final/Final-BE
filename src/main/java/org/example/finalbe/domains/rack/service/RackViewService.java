@@ -30,15 +30,11 @@ public class RackViewService {
      * 대시보드용 그리드 레이아웃에 표시할 랙 요약 정보
      */
     public List<RackCardResponse> getRackCards(Long dataCenterId) {
-        log.info("Fetching rack cards for datacenter: {}", dataCenterId);
-
-        if (dataCenterId == null || dataCenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
-        }
+        log.debug("Fetching rack cards for datacenter: {}", dataCenterId);
 
         List<Rack> racks = rackRepository.findByDatacenterIdAndDelYn(dataCenterId, DelYN.N);
 
-        log.info("Found {} rack cards for datacenter: {}", racks.size(), dataCenterId);
+        log.debug("Found {} rack cards for datacenter: {}", racks.size(), dataCenterId);
 
         return racks.stream()
                 .map(RackCardResponse::from)
@@ -56,15 +52,11 @@ public class RackViewService {
      * - 부서별/담당자별 랙 분포
      */
     public RackStatisticsResponse getRackStatistics(Long dataCenterId) {
-        log.info("Fetching rack statistics for datacenter: {}", dataCenterId);
-
-        if (dataCenterId == null || dataCenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
-        }
+        log.debug("Fetching rack statistics for datacenter: {}", dataCenterId);
 
         List<Rack> racks = rackRepository.findByDatacenterIdAndDelYn(dataCenterId, DelYN.N);
 
-        log.info("Calculating statistics for {} racks in datacenter: {}", racks.size(), dataCenterId);
+        log.debug("Calculating statistics for {} racks in datacenter: {}", racks.size(), dataCenterId);
 
         return RackStatisticsResponse.from(racks);
     }

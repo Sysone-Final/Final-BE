@@ -68,16 +68,16 @@ public class DeviceController {
     }
 
     /**
-     * 새로운 장치 생성
-     * 전산실에 새로운 장치 배치
-     * 장치 타입, 위치(gridX, gridY, gridZ), 회전 각도 등을 지정
+     * 장치 생성
+     * 새로운 장치를 전산실에 추가
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
-     * @param request 장치 생성 요청 (Validation 적용)
+     * @param request 장치 생성 요청 DTO
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> createDevice(@Valid @RequestBody DeviceCreateRequest request) {
+
         DeviceDetailResponse device = deviceService.createDevice(request);
         CommonResDto response = new CommonResDto(
                 HttpStatus.CREATED,
@@ -88,12 +88,12 @@ public class DeviceController {
     }
 
     /**
-     * 장치 정보 수정
-     * 장치의 기본 정보(이름, 모델, 제조사 등) 수정
+     * 장치 수정
+     * 기존 장치의 정보 업데이트
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
      * @param id 장치 ID
-     * @param request 장치 수정 요청 (Validation 적용)
+     * @param request 장치 수정 요청 DTO
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -111,18 +111,35 @@ public class DeviceController {
     }
 
     /**
-     * 장치 위치 업데이트
-     * 장치의 그리드 위치(gridX, gridY, gridZ) 및 회전 각도 변경
-     * 드래그 앤 드롭으로 장치 이동 시 사용
-     * 권한: ADMIN 또는 OPERATOR만 가능
-     *
-     * 변경사항: @PatchMapping → @PutMapping으로 변경
-     * 이유: PUT은 멱등성이 보장되며, 실무에서 더 안정적이고 명확한 의미 전달
+     * 장치 삭제 (소프트 삭제)
+     * 장치를 논리적으로 삭제
+     * 권한: ADMIN만 가능
      *
      * @param id 장치 ID
-     * @param request 위치 업데이트 요청 (Validation 적용)
      */
-    @PutMapping("/{id}/position")
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CommonResDto> deleteDevice(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id) {
+
+        deviceService.deleteDevice(id);
+        CommonResDto response = new CommonResDto(
+                HttpStatus.OK,
+                "장치 삭제 완료",
+                null
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 장치 위치 변경
+     * 전산실 내에서 장치의 그리드 위치 변경
+     * 권한: ADMIN 또는 OPERATOR만 가능
+     *
+     * @param id 장치 ID
+     * @param request 위치 변경 요청 DTO
+     */
+    @PatchMapping("/{id}/position")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> updateDevicePosition(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
@@ -131,7 +148,7 @@ public class DeviceController {
         DeviceDetailResponse device = deviceService.updateDevicePosition(id, request);
         CommonResDto response = new CommonResDto(
                 HttpStatus.OK,
-                "장치 위치 업데이트 완료",
+                "장치 위치 변경 완료",
                 device
         );
         return ResponseEntity.ok(response);
@@ -139,16 +156,13 @@ public class DeviceController {
 
     /**
      * 장치 상태 변경
-     * 장치의 작동 상태 변경 (NORMAL, WARNING, ERROR, MAINTENANCE, DECOMMISSIONED)
+     * 장치의 상태를 변경 (NORMAL, MAINTENANCE, ERROR 등)
      * 권한: ADMIN 또는 OPERATOR만 가능
      *
-     * 변경사항: @PatchMapping → @PutMapping으로 변경
-     * 이유: PUT은 멱등성이 보장되며, 실무에서 더 안정적이고 명확한 의미 전달
-     *
      * @param id 장치 ID
-     * @param request 상태 변경 요청 (Validation 적용)
+     * @param request 상태 변경 요청 DTO
      */
-    @PutMapping("/{id}/status")
+    @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> changeDeviceStatus(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
@@ -159,27 +173,6 @@ public class DeviceController {
                 HttpStatus.OK,
                 "장치 상태 변경 완료",
                 device
-        );
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * 장치 삭제
-     * 장치를 소프트 삭제 처리 (delYn = Y)
-     * 권한: ADMIN 또는 OPERATOR만 가능
-     *
-     * @param id 장치 ID
-     */
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
-    public ResponseEntity<CommonResDto> deleteDevice(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id) {
-
-        deviceService.deleteDevice(id);
-        CommonResDto response = new CommonResDto(
-                HttpStatus.OK,
-                "장치 삭제 완료",
-                null
         );
         return ResponseEntity.ok(response);
     }

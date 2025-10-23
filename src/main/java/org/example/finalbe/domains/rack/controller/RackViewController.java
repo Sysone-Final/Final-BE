@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.rack.controller;
 
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.common.dto.CommonResDto;
 import org.example.finalbe.domains.rack.dto.RackCardResponse;
@@ -9,19 +10,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.constraints.Min;
-
-
 
 import java.util.List;
 
 /**
  * 랙 뷰 & 통계 컨트롤러
  * 대시보드 및 통계 분석용
- *
- * 개선사항:
- * - Bean Validation 적용으로 선언적 검증
- * - Controller 검증 로직 제거
  */
 @RestController
 @RequestMapping("/racks")

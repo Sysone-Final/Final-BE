@@ -14,8 +14,6 @@ public record DepartmentDetailResponse(
         String departmentCode,
         String departmentName,
         String description,
-        Long parentDepartmentId,
-        Long managerId,
         String location,
         String phone,
         String email,
@@ -33,8 +31,6 @@ public record DepartmentDetailResponse(
                 .departmentCode(department.getDepartmentCode())
                 .departmentName(department.getDepartmentName())
                 .description(department.getDescription())
-                .parentDepartmentId(department.getParentDepartmentId())
-                .managerId(department.getManagerId())
                 .location(department.getLocation())
                 .phone(department.getPhone())
                 .email(department.getEmail())

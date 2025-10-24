@@ -156,7 +156,6 @@ public class DepartmentService {
                 request.location(),
                 request.phone(),
                 request.email(),
-                request.managerId(),
                 currentMember.getUserName()
         );
 

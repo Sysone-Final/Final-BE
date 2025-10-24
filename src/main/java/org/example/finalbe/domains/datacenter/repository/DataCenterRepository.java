@@ -20,10 +20,6 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
     @Query("SELECT dc FROM DataCenter dc WHERE dc.id = :id AND dc.delYn = 'N'")
     Optional<DataCenter> findActiveById(@Param("id") Long id);
 
-    // 코드로 조회 (삭제되지 않은 것만)
-    @Query("SELECT dc FROM DataCenter dc WHERE dc.code = :code AND dc.delYn = 'N'")
-    Optional<DataCenter> findByCode(@Param("code") String code);
-
     // 코드 중복 체크
     boolean existsByCodeAndDelYn(String code, DelYN delYn);
 

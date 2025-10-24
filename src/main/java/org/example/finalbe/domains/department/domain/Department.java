@@ -39,12 +39,6 @@ public class Department extends BaseTimeEntity {
     @Column(name = "description", length = 500)
     private String description;  // 부서 설명
 
-    @Column(name = "parent_department_id")
-    private Long parentDepartmentId;  // 상위 부서 ID (계층 구조 지원)
-
-    @Column(name = "manager_id")
-    private Long managerId;  // 부서장 ID (Member 참조)
-
     @Column(name = "location", length = 200)
     private String location;  // 부서 위치
 
@@ -78,13 +72,12 @@ public class Department extends BaseTimeEntity {
      * 부서 정보 수정
      */
     public void updateInfo(String departmentName, String description, String location,
-                           String phone, String email, Long managerId, String updatedBy) {
+                           String phone, String email, String updatedBy) {
         if (departmentName != null) this.departmentName = departmentName;
         if (description != null) this.description = description;
         if (location != null) this.location = location;
         if (phone != null) this.phone = phone;
         if (email != null) this.email = email;
-        if (managerId != null) this.managerId = managerId;
         this.updatedBy = updatedBy;
     }
 

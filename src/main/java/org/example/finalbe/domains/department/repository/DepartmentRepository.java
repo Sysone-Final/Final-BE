@@ -15,8 +15,6 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     @Query("SELECT d FROM Department d WHERE d.id = :id AND d.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
     Optional<Department> findActiveById(@Param("id") Long id);
 
-    Optional<Department> findByName(String departmentName);
-
     // 회사별 부서 목록 조회
     List<Department> findByCompanyIdAndDelYn(Long companyId, DelYN delYn);
 
@@ -32,13 +30,4 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
         ORDER BY d.departmentName
     """)
     List<Department> searchByNameInCompany(@Param("companyId") Long companyId, @Param("keyword") String keyword);
-
-    // 부서명으로 조회 (같은 회사 내)
-    Optional<Department> findByCompanyIdAndDepartmentNameAndDelYn(Long companyId, String departmentName, DelYN delYn);
-
-    // 상위 부서로 하위 부서 목록 조회
-    List<Department> findByParentDepartmentIdAndDelYn(Long parentDepartmentId, DelYN delYn);
-
-    // 부서장으로 부서 조회
-    List<Department> findByManagerIdAndDelYn(Long managerId, DelYN delYn);
 }

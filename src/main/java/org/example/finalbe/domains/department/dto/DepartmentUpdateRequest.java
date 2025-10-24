@@ -16,10 +16,6 @@ public record DepartmentUpdateRequest(
         @Size(max = 500, message = "설명은 500자를 초과할 수 없습니다.")
         String description,
 
-        Long parentDepartmentId,
-
-        Long managerId,
-
         @Size(max = 200, message = "위치는 200자를 초과할 수 없습니다.")
         String location,
 

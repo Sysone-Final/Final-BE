@@ -48,8 +48,6 @@ public record DepartmentCreateRequest(
                 .departmentCode(this.departmentCode)
                 .departmentName(this.departmentName)
                 .description(this.description)
-                .parentDepartmentId(this.parentDepartmentId)
-                .managerId(this.managerId)
                 .location(this.location)
                 .phone(this.phone)
                 .email(this.email)

@@ -10,11 +10,6 @@ import java.util.Optional;
 
 public interface RackDepartmentRepository extends JpaRepository<RackDepartment, Long> {
 
-    // 랙의 부서 목록 조회
-    List<RackDepartment> findByRackId(Long rackId);
-
-    // 부서의 랙 목록 조회
-    List<RackDepartment> findByDepartmentId(Long departmentId);
 
     // 랙의 주 담당 부서 조회
     Optional<RackDepartment> findByRackIdAndIsPrimary(Long rackId, Boolean isPrimary);
@@ -25,11 +20,6 @@ public interface RackDepartmentRepository extends JpaRepository<RackDepartment, 
     // 랙-부서 매핑 조회
     Optional<RackDepartment> findByRackIdAndDepartmentId(Long rackId, Long departmentId);
 
-    // 랙의 모든 부서 매핑 삭제
-    void deleteByRackId(Long rackId);
-
-    // 부서의 모든 랙 매핑 삭제
-    void deleteByDepartmentId(Long departmentId);
 
     // 특정 부서가 담당하는 랙 수 조회
     @Query("SELECT COUNT(rd) FROM RackDepartment rd WHERE rd.department.id = :departmentId")

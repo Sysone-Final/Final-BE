@@ -18,11 +18,6 @@ import java.util.List;
 
 /**
  * 부서 관리 컨트롤러
- *
- * 개선사항:
- * - Bean Validation 적용
- * - 모든 @PatchMapping을 @PutMapping으로 변경
- * - 부서별 랙 조회 기능 추가
  */
 @RestController
 @RequestMapping("/departments")

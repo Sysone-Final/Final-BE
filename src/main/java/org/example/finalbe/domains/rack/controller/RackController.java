@@ -38,21 +38,17 @@ public class RackController {
      * 권한: 모든 사용자 접근 가능
      *
      * @param dataCenterId 전산실 ID
-     * @param status 랙 상태 (optional)
-     * @param departmentId 부서 ID (optional) - 드롭다운에서 선택한 부서 ID
-     * @param sortBy 정렬 기준 (name, usage, power)
      */
     @GetMapping("/datacenter/{dataCenterId}")
     public ResponseEntity<CommonResDto> getRacksByDataCenter(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId,
+            @PathVariable Long dataCenterId,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false, defaultValue = "name") String sortBy) {
 
-        List<RackListResponse> racks = rackService.getRacksByDataCenter(dataCenterId);
+        List<RackListResponse> racks = rackService.getRacksByDataCenter(
+                dataCenterId, status, sortBy);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 목록 조회 완료", racks));
     }
-
     /**
      * 랙 상세 조회
      * 권한: 모든 사용자 접근 가능

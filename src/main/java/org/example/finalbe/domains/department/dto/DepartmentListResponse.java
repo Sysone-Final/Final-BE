@@ -14,8 +14,6 @@ public record DepartmentListResponse(
         String departmentCode,
         String departmentName,
         String description,
-        Long parentDepartmentId,
-        Long managerId,
         String location,
         Integer employeeCount,
         String companyName,
@@ -27,8 +25,6 @@ public record DepartmentListResponse(
                 .departmentCode(department.getDepartmentCode())
                 .departmentName(department.getDepartmentName())
                 .description(department.getDescription())
-                .parentDepartmentId(department.getParentDepartmentId())
-                .managerId(department.getManagerId())
                 .location(department.getLocation())
                 .employeeCount(department.getEmployeeCount())
                 .companyName(department.getCompany().getName())

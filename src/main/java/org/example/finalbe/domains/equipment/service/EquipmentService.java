@@ -93,8 +93,6 @@ public class EquipmentService {
             throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
         }
 
-        Rack rack = rackRepository.findActiveById(rackId)
-                .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
         List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
 

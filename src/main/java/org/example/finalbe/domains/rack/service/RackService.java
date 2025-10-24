@@ -22,6 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -90,19 +91,25 @@ public class RackService {
     /**
      * 랙 목록 조회
      */
-    public List<RackListResponse> getRacksByDataCenter(Long dataCenterId) {
-        Member currentMember = getCurrentMember();
-        log.debug("Fetching racks for datacenter: {}", dataCenterId);
 
-        // 접근 권한 확인
-        if (currentMember.getRole() != Role.ADMIN) {
-            if (!dataCenterRepository.hasAccessToDataCenter(
-                    currentMember.getCompany().getId(), dataCenterId)) {
-                throw new AccessDeniedException("해당 전산실에 대한 접근 권한이 없습니다.");
-            }
-        }
+    public List<RackListResponse> getRacksByDataCenter(
+            Long dataCenterId, String status, String sortBy) {
 
         List<Rack> racks = rackRepository.findByDatacenterIdAndDelYn(dataCenterId, DelYN.N);
+
+        // 필터링
+        if (status != null) {
+            racks = racks.stream()
+                    .filter(r -> r.getStatus().name().equals(status))
+                    .collect(Collectors.toList());
+        }
+
+        // 정렬
+        if ("usage".equals(sortBy)) {
+            racks.sort(Comparator.comparing(Rack::getUsageRate).reversed());
+        } else if ("power".equals(sortBy)) {
+            racks.sort(Comparator.comparing(Rack::getPowerUsageRate).reversed());
+        }
 
         return racks.stream()
                 .map(RackListResponse::from)

@@ -5,15 +5,15 @@ spring:
   datasource:
     driver-class-name: org.postgresql.Driver
     url: ${DB_URL}
-    username: ${DB_USERNAME}
+    userName: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 30000
-      idle-timeout: 300000
-      max-lifetime: 300000
-      keepalive-time: 60000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      keepalive-time: 300000
       validation-timeout: 5000
       connection-test-query: SELECT 1
       leak-detection-threshold: 60000
@@ -47,10 +47,14 @@ jwt:
   access-token-validity: 3600000
   refresh-token-validity: 604800000
 
+# Cookie Secure 설정
+cookie:
+  secure: false  # 개발 환경: false, 프로덕션 환경: true
+
 logging:
   level:
     root: INFO
     com.finalbe: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     com.zaxxer.hikari: WARN

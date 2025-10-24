@@ -9,6 +9,7 @@ import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.enumdir.UserStatus;
 import org.example.finalbe.domains.company.domain.Company;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @NoArgsConstructor
@@ -21,7 +22,7 @@ public class Member extends BaseTimeEntity {
     @Column(name = "member_id", length = 50)
     private Long id;
 
-    @Column(name = "username", nullable = false, length = 100)
+    @Column(name = "userName", nullable = false, length = 100)
     private String userName;
 
     @Column(name = "password", nullable = false, length = 250)
@@ -50,4 +51,7 @@ public class Member extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
+
+    @Column(name = "department")
+    private String department;
 }

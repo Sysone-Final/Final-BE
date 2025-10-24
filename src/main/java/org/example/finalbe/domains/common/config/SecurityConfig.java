@@ -1,4 +1,3 @@
-// src/main/java/org/example/finalbe/domains/common/config/SecurityConfig.java
 package org.example.finalbe.domains.common.config;
 
 import lombok.RequiredArgsConstructor;
@@ -29,19 +28,27 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 인증 관련 - 인증 불필요
-                        .requestMatchers("/auth/signup", "/auth/login").permitAll()
+                        .requestMatchers("/auth/signup", "/auth/login", "/auth/refresh").permitAll()  // 🆕 refresh 추가
 
                         // 회원가입 시 회사 목록 조회 허용
                         .requestMatchers(HttpMethod.GET, "/companies").permitAll()
 
-                        // 회사 API - 인증 필요 (세부 권한은 @PreAuthorize로 제어)
+                        // 회사 API - 인증 필요
                         .requestMatchers("/companies/**").authenticated()
 
-                        // 전산실 API - 인증 필요 (세부 권한은 @PreAuthorize로 제어)
+                        // 전산실 API - 인증 필요
                         .requestMatchers("/datacenters/**").authenticated()
 
-                        // 회사-전산실 매핑 API - 인증 필요 (세부 권한은 @PreAuthorize로 제어)
+                        // 회사-전산실 매핑 API - 인증 필요
                         .requestMatchers("/company-datacenters/**").authenticated()
+
+                        .requestMatchers("/equipments/**").authenticated()
+
+                        .requestMatchers("/devices/**").authenticated()
+
+                        .requestMatchers("/device-types/**").authenticated()
+
+                        .requestMatchers("/departments/**").authenticated()
 
                         // 그 외 모든 요청 - 인증 필요
                         .anyRequest().authenticated()

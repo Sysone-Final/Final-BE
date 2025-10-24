@@ -1,5 +1,7 @@
 package org.example.finalbe.domains.member.service;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.company.domain.Company;
@@ -12,6 +14,7 @@ import org.example.finalbe.domains.common.config.JwtTokenProvider;
 import org.example.finalbe.domains.common.enumdir.UserStatus;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,12 +34,24 @@ public class MemberAuthService {
     private final StringRedisTemplate redisTemplate;
     private final CompanyRepository companyRepository;
 
+    // Cookie Secure 설정 (환경별 동적 설정)
+    @Value("${cookie.secure:false}")
+    private boolean cookieSecure;
+
+    // Redis Key Prefix 상수
+    private static final String REFRESH_TOKEN_PREFIX = "RT:";
+    private static final String BLACKLIST_PREFIX = "BLACKLIST:";
+
+    // Cookie 설정 상수
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
+    private static final int REFRESH_TOKEN_COOKIE_AGE = 7 * 24 * 60 * 60; // 7일
+
     @Transactional
     public MemberSignupResponse signup(MemberSignupRequest request) {
-        log.info("Signup attempt for username: {}", request.username());
+        log.info("Signup attempt for userName: {}", request.userName());
 
         // 입력값 검증
-        if (request.username() == null || request.username().trim().isEmpty()) {
+        if (request.userName() == null || request.userName().trim().isEmpty()) {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
         }
         if (request.password() == null || request.password().trim().isEmpty()) {
@@ -47,8 +62,8 @@ public class MemberAuthService {
         }
 
         // 중복 검증
-        if (memberRepository.existsByUsername(request.username())) {
-            throw new DuplicateException("아이디", request.username());
+        if (memberRepository.existsByUserName(request.userName())) {
+            throw new DuplicateException("아이디", request.userName());
         }
         if (request.email() != null && !request.email().trim().isEmpty()
                 && memberRepository.existsByEmail(request.email())) {
@@ -63,7 +78,6 @@ public class MemberAuthService {
         Company company = companyRepository.findActiveById(request.companyId())
                 .orElseThrow(() -> new EntityNotFoundException("회사", request.companyId()));
 
-        // DTO의 toEntity 메서드로 Member 엔티티 생성
         Member member = request.toEntity(
                 passwordEncoder.encode(request.password()),
                 company
@@ -71,26 +85,29 @@ public class MemberAuthService {
 
         memberRepository.save(member);
 
-        log.info("Member created successfully: username={}, company={}",
-                member.getUsername(), company.getName());
+        log.info("Member created successfully: userName={}, company={}",
+                member.getUserName(), company.getName());
 
-        // DTO의 from 메서드로 Response 생성
         return MemberSignupResponse.from(member, "회원가입이 완료되었습니다.");
     }
 
-    public MemberLoginResponse login(MemberLoginRequest request) {
-        log.info("Login attempt for username: {}", request.username());
+    /**
+     * 로그인 (httpOnly Cookie 적용)
+     */
+    @Transactional
+    public MemberLoginResponse login(MemberLoginRequest request, HttpServletResponse response) {
+        log.info("Login attempt for userName: {}", request.userName());
 
         // 입력값 검증
-        if (request.username() == null || request.username().trim().isEmpty()) {
+        if (request.userName() == null || request.userName().trim().isEmpty()) {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
         }
         if (request.password() == null || request.password().trim().isEmpty()) {
             throw new IllegalArgumentException("비밀번호를 입력해주세요.");
         }
 
-        // 사용자 조회 (삭제되지 않은 사용자만)
-        Member member = memberRepository.findActiveByUsername(request.username())
+        // 사용자 조회
+        Member member = memberRepository.findActiveByUserName(request.userName())
                 .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다."));
 
         // 비밀번호 검증
@@ -107,46 +124,166 @@ public class MemberAuthService {
         String accessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getRole().name());
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
 
-        log.info("Login successful: username={}, company={}",
-                member.getUsername(), member.getCompany().getName());
+        // Redis에 Refresh Token 저장
+        try {
+            redisTemplate.opsForValue().set(
+                    REFRESH_TOKEN_PREFIX + member.getId(),
+                    refreshToken,
+                    Duration.ofDays(7)
+            );
+            log.info("Refresh token saved to Redis for user: {}", member.getId());
+        } catch (Exception e) {
+            log.error("Failed to save refresh token to Redis", e);
+        }
 
-        // DTO의 from 메서드로 Response 생성
-        return MemberLoginResponse.from(member, accessToken, refreshToken);
+        // Refresh Token을 httpOnly Cookie로 설정
+        Cookie refreshTokenCookie = createRefreshTokenCookie(refreshToken);
+        response.addCookie(refreshTokenCookie);
+
+        log.info("Login successful: userName={}, company={}",
+                member.getUserName(), member.getCompany().getName());
+
+        // Access Token만 반환 (Refresh Token은 Cookie로 전달)
+        return MemberLoginResponse.from(member, accessToken);
     }
 
-    public MemberLogoutResponse logout(String token) {
+    /**
+     * 로그아웃 (Cookie 삭제 포함)
+     */
+    @Transactional
+    public MemberLogoutResponse logout(String accessToken, String refreshToken, HttpServletResponse response) {
         log.info("Logout attempt");
 
-        // 토큰 형식 검증
-        if (token == null || token.trim().isEmpty()) {
-            throw new InvalidTokenException("토큰이 제공되지 않았습니다.");
+        // Access Token 형식 검증
+        if (accessToken == null || accessToken.trim().isEmpty()) {
+            throw new InvalidTokenException("Access Token이 제공되지 않았습니다.");
         }
 
-        if (token.startsWith("Bearer ")) {
-            token = token.substring(7);
+        if (accessToken.startsWith("Bearer ")) {
+            accessToken = accessToken.substring(7);
         }
 
-        // 토큰 유효성 검증
-        if (!jwtTokenProvider.validateToken(token)) {
+        // Access Token 유효성 검증
+        if (!jwtTokenProvider.validateToken(accessToken)) {
             throw new InvalidTokenException();
         }
 
         // 사용자 ID 추출
-        String userId = jwtTokenProvider.getUserId(token);
+        String userId = jwtTokenProvider.getUserId(accessToken);
 
-        // Redis에 블랙리스트 등록
         try {
+            // Access Token 블랙리스트 등록
             redisTemplate.opsForValue().set(
-                    "BLACKLIST:" + token,
+                    BLACKLIST_PREFIX + accessToken,
                     userId,
                     Duration.ofHours(1)
             );
+
+            // Refresh Token 삭제
+            redisTemplate.delete(REFRESH_TOKEN_PREFIX + userId);
+
+            // Refresh Token Cookie 삭제
+            Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, null);
+            cookie.setHttpOnly(true);
+            cookie.setSecure(cookieSecure);  // 🆕 동적 설정
+            cookie.setPath("/");
+            cookie.setMaxAge(0);  // 즉시 삭제
+            response.addCookie(cookie);
+
+            log.info("Logout successful for user: {} (Access Token blacklisted, Refresh Token deleted, Cookie cleared)", userId);
         } catch (Exception e) {
-            log.error("Failed to add token to blacklist", e);
+            log.error("Failed to process logout in Redis", e);
             throw new IllegalStateException("로그아웃 처리 중 오류가 발생했습니다.");
         }
 
-        log.info("Logout successful for user: {}", userId);
         return MemberLogoutResponse.of("로그아웃 성공");
+    }
+
+    /**
+     * 토큰 재발급 (Cookie 갱신 포함)
+     */
+    @Transactional
+    public TokenRefreshResponse refreshAccessToken(String refreshToken, HttpServletResponse response) {
+        log.info("Token refresh attempt");
+
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            throw new InvalidTokenException("Refresh Token이 제공되지 않았습니다.");
+        }
+
+        // Refresh Token 유효성 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new InvalidTokenException("유효하지 않은 Refresh Token입니다.");
+        }
+
+        // Refresh Token에서 사용자 ID 추출
+        String userId = jwtTokenProvider.getUserId(refreshToken);
+
+        // Redis에서 저장된 Refresh Token 조회
+        String savedRefreshToken = redisTemplate.opsForValue().get(REFRESH_TOKEN_PREFIX + userId);
+
+        // Redis에 없거나 일치하지 않으면 에러
+        if (savedRefreshToken == null) {
+            throw new InvalidTokenException("만료되었거나 존재하지 않는 Refresh Token입니다.");
+        }
+
+        if (!savedRefreshToken.equals(refreshToken)) {
+            log.warn("Refresh token mismatch for user: {}", userId);
+            throw new InvalidTokenException("유효하지 않은 Refresh Token입니다.");
+        }
+
+        // 사용자 정보 조회
+        Member member = memberRepository.findById(Long.parseLong(userId))
+                .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
+
+        // 계정 상태 확인
+        if (member.getStatus() != UserStatus.ACTIVE) {
+            throw new IllegalStateException("비활성화된 계정입니다.");
+        }
+
+        // 새로운 Access Token 생성
+        String newAccessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getRole().name());
+
+        // 새 Refresh Token 생성 (RTR)
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(member.getId());
+
+        try {
+            // Redis에 새 Refresh Token 갱신
+            redisTemplate.opsForValue().set(
+                    REFRESH_TOKEN_PREFIX + member.getId(),
+                    newRefreshToken,
+                    Duration.ofDays(7)
+            );
+
+            // 새 Refresh Token을 Cookie로 갱신
+            Cookie refreshTokenCookie = createRefreshTokenCookie(newRefreshToken);
+            response.addCookie(refreshTokenCookie);
+
+            log.info("Token refresh successful for user: {} (new tokens issued, cookie updated)", userId);
+        } catch (Exception e) {
+            log.error("Failed to update refresh token in Redis", e);
+            throw new IllegalStateException("토큰 재발급 중 오류가 발생했습니다.");
+        }
+
+        // Access Token만 반환 (Refresh Token은 Cookie로 전달)
+        return TokenRefreshResponse.of(newAccessToken);
+    }
+
+    /**
+     * Refresh Token Cookie 생성 헬퍼 메서드
+     *
+     * 변경사항: Secure 설정을 환경변수로 동적 관리
+     * - 개발 환경(HTTP): cookieSecure = false
+     * - 프로덕션 환경(HTTPS): cookieSecure = true
+     */
+    private Cookie createRefreshTokenCookie(String refreshToken) {
+        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken);
+        cookie.setHttpOnly(true);   // JS 접근 불가 (XSS 방어)
+        cookie.setSecure(cookieSecure);  // 환경별 동적 설정 (개발: false, 프로덕션: true)
+        cookie.setPath("/");        // 모든 경로에서 전송
+        cookie.setMaxAge(REFRESH_TOKEN_COOKIE_AGE);  // 7일
+        // cookie.setSameSite("Strict");  // CSRF 방어 (Spring 6+)
+
+        log.debug("Cookie created: secure={}", cookieSecure);
+        return cookie;
     }
 }

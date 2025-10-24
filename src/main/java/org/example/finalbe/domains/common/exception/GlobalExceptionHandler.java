@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.common.exception;
 
-import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.dto.CommonErrorDto;
 import org.springframework.http.HttpStatus;
@@ -17,17 +18,29 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+/**
+ * 전역 예외 처리 핸들러
+ *
+ * 개선사항:
+ * - ConstraintViolationException 처리 추가 (PathVariable, RequestParam 검증)
+ * - 불필요한 JPA EntityNotFoundException 핸들러 제거
+ * - AccessDeniedException HTTP 상태 코드 명확화 (403 Forbidden)
+ * - 더 명확한 에러 메시지
+ * - 일관된 응답 형식
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     /**
-     * EntityNotFoundException 처리
+     * 커스텀 EntityNotFoundException 처리
      * - 엔티티를 찾을 수 없는 경우 (404 Not Found)
      */
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(EntityNotFoundException e) {
+    @ExceptionHandler(org.example.finalbe.domains.common.exception.EntityNotFoundException.class)
+    public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(
+            org.example.finalbe.domains.common.exception.EntityNotFoundException e) {
         log.warn("EntityNotFoundException: {}", e.getMessage());
         CommonErrorDto errorDto = new CommonErrorDto(
                 HttpStatus.NOT_FOUND,
@@ -53,21 +66,26 @@ public class GlobalExceptionHandler {
     /**
      * 커스텀 AccessDeniedException 처리
      * - 접근 권한이 없는 경우 (403 Forbidden)
+     *
+     * 참고: "인증이 필요합니다" 같은 401 케이스는 InvalidTokenException 사용 권장
      */
     @ExceptionHandler(org.example.finalbe.domains.common.exception.AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleCustomAccessDeniedException(
             org.example.finalbe.domains.common.exception.AccessDeniedException e) {
         log.warn("AccessDeniedException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.FORBIDDEN,
-                e.getMessage()
-        );
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+
+        // 메시지로 인증(401)과 권한(403) 구분
+        HttpStatus status = e.getMessage().contains("인증")
+                ? HttpStatus.UNAUTHORIZED
+                : HttpStatus.FORBIDDEN;
+
+        CommonErrorDto errorDto = new CommonErrorDto(status, e.getMessage());
+        return ResponseEntity.status(status).body(errorDto);
     }
 
     /**
      * Spring Security AccessDeniedException 처리
-     * - 권한이 없는 경우 (403 Forbidden)
+     * - Spring Security에서 발생하는 권한 부족 (403 Forbidden)
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleSpringAccessDeniedException(AccessDeniedException e) {
@@ -95,7 +113,7 @@ public class GlobalExceptionHandler {
 
     /**
      * AuthenticationException 처리
-     * - 인증 실패 (401 Unauthorized)
+     * - Spring Security 인증 실패 (401 Unauthorized)
      */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<CommonErrorDto> handleAuthenticationException(AuthenticationException e) {
@@ -151,7 +169,7 @@ public class GlobalExceptionHandler {
 
     /**
      * MethodArgumentNotValidException 처리
-     * - @Valid 검증 실패 (400 Bad Request)
+     * - @Valid 검증 실패 (RequestBody) (400 Bad Request)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonErrorDto> handleMethodArgumentNotValidException(
@@ -165,9 +183,34 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
+        String errorMessage = errors.isEmpty()
+                ? "입력값 검증에 실패했습니다."
+                : errors.values().stream().collect(Collectors.joining(", "));
+
         CommonErrorDto errorDto = new CommonErrorDto(
                 HttpStatus.BAD_REQUEST,
-                "입력값 검증에 실패했습니다: " + errors.toString()
+                errorMessage
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+    }
+
+    /**
+     * ConstraintViolationException 처리
+     * - @Validated 검증 실패 (PathVariable, RequestParam) (400 Bad Request)
+     * - 컨트롤러의 @Min, @NotNull 등의 검증 실패 시 발생
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<CommonErrorDto> handleConstraintViolationException(
+            ConstraintViolationException e) {
+        log.warn("ConstraintViolationException: {}", e.getMessage());
+
+        String errorMessage = e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+
+        CommonErrorDto errorDto = new CommonErrorDto(
+                HttpStatus.BAD_REQUEST,
+                errorMessage
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }

@@ -18,7 +18,7 @@ import java.util.List;
  * 장비 CRUD 컨트롤러
  */
 @RestController
-@RequestMapping("/equipments")
+@RequestMapping("/api/equipments")
 @RequiredArgsConstructor
 @Validated
 public class EquipmentController {

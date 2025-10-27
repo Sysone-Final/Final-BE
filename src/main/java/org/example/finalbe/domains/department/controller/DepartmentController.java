@@ -20,7 +20,7 @@ import java.util.List;
  * 부서 관리 컨트롤러
  */
 @RestController
-@RequestMapping("/departments")
+@RequestMapping("/api/departments")
 @RequiredArgsConstructor
 @Validated
 public class DepartmentController {

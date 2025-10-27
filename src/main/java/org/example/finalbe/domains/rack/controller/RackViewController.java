@@ -18,7 +18,7 @@ import java.util.List;
  * 대시보드 및 통계 분석용
  */
 @RestController
-@RequestMapping("/racks")
+@RequestMapping("/api/racks")
 @RequiredArgsConstructor
 @Validated
 public class RackViewController {

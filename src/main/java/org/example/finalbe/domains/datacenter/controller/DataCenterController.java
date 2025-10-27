@@ -23,7 +23,7 @@ import java.util.List;
  * - Controller 중복 검증 제거
  */
 @RestController
-@RequestMapping("/datacenters")
+@RequestMapping("/api/datacenters")
 @RequiredArgsConstructor
 @Validated
 public class DataCenterController {

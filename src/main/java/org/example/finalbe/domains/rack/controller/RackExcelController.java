@@ -19,7 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
  * Excel 내보내기 및 일괄 등록
  */
 @RestController
-@RequestMapping("/racks")
+@RequestMapping("/api/racks")
 @RequiredArgsConstructor
 @Validated
 public class RackExcelController {

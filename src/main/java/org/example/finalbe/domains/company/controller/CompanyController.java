@@ -24,7 +24,7 @@ import java.util.List;
  * - 선언적 파라미터 검증
  */
 @RestController
-@RequestMapping("/companies")
+@RequestMapping("/api/companies")
 @RequiredArgsConstructor
 @Validated
 public class CompanyController {

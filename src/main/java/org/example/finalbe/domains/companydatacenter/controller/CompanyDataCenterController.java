@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/company-datacenters")
+@RequestMapping("/api/company-datacenters")
 @RequiredArgsConstructor
 public class CompanyDataCenterController {
 

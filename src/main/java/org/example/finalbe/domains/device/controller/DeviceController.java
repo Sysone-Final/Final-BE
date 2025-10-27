@@ -21,7 +21,7 @@ import java.util.List;
  * - @PatchMapping을 @PutMapping으로 변경
  */
 @RestController
-@RequestMapping("/devices")
+@RequestMapping("/api/devices")
 @RequiredArgsConstructor
 @Validated
 public class DeviceController {

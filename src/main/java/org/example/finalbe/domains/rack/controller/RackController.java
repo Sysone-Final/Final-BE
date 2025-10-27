@@ -17,15 +17,9 @@ import java.util.List;
 
 /**
  * 랙 기본 CRUD 컨트롤러
- *
- * 개선사항:
- * - Bean Validation 적용
- * - department를 ID 기반으로 변경 (드롭다운 선택용)
- * - 모든 서비스 메서드 활용
- * - 중복 검증 제거
  */
 @RestController
-@RequestMapping("/racks")
+@RequestMapping("/api/racks")
 @RequiredArgsConstructor
 @Validated
 public class RackController {

@@ -21,7 +21,7 @@ import java.util.List;
  * server, door, climatic_chamber, fire_extinguisher, thermometer, aircon 등의 타입 관리
  */
 @RestController
-@RequestMapping("/device-types")
+@RequestMapping("/api/device-types")
 @RequiredArgsConstructor
 @Validated
 public class DeviceTypeController {

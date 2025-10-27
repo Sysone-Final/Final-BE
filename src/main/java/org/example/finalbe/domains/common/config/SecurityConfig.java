@@ -28,7 +28,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 인증 관련 - 인증 불필요
-                        .requestMatchers("/auth/signup", "/auth/login", "/auth/refresh").permitAll()  // 🆕 refresh 추가
+                        .requestMatchers("/auth/signup", "/auth/login", "/auth/refresh").permitAll()
 
                         // 회원가입 시 회사 목록 조회 허용
                         .requestMatchers(HttpMethod.GET, "/companies").permitAll()
@@ -44,7 +44,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/equipments/**").authenticated()
 
-                        .requestMatchers("/devices/**").authenticated()
+                        .requestMatchers("/devices/**").permitAll()
 
                         .requestMatchers("/device-types/**").authenticated()
 

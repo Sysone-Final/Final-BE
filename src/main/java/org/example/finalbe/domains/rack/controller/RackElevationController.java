@@ -19,7 +19,7 @@ import java.util.Map;
  * 실장도(Elevation View): 랙의 1U~42U 유닛을 시각적으로 표시
  */
 @RestController
-@RequestMapping("/racks")
+@RequestMapping("/api/racks")
 @RequiredArgsConstructor
 @Validated
 public class RackElevationController {

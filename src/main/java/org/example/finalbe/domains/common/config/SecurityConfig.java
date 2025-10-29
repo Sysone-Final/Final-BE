@@ -28,27 +28,27 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 인증 관련 - 인증 불필요
-                        .requestMatchers("/auth/signup", "/auth/login", "/auth/refresh").permitAll()
+                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/refresh").permitAll()
 
                         // 회원가입 시 회사 목록 조회 허용
-                        .requestMatchers(HttpMethod.GET, "/companies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
 
                         // 회사 API - 인증 필요
-                        .requestMatchers("/companies/**").authenticated()
+                        .requestMatchers("/api/companies/**").authenticated()
 
                         // 전산실 API - 인증 필요
-                        .requestMatchers("/datacenters/**").authenticated()
+                        .requestMatchers("/api/datacenters/**").authenticated()
 
                         // 회사-전산실 매핑 API - 인증 필요
-                        .requestMatchers("/company-datacenters/**").authenticated()
+                        .requestMatchers("/api/company-datacenters/**").authenticated()
 
-                        .requestMatchers("/equipments/**").authenticated()
+                        .requestMatchers("/api/equipments/**").authenticated()
 
-                        .requestMatchers("/devices/**").permitAll()
+                        .requestMatchers("/api/devices/**").permitAll()
 
-                        .requestMatchers("/device-types/**").authenticated()
+                        .requestMatchers("/api/device-types/**").authenticated()
 
-                        .requestMatchers("/departments/**").authenticated()
+                        .requestMatchers("/api/departments/**").authenticated()
 
                         // 그 외 모든 요청 - 인증 필요
                         .anyRequest().authenticated()

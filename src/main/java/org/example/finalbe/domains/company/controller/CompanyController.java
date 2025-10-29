@@ -31,7 +31,6 @@ import java.util.List;
  */
 @RestController // @Controller + @ResponseBody: 모든 메서드가 JSON 응답 반환
 @RequestMapping("/api/companies") // 이 컨트롤러의 모든 API는 /api/companies로 시작
-// 예: GET /api/companies, POST /api/companies, GET /api/companies/{id}
 @RequiredArgsConstructor // final 필드에 대한 생성자 자동 생성 (의존성 주입)
 @Validated // 메서드 파라미터 검증 활성화 (@Min, @NotBlank 등)
 // @Validated를 클래스 레벨에 추가해야 @PathVariable, @RequestParam 검증 가능

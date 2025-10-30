@@ -22,154 +22,116 @@ import java.util.stream.Collectors;
 
 /**
  * 전역 예외 처리 핸들러
- *
- * 개선사항:
- * - ConstraintViolationException 처리 추가 (PathVariable, RequestParam 검증)
- * - 불필요한 JPA EntityNotFoundException 핸들러 제거
- * - AccessDeniedException HTTP 상태 코드 명확화 (403 Forbidden)
- * - 더 명확한 에러 메시지
- * - 일관된 응답 형식
+ * 애플리케이션에서 발생하는 모든 예외를 일관된 형식으로 처리
  */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     /**
-     * 커스텀 EntityNotFoundException 처리
-     * - 엔티티를 찾을 수 없는 경우 (404 Not Found)
+     * EntityNotFoundException 처리
+     * 404 Not Found
      */
-    @ExceptionHandler(org.example.finalbe.domains.common.exception.EntityNotFoundException.class)
-    public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(
-            org.example.finalbe.domains.common.exception.EntityNotFoundException e) {
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(EntityNotFoundException e) {
         log.warn("EntityNotFoundException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.NOT_FOUND,
-                e.getMessage()
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.NOT_FOUND, e.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
     }
 
     /**
      * DuplicateException 처리
-     * - 중복된 데이터가 존재하는 경우 (409 Conflict)
+     * 409 Conflict
      */
     @ExceptionHandler(DuplicateException.class)
     public ResponseEntity<CommonErrorDto> handleDuplicateException(DuplicateException e) {
         log.warn("DuplicateException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.CONFLICT,
-                e.getMessage()
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.CONFLICT, e.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
     }
 
     /**
      * 커스텀 AccessDeniedException 처리
-     * - 접근 권한이 없는 경우 (403 Forbidden)
-     *
-     * 참고: "인증이 필요합니다" 같은 401 케이스는 InvalidTokenException 사용 권장
+     * 401 Unauthorized 또는 403 Forbidden
      */
     @ExceptionHandler(org.example.finalbe.domains.common.exception.AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleCustomAccessDeniedException(
             org.example.finalbe.domains.common.exception.AccessDeniedException e) {
         log.warn("AccessDeniedException: {}", e.getMessage());
-
-        // 메시지로 인증(401)과 권한(403) 구분
-        HttpStatus status = e.getMessage().contains("인증")
-                ? HttpStatus.UNAUTHORIZED
-                : HttpStatus.FORBIDDEN;
-
+        HttpStatus status = e.getMessage().contains("인증") ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN;
         CommonErrorDto errorDto = new CommonErrorDto(status, e.getMessage());
         return ResponseEntity.status(status).body(errorDto);
     }
 
     /**
      * Spring Security AccessDeniedException 처리
-     * - Spring Security에서 발생하는 권한 부족 (403 Forbidden)
+     * 403 Forbidden
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleSpringAccessDeniedException(AccessDeniedException e) {
         log.warn("Spring AccessDeniedException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.FORBIDDEN,
-                "접근 권한이 없습니다."
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.FORBIDDEN, "접근 권한이 없습니다.");
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
     }
 
     /**
      * InvalidTokenException 처리
-     * - 유효하지 않은 토큰 (401 Unauthorized)
+     * 401 Unauthorized
      */
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<CommonErrorDto> handleInvalidTokenException(InvalidTokenException e) {
         log.warn("InvalidTokenException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.UNAUTHORIZED,
-                e.getMessage()
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.UNAUTHORIZED, e.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorDto);
     }
 
     /**
      * AuthenticationException 처리
-     * - Spring Security 인증 실패 (401 Unauthorized)
+     * 401 Unauthorized
      */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<CommonErrorDto> handleAuthenticationException(AuthenticationException e) {
         log.warn("AuthenticationException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.UNAUTHORIZED,
-                "인증에 실패했습니다."
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.UNAUTHORIZED, "인증에 실패했습니다.");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorDto);
     }
 
     /**
      * BusinessException 처리
-     * - 비즈니스 로직 오류 (400 Bad Request)
+     * 400 Bad Request
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<CommonErrorDto> handleBusinessException(BusinessException e) {
         log.warn("BusinessException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.BAD_REQUEST,
-                e.getMessage()
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.BAD_REQUEST, e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
     /**
      * IllegalArgumentException 처리
-     * - 잘못된 인자 (400 Bad Request)
+     * 400 Bad Request
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<CommonErrorDto> handleIllegalArgumentException(IllegalArgumentException e) {
         log.warn("IllegalArgumentException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.BAD_REQUEST,
-                e.getMessage()
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.BAD_REQUEST, e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
     /**
      * IllegalStateException 처리
-     * - 잘못된 상태 (400 Bad Request)
+     * 400 Bad Request
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<CommonErrorDto> handleIllegalStateException(IllegalStateException e) {
         log.warn("IllegalStateException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.BAD_REQUEST,
-                e.getMessage()
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.BAD_REQUEST, e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
     /**
      * MethodArgumentNotValidException 처리
-     * - @Valid 검증 실패 (RequestBody) (400 Bad Request)
+     * @Valid 검증 실패 (400 Bad Request)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonErrorDto> handleMethodArgumentNotValidException(
@@ -187,17 +149,13 @@ public class GlobalExceptionHandler {
                 ? "입력값 검증에 실패했습니다."
                 : errors.values().stream().collect(Collectors.joining(", "));
 
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.BAD_REQUEST,
-                errorMessage
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.BAD_REQUEST, errorMessage);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
     /**
      * ConstraintViolationException 처리
-     * - @Validated 검증 실패 (PathVariable, RequestParam) (400 Bad Request)
-     * - 컨트롤러의 @Min, @NotNull 등의 검증 실패 시 발생
+     * @Validated 검증 실패 (400 Bad Request)
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<CommonErrorDto> handleConstraintViolationException(
@@ -208,31 +166,25 @@ public class GlobalExceptionHandler {
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.joining(", "));
 
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.BAD_REQUEST,
-                errorMessage
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.BAD_REQUEST, errorMessage);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
     /**
      * HttpMessageNotReadableException 처리
-     * - JSON 파싱 오류 (400 Bad Request)
+     * JSON 파싱 오류 (400 Bad Request)
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<CommonErrorDto> handleHttpMessageNotReadableException(
             HttpMessageNotReadableException e) {
         log.warn("HttpMessageNotReadableException: {}", e.getMessage());
-        CommonErrorDto errorDto = new CommonErrorDto(
-                HttpStatus.BAD_REQUEST,
-                "요청 데이터 형식이 올바르지 않습니다."
-        );
+        CommonErrorDto errorDto = new CommonErrorDto(HttpStatus.BAD_REQUEST, "요청 데이터 형식이 올바르지 않습니다.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
     /**
      * MissingServletRequestParameterException 처리
-     * - 필수 파라미터 누락 (400 Bad Request)
+     * 필수 파라미터 누락 (400 Bad Request)
      */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<CommonErrorDto> handleMissingServletRequestParameterException(
@@ -247,7 +199,7 @@ public class GlobalExceptionHandler {
 
     /**
      * MethodArgumentTypeMismatchException 처리
-     * - 타입 불일치 (400 Bad Request)
+     * 타입 불일치 (400 Bad Request)
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<CommonErrorDto> handleMethodArgumentTypeMismatchException(
@@ -262,7 +214,7 @@ public class GlobalExceptionHandler {
 
     /**
      * NullPointerException 처리
-     * - Null 참조 오류 (500 Internal Server Error)
+     * 500 Internal Server Error
      */
     @ExceptionHandler(NullPointerException.class)
     public ResponseEntity<CommonErrorDto> handleNullPointerException(NullPointerException e) {
@@ -276,7 +228,7 @@ public class GlobalExceptionHandler {
 
     /**
      * 일반 Exception 처리
-     * - 예상하지 못한 모든 예외 (500 Internal Server Error)
+     * 예상하지 못한 모든 예외 (500 Internal Server Error)
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonErrorDto> handleException(Exception e) {

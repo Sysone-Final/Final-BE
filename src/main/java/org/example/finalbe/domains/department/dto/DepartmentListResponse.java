@@ -20,6 +20,10 @@ public record DepartmentListResponse(
         LocalDateTime createdAt
 ) {
     public static DepartmentListResponse from(Department department) {
+        if (department == null) {
+            throw new IllegalArgumentException("Department 엔티티가 null입니다.");
+        }
+
         return DepartmentListResponse.builder()
                 .id(department.getId())
                 .departmentCode(department.getDepartmentCode())

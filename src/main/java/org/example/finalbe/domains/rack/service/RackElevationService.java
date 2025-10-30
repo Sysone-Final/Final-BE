@@ -32,7 +32,7 @@ public class RackElevationService {
     private final EquipmentRepository equipmentRepository;
 
     /**
-     * 랙 실장도 조회 (Elevation View)
+     * 랙 실장도 조회
      */
     public RackElevationResponse getRackElevation(Long id, String view) {
         log.debug("Fetching rack elevation for id: {}, view: {}", id, view);

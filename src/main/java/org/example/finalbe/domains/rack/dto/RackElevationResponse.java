@@ -10,6 +10,9 @@ import org.example.finalbe.domains.rack.domain.Rack;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * 랙 실장도 응답 DTO
+ */
 @Builder
 public record RackElevationResponse(
         Long rackId,

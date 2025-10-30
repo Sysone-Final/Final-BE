@@ -10,6 +10,9 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+/**
+ * JWT 토큰 생성 및 검증 담당 클래스
+ */
 @Slf4j
 @Component
 public class JwtTokenProvider {
@@ -18,12 +21,14 @@ public class JwtTokenProvider {
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
 
+    /**
+     * 생성자: application.yml의 설정 값을 주입받아 초기화
+     */
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-token-validity}") long accessTokenValidity,
             @Value("${jwt.refresh-token-validity}") long refreshTokenValidity) {
 
-        // JWT secret 길이 검증
         if (secret.length() < 32) {
             throw new IllegalArgumentException("JWT secret must be at least 32 characters long");
         }
@@ -35,7 +40,10 @@ public class JwtTokenProvider {
         log.info("JwtTokenProvider initialized with access token validity: {}ms", accessTokenValidity);
     }
 
-    // Access Token 생성
+    /**
+     * Access Token 생성
+     * 사용자 인증 및 권한 확인에 사용
+     */
     public String createAccessToken(Long userId, String role) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + accessTokenValidityInMilliseconds);
@@ -49,7 +57,10 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    // Refresh Token 생성
+    /**
+     * Refresh Token 생성
+     * Access Token 재발급에 사용
+     */
     public String createRefreshToken(Long userId) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + refreshTokenValidityInMilliseconds);
@@ -62,7 +73,9 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    // 토큰에서 사용자 ID 추출
+    /**
+     * JWT 토큰에서 사용자 ID 추출
+     */
     public String getUserId(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
@@ -72,7 +85,9 @@ public class JwtTokenProvider {
                 .getSubject();
     }
 
-    // 토큰에서 Role 추출
+    /**
+     * JWT 토큰에서 권한(Role) 추출
+     */
     public String getRole(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
@@ -82,7 +97,9 @@ public class JwtTokenProvider {
                 .get("role", String.class);
     }
 
-    // 토큰 유효성 검증
+    /**
+     * JWT 토큰 유효성 검증
+     */
     public boolean validateToken(String token) {
         try {
             Jwts.parser()
@@ -90,6 +107,7 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(token);
             return true;
+
         } catch (ExpiredJwtException e) {
             log.warn("Expired JWT token");
         } catch (UnsupportedJwtException e) {
@@ -101,6 +119,7 @@ public class JwtTokenProvider {
         } catch (IllegalArgumentException e) {
             log.warn("JWT claims string is empty");
         }
+
         return false;
     }
 }

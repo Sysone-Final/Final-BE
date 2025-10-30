@@ -13,10 +13,6 @@ import java.math.BigDecimal;
 
 /**
  * 랙 생성 요청 DTO
- *
- * 수정사항:
- * - department String 필드 제거
- * - 부서는 RackDepartment를 통해 별도로 매핑
  */
 @Builder
 public record RackCreateRequest(
@@ -43,6 +39,9 @@ public record RackCreateRequest(
 
         @DecimalMin(value = "0.0", inclusive = false, message = "깊이는 0보다 커야 합니다.")
         BigDecimal depth,
+
+        @DecimalMin(value = "0.0", inclusive = false, message = "높이는 0보다 커야 합니다.")
+        BigDecimal height,
 
         @DecimalMin(value = "0.0", message = "최대 전력 용량은 0 이상이어야 합니다.")
         BigDecimal maxPowerCapacity,
@@ -76,10 +75,6 @@ public record RackCreateRequest(
         @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.")
         Long datacenterId
 ) {
-    /**
-     * 엔티티 변환 메서드
-     * Request DTO의 일관된 패턴
-     */
     public Rack toEntity(DataCenter datacenter, String createdBy) {
         return Rack.builder()
                 .rackName(this.rackName)
@@ -92,6 +87,7 @@ public record RackCreateRequest(
                 .zoneDirection(this.zoneDirection != null ? this.zoneDirection : ZoneDirection.EAST)
                 .width(this.width)
                 .depth(this.depth)
+                .height(this.height)
                 .maxPowerCapacity(this.maxPowerCapacity)
                 .currentPowerUsage(BigDecimal.ZERO)
                 .measuredPower(BigDecimal.ZERO)

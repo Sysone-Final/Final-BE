@@ -12,6 +12,9 @@ import org.example.finalbe.domains.member.domain.Member;
 
 import java.math.BigDecimal;
 
+/**
+ * 전산실(데이터센터) 엔티티
+ */
 @Entity
 @Table(name = "datacenter", indexes = {
         @Index(name = "idx_datacenter_name", columnList = "name"),
@@ -27,76 +30,72 @@ public class DataCenter extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "datacenter_id")
-    private Long id;
+    private Long id; // 전산실 ID
 
     @Column(name = "name", nullable = false, length = 100)
-    private String name;
+    private String name; // 전산실 이름
 
     @Column(name = "code", unique = true, length = 50)
-    private String code;
+    private String code; // 전산실 코드 (UNIQUE)
 
     @Column(name = "location", length = 255)
-    private String location;
+    private String location; // 전산실 위치/주소
 
     @Column(name = "floor", length = 50)
-    private String floor;
+    private String floor; // 전산실 층수
 
     @Column(name = "rows")
-    private Integer rows;
+    private Integer rows; // 랙 배치 행 수
 
     @Column(name = "columns")
-    private Integer columns;
+    private Integer columns; // 랙 배치 열 수
 
     @Column(name = "background_image_url", length = 500)
-    private String backgroundImageUrl;
+    private String backgroundImageUrl; // 평면도 이미지 URL
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private DataCenterStatus status;
+    private DataCenterStatus status; // 전산실 상태 (ACTIVE, INACTIVE, MAINTENANCE)
 
     @Lob
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
+    private String description; // 전산실 설명
 
     @Column(name = "total_area", precision = 10, scale = 2)
-    private BigDecimal totalArea;
+    private BigDecimal totalArea; // 총 면적 (m²)
 
     @Column(name = "total_power_capacity", precision = 10, scale = 2)
-    private BigDecimal totalPowerCapacity;
+    private BigDecimal totalPowerCapacity; // 총 전력 용량 (kW)
 
     @Column(name = "total_cooling_capacity", precision = 10, scale = 2)
-    private BigDecimal totalCoolingCapacity;
+    private BigDecimal totalCoolingCapacity; // 총 냉각 용량 (kW)
 
     @Column(name = "max_rack_count")
-    private Integer maxRackCount;
+    private Integer maxRackCount; // 최대 랙 개수
 
     @Column(name = "current_rack_count")
-    private Integer currentRackCount;
+    @Builder.Default
+    private Integer currentRackCount = 0; // 현재 랙 개수
 
     @Column(name = "temperature_min", precision = 5, scale = 2)
-    private BigDecimal temperatureMin;
+    private BigDecimal temperatureMin; // 최저 허용 온도 (℃)
 
     @Column(name = "temperature_max", precision = 5, scale = 2)
-    private BigDecimal temperatureMax;
+    private BigDecimal temperatureMax; // 최고 허용 온도 (℃)
 
     @Column(name = "humidity_min", precision = 5, scale = 2)
-    private BigDecimal humidityMin;
+    private BigDecimal humidityMin; // 최저 허용 습도 (%)
 
     @Column(name = "humidity_max", precision = 5, scale = 2)
-    private BigDecimal humidityMax;
+    private BigDecimal humidityMax; // 최고 허용 습도 (%)
 
-    @Column(name = "created_by", length = 100)
-    private String createdBy;
-
-    @Column(name = "updated_by", length = 100)
-    private String updatedBy;
-
-    // 담당자 관계
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id", nullable = false)
-    private Member manager;
+    private Member manager; // 전산실 담당자
 
-    // 정보 업데이트 메서드
+    /**
+     * 전산실 정보 수정 (부분 수정 지원)
+     */
     public void updateInfo(
             String name,
             String code,
@@ -115,11 +114,10 @@ public class DataCenter extends BaseTimeEntity {
             BigDecimal temperatureMax,
             BigDecimal humidityMin,
             BigDecimal humidityMax,
-            Member manager,
-            String updatedBy
+            Member manager
     ) {
-        if (name != null) this.name = name;
-        if (code != null) this.code = code;
+        if (name != null && !name.trim().isEmpty()) this.name = name;
+        if (code != null && !code.trim().isEmpty()) this.code = code;
         if (location != null) this.location = location;
         if (floor != null) this.floor = floor;
         if (rows != null) this.rows = rows;
@@ -136,11 +134,13 @@ public class DataCenter extends BaseTimeEntity {
         if (humidityMin != null) this.humidityMin = humidityMin;
         if (humidityMax != null) this.humidityMax = humidityMax;
         if (manager != null) this.manager = manager;
-        if (updatedBy != null) this.updatedBy = updatedBy;
+
         this.updateTimestamp();
     }
 
-    // 랙 추가
+    /**
+     * 랙 추가 시 개수 증가
+     */
     public void incrementRackCount() {
         if (this.currentRackCount == null) {
             this.currentRackCount = 0;
@@ -151,7 +151,9 @@ public class DataCenter extends BaseTimeEntity {
         this.currentRackCount++;
     }
 
-    // 랙 제거
+    /**
+     * 랙 제거 시 개수 감소
+     */
     public void decrementRackCount() {
         if (this.currentRackCount == null || this.currentRackCount <= 0) {
             throw new IllegalStateException("현재 랙 수가 0입니다.");
@@ -159,7 +161,9 @@ public class DataCenter extends BaseTimeEntity {
         this.currentRackCount--;
     }
 
-    // 사용 가능한 랙 수
+    /**
+     * 사용 가능한 랙 개수 계산
+     */
     public int getAvailableRackCount() {
         return (maxRackCount != null ? maxRackCount : 0) - (currentRackCount != null ? currentRackCount : 0);
     }

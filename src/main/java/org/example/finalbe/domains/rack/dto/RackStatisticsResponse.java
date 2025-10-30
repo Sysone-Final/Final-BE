@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 랙 통계 응답 DTO
+ */
 @Builder
 public record RackStatisticsResponse(
         Integer totalRacks,

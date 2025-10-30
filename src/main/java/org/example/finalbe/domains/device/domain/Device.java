@@ -11,78 +11,75 @@ import java.time.LocalDate;
 
 /**
  * 장치 엔티티
- * 전산실에 배치되는 물리적 장치 (server, door, aircon 등)
  */
 @Entity
 @Table(name = "device")
-@Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 @Builder
 public class Device extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "device_id")
-    private Long id;
+    private Long id; // 장치 ID
 
     @Column(name = "device_name", nullable = false, length = 100)
-    private String deviceName;
+    private String deviceName; // 장치명
 
     @Column(name = "device_code", length = 50)
-    private String deviceCode;
+    private String deviceCode; // 장치 코드
 
-    // 그리드 좌표 (3D 배치)
     @Column(name = "gridY")
-    private Integer gridY;
+    private Integer gridY; // Y축 위치 (행)
 
     @Column(name = "gridX")
-    private Integer gridX;
+    private Integer gridX; // X축 위치 (열)
 
     @Column(name = "gridZ")
-    private Integer gridZ;
+    private Integer gridZ; // Z축 위치
 
     @Column(name = "rotation")
-    private Integer rotation;     // 회전 각도 (0, 90, 180, 270)
+    private Integer rotation; // 회전 각도 (0, 90, 180, 270)
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
-    private DeviceStatus status;
+    private DeviceStatus status; // 장치 상태
 
     @Column(name = "model_name", length = 100)
-    private String modelName;
+    private String modelName; // 모델명
 
     @Column(name = "manufacturer", length = 100)
-    private String manufacturer;
+    private String manufacturer; // 제조사
 
     @Column(name = "serial_number", length = 100)
-    private String serialNumber;
+    private String serialNumber; // 시리얼 번호
 
     @Column(name = "purchase_date")
-    private LocalDate purchaseDate;
+    private LocalDate purchaseDate; // 구매일
 
     @Column(name = "warranty_end_date")
-    private LocalDate warrantyEndDate;
+    private LocalDate warrantyEndDate; // 보증 종료일
 
     @Column(name = "notes", columnDefinition = "TEXT")
-    private String notes;
+    private String notes; // 비고
 
-    // 연관관계
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_type_id", nullable = false)
-    private DeviceType deviceType;
+    private DeviceType deviceType; // 장치 타입
 
     @Column(name = "manager_id", nullable = false)
-    private Long managerId;
+    private Long managerId; // 관리자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "datacenter_id", nullable = false)
-    private DataCenter datacenter;
+    private DataCenter datacenter; // 소속 전산실
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id")
-    private Rack rack;  // server 타입일 경우 rack 연결
+    private Rack rack; // 소속 랙 (server 타입일 경우)
 
     /**
      * 장치 상태 변경
@@ -97,11 +94,11 @@ public class Device extends BaseTimeEntity {
     }
 
     /**
-     * 위치 업데이트
+     * 장치 위치 변경
      */
-    public void updatePosition(Integer gridX, Integer gridY, Integer gridZ, Integer rotation) {
-        this.gridX = gridX;
+    public void updatePosition(Integer gridY, Integer gridX, Integer gridZ, Integer rotation) {
         this.gridY = gridY;
+        this.gridX = gridX;
         this.gridZ = gridZ;
         this.rotation = rotation;
     }

@@ -13,6 +13,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Spring Security 설정 클래스
+ * JWT 기반 인증 및 권한 관리
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -21,36 +25,25 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    /**
+     * SecurityFilterChain 빈 설정
+     * HTTP 보안 설정 및 인증/인가 규칙 정의
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 인증 관련 - 인증 불필요
-                        .requestMatchers("/auth/signup", "/auth/login", "/auth/refresh").permitAll()  // 🆕 refresh 추가
-
-                        // 회원가입 시 회사 목록 조회 허용
-                        .requestMatchers(HttpMethod.GET, "/companies").permitAll()
-
-                        // 회사 API - 인증 필요
-                        .requestMatchers("/companies/**").authenticated()
-
-                        // 전산실 API - 인증 필요
-                        .requestMatchers("/datacenters/**").authenticated()
-
-                        // 회사-전산실 매핑 API - 인증 필요
-                        .requestMatchers("/company-datacenters/**").authenticated()
-
-                        .requestMatchers("/equipments/**").authenticated()
-
-                        .requestMatchers("/devices/**").authenticated()
-
-                        .requestMatchers("/device-types/**").authenticated()
-
-                        .requestMatchers("/departments/**").authenticated()
-
-                        // 그 외 모든 요청 - 인증 필요
+                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
+                        .requestMatchers("/api/companies/**").authenticated()
+                        .requestMatchers("/api/datacenters/**").authenticated()
+                        .requestMatchers("/api/company-datacenters/**").authenticated()
+                        .requestMatchers("/api/equipments/**").authenticated()
+                        .requestMatchers("/api/devices/**").permitAll()
+                        .requestMatchers("/api/device-types/**").authenticated()
+                        .requestMatchers("/api/departments/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -58,6 +51,10 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * PasswordEncoder 빈 설정
+     * BCrypt 알고리즘으로 비밀번호 암호화
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);

@@ -247,7 +247,6 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager1)
-                .createdBy(manager1.getUserName())
                 .build());
 
         dataCenters.add(DataCenter.builder()
@@ -270,7 +269,6 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager1)
-                .createdBy(manager1.getUserName())
                 .build());
 
         dataCenters.add(DataCenter.builder()
@@ -293,7 +291,6 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager2)
-                .createdBy(manager2.getUserName())
                 .build());
 
         dataCenters.add(DataCenter.builder()
@@ -316,7 +313,6 @@ public class DataInitializer implements CommandLineRunner {
                 .humidityMin(new BigDecimal("40.0"))
                 .humidityMax(new BigDecimal("60.0"))
                 .manager(manager2)
-                .createdBy(manager2.getUserName())
                 .build());
 
         return dataCenterRepository.saveAll(dataCenters);

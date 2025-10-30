@@ -3,6 +3,9 @@ package org.example.finalbe.domains.device.dto;
 import jakarta.validation.constraints.*;
 import lombok.Builder;
 
+/**
+ * 장치 위치 변경 요청 DTO
+ */
 @Builder
 public record DevicePositionUpdateRequest(
         @NotNull(message = "행 위치를 입력해주세요.")

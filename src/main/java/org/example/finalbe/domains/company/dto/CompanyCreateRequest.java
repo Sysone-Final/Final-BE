@@ -6,11 +6,6 @@ import org.example.finalbe.domains.company.domain.Company;
 
 /**
  * 회사 생성 요청 DTO
- *
- * 개선사항:
- * - Bean Validation 추가
- * - 이메일, URL 형식 검증
- * - 필수/선택 필드 명확화
  */
 @Builder
 public record CompanyCreateRequest(
@@ -64,8 +59,7 @@ public record CompanyCreateRequest(
         String logoUrl
 ) {
     /**
-     * 엔티티 변환 메서드
-     * Request DTO의 일관된 패턴
+     * DTO를 Entity로 변환
      */
     public Company toEntity() {
         return Company.builder()

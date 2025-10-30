@@ -8,6 +8,9 @@ import org.example.finalbe.domains.common.enumdir.ZoneDirection;
 
 import java.math.BigDecimal;
 
+/**
+ * 랙 수정 요청 DTO
+ */
 @Builder
 public record RackUpdateRequest(
         String rackName,

@@ -13,11 +13,6 @@ import java.time.LocalDate;
 
 /**
  * 장비 생성 요청 DTO
- *
- * 개선사항:
- * - Bean Validation 추가
- * - 필수 필드 명확화
- * - IP 주소, MAC 주소 형식 검증
  */
 @Builder
 public record EquipmentCreateRequest(
@@ -52,11 +47,11 @@ public record EquipmentCreateRequest(
         String serialNumber,
 
         @Pattern(regexp = "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$",
-                message = "올바른 IP 주소 형식이 아닙니다. (예: 192.168.1.1)")
+                message = "올바른 IP 주소 형식이 아닙니다.")
         String ipAddress,
 
         @Pattern(regexp = "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$",
-                message = "올바른 MAC 주소 형식이 아닙니다. (예: AA:BB:CC:DD:EE:FF)")
+                message = "올바른 MAC 주소 형식이 아닙니다.")
         String macAddress,
 
         @Size(max = 100, message = "운영체제는 100자를 초과할 수 없습니다.")
@@ -96,8 +91,7 @@ public record EquipmentCreateRequest(
         Integer height
 ) {
     /**
-     * 엔티티 변환 메서드
-     * Request DTO의 일관된 패턴
+     * DTO를 Entity로 변환
      */
     public Equipment toEntity(Rack rack, Long managerId) {
         return Equipment.builder()

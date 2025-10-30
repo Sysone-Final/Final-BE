@@ -4,6 +4,9 @@ import lombok.Builder;
 
 import java.util.List;
 
+/**
+ * 랙 일괄 등록 미리보기 응답 DTO
+ */
 @Builder
 public record RackBulkUploadPreviewResponse(
         Integer totalRows,

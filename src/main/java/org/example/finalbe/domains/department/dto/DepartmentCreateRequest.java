@@ -41,7 +41,7 @@ public record DepartmentCreateRequest(
         Long companyId
 ) {
     /**
-     * 엔티티 변환 메서드
+     * DTO를 Entity로 변환
      */
     public Department toEntity(Company company, String createdBy) {
         return Department.builder()

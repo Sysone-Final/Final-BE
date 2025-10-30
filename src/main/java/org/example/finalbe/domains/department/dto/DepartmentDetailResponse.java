@@ -26,6 +26,10 @@ public record DepartmentDetailResponse(
         LocalDateTime updatedAt
 ) {
     public static DepartmentDetailResponse from(Department department) {
+        if (department == null) {
+            throw new IllegalArgumentException("Department 엔티티가 null입니다.");
+        }
+
         return DepartmentDetailResponse.builder()
                 .id(department.getId())
                 .departmentCode(department.getDepartmentCode())

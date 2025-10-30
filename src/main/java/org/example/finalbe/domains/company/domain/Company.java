@@ -6,12 +6,17 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 
+/**
+ * 회사 엔티티
+ */
 @Entity
-@Table(name = "company", indexes = {
-        @Index(name = "idx_company_name", columnList = "name"),
-        @Index(name = "idx_company_code", columnList = "code")
-})
+@Table(name = "company",
+        indexes = {
+                @Index(name = "idx_company_name", columnList = "name"),
+                @Index(name = "idx_company_code", columnList = "code")
+        })
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -21,7 +26,7 @@ public class Company extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "company_id")
-    private Long id;
+    private Long id; // 회사 ID
 
     @Column(name = "code", nullable = false, unique = true, length = 50)
     private String code; // 회사 코드
@@ -45,7 +50,7 @@ public class Company extends BaseTimeEntity {
     private String email; // 대표 이메일
 
     @Column(name = "address", length = 500)
-    private String address; // 주소
+    private String address; // 본사 주소
 
     @Column(name = "website", length = 200)
     private String website; // 웹사이트
@@ -55,7 +60,7 @@ public class Company extends BaseTimeEntity {
 
     @Lob
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description; // 설명
+    private String description; // 회사 설명
 
     @Column(name = "employee_count")
     private Integer employeeCount; // 직원 수
@@ -64,9 +69,16 @@ public class Company extends BaseTimeEntity {
     private String establishedDate; // 설립일 (YYYY-MM-DD)
 
     @Column(name = "logo_url", length = 500)
-    private String logoUrl; // 로고 URL
+    private String logoUrl; // 로고 이미지 URL
 
-    // 정보 업데이트 메서드
+    @Enumerated(EnumType.STRING)
+    @Column(name = "del_yn", nullable = false, length = 1)
+    @Builder.Default
+    private DelYN delYn = DelYN.N; // 삭제 여부 (N: 정상, Y: 삭제)
+
+    /**
+     * 회사 정보 수정 (부분 수정 지원)
+     */
     public void updateInfo(
             String name,
             String businessNumber,
@@ -82,19 +94,58 @@ public class Company extends BaseTimeEntity {
             String establishedDate,
             String logoUrl
     ) {
-        if (name != null) this.name = name;
-        if (businessNumber != null) this.businessNumber = businessNumber;
-        if (ceoName != null) this.ceoName = ceoName;
-        if (phone != null) this.phone = phone;
-        if (fax != null) this.fax = fax;
-        if (email != null) this.email = email;
-        if (address != null) this.address = address;
-        if (website != null) this.website = website;
-        if (industry != null) this.industry = industry;
-        if (description != null) this.description = description;
-        if (employeeCount != null) this.employeeCount = employeeCount;
-        if (establishedDate != null) this.establishedDate = establishedDate;
-        if (logoUrl != null) this.logoUrl = logoUrl;
-        this.updateTimestamp();
+        if (name != null && !name.trim().isEmpty()) {
+            this.name = name;
+        }
+        if (businessNumber != null && !businessNumber.trim().isEmpty()) {
+            this.businessNumber = businessNumber;
+        }
+        if (ceoName != null && !ceoName.trim().isEmpty()) {
+            this.ceoName = ceoName;
+        }
+        if (phone != null && !phone.trim().isEmpty()) {
+            this.phone = phone;
+        }
+        if (fax != null && !fax.trim().isEmpty()) {
+            this.fax = fax;
+        }
+        if (email != null && !email.trim().isEmpty()) {
+            this.email = email;
+        }
+        if (address != null && !address.trim().isEmpty()) {
+            this.address = address;
+        }
+        if (website != null && !website.trim().isEmpty()) {
+            this.website = website;
+        }
+        if (industry != null && !industry.trim().isEmpty()) {
+            this.industry = industry;
+        }
+        if (description != null && !description.trim().isEmpty()) {
+            this.description = description;
+        }
+        if (employeeCount != null) {
+            this.employeeCount = employeeCount;
+        }
+        if (establishedDate != null && !establishedDate.trim().isEmpty()) {
+            this.establishedDate = establishedDate;
+        }
+        if (logoUrl != null && !logoUrl.trim().isEmpty()) {
+            this.logoUrl = logoUrl;
+        }
+    }
+
+    /**
+     * Soft Delete (논리 삭제)
+     */
+    public void softDelete() {
+        this.delYn = DelYN.Y;
+    }
+
+    /**
+     * 삭제된 회사 복구
+     */
+    public void restore() {
+        this.delYn = DelYN.N;
     }
 }

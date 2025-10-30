@@ -1,33 +1,27 @@
 package org.example.finalbe.domains.member.dto;
 
-import lombok.Builder;
 import org.example.finalbe.domains.member.domain.Member;
 
 /**
  * 로그인 응답 DTO
- * ⚠️ refreshToken은 httpOnly Cookie로 전달하므로 제외
+ * Access Token은 응답 바디에, Refresh Token은 HTTP-Only Cookie로 전달
  */
-@Builder
 public record MemberLoginResponse(
+        String accessToken,
         Long id,
         String userName,
         String name,
-        String email,
         String role,
-        String companyName,
-        String accessToken,
-        String message
+        String companyName
 ) {
     public static MemberLoginResponse from(Member member, String accessToken) {
-        return MemberLoginResponse.builder()
-                .id(member.getId())
-                .userName(member.getUserName())
-                .name(member.getName())
-                .email(member.getEmail())
-                .role(member.getRole().name())
-                .companyName(member.getCompany().getName())
-                .accessToken(accessToken)
-                .message("로그인 성공")
-                .build();
+        return new MemberLoginResponse(
+                accessToken,
+                member.getId(),
+                member.getUserName(),
+                member.getName(),
+                member.getRole().name(),
+                member.getCompany().getName()
+        );
     }
 }

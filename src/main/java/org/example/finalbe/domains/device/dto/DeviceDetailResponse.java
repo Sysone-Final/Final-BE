@@ -6,6 +6,9 @@ import org.example.finalbe.domains.device.domain.Device;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * 장치 상세 조회 응답 DTO
+ */
 @Builder
 public record DeviceDetailResponse(
         Long id,

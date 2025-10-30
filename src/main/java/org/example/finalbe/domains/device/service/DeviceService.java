@@ -15,7 +15,6 @@ import org.example.finalbe.domains.device.domain.Device;
 import org.example.finalbe.domains.device.domain.DeviceType;
 import org.example.finalbe.domains.device.dto.*;
 import org.example.finalbe.domains.device.repository.DeviceRepository;
-
 import org.example.finalbe.domains.device.repository.DeviceTypeRepository;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
@@ -29,8 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Slf4j
+/**
+ * 장치 서비스
+ * 전산실 내 장치의 생성, 조회, 수정, 삭제 처리
+ */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DeviceService {
@@ -41,61 +44,6 @@ public class DeviceService {
     private final RackRepository rackRepository;
     private final MemberRepository memberRepository;
     private final CompanyDataCenterRepository companyDataCenterRepository;
-
-    /**
-     * 현재 인증된 사용자 조회
-     */
-    private Member getCurrentMember() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AccessDeniedException("인증이 필요합니다.");
-        }
-
-        String userId = authentication.getName();
-
-        if (userId == null || userId.equals("anonymousUser")) {
-            throw new AccessDeniedException("인증이 필요합니다.");
-        }
-
-        try {
-            return memberRepository.findById(Long.parseLong(userId))
-                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
-        }
-    }
-
-    /**
-     * 쓰기 권한 확인
-     */
-    private void validateWritePermission(Member member) {
-        if (member.getRole() == Role.VIEWER) {
-            throw new AccessDeniedException("조회 권한만 있습니다. 수정 권한이 필요합니다.");
-        }
-    }
-
-    /**
-     * 장치 접근 권한 확인
-     */
-    private void validateDeviceAccess(Member member, Long deviceId) {
-        if (member.getRole() == Role.ADMIN) {
-            return;
-        }
-
-        Device device = deviceRepository.findById(deviceId)
-                .orElseThrow(() -> new EntityNotFoundException("장치", deviceId));
-
-        Long datacenterId = device.getDatacenter().getId();
-        Long companyId = member.getCompany().getId();
-
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
-                companyId, datacenterId);
-
-        if (!hasAccess) {
-            throw new AccessDeniedException("해당 장치에 대한 접근 권한이 없습니다.");
-        }
-    }
 
     /**
      * 전산실별 장치 목록 조회
@@ -133,18 +81,15 @@ public class DeviceService {
 
         validateWritePermission(currentMember);
 
-        // 장치 코드 중복 체크
         if (request.deviceCode() != null && !request.deviceCode().trim().isEmpty()) {
             if (deviceRepository.existsByDeviceCodeAndDelYn(request.deviceCode(), DelYN.N)) {
                 throw new DuplicateException("장치 코드", request.deviceCode());
             }
         }
 
-        // DeviceType 조회
         DeviceType deviceType = deviceTypeRepository.findById(request.deviceTypeId())
                 .orElseThrow(() -> new EntityNotFoundException("장치 타입", request.deviceTypeId()));
 
-        // DataCenter 조회 및 권한 확인
         DataCenter datacenter = dataCenterRepository.findActiveById(request.datacenterId())
                 .orElseThrow(() -> new EntityNotFoundException("전산실", request.datacenterId()));
 
@@ -157,7 +102,6 @@ public class DeviceService {
             }
         }
 
-        // Rack 조회 (server 타입일 경우)
         Rack rack = null;
         if (request.rackId() != null) {
             rack = rackRepository.findActiveById(request.rackId())
@@ -185,7 +129,6 @@ public class DeviceService {
         Device device = deviceRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
-        // 필드 업데이트
         if (request.deviceName() != null) {
             device.setDeviceName(request.deviceName());
         }
@@ -233,7 +176,7 @@ public class DeviceService {
     }
 
     /**
-     * 장치 위치 업데이트
+     * 장치 위치 변경
      */
     @Transactional
     public DeviceDetailResponse updateDevicePosition(Long id, DevicePositionUpdateRequest request) {
@@ -295,5 +238,53 @@ public class DeviceService {
         device.softDelete();
 
         log.info("Device soft deleted successfully");
+    }
+
+    // === Private Helper Methods ===
+
+    private Member getCurrentMember() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+
+        String userId = authentication.getName();
+
+        if (userId == null || userId.equals("anonymousUser")) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+
+        try {
+            return memberRepository.findById(Long.parseLong(userId))
+                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
+        }
+    }
+
+    private void validateWritePermission(Member member) {
+        if (member.getRole() == Role.VIEWER) {
+            throw new AccessDeniedException("조회 권한만 있습니다. 수정 권한이 필요합니다.");
+        }
+    }
+
+    private void validateDeviceAccess(Member member, Long deviceId) {
+        if (member.getRole() == Role.ADMIN) {
+            return;
+        }
+
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new EntityNotFoundException("장치", deviceId));
+
+        Long datacenterId = device.getDatacenter().getId();
+        Long companyId = member.getCompany().getId();
+
+        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+                companyId, datacenterId);
+
+        if (!hasAccess) {
+            throw new AccessDeniedException("해당 장치에 대한 접근 권한이 없습니다.");
+        }
     }
 }

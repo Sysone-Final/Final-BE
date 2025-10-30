@@ -11,110 +11,113 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * 장비 엔티티
+ */
 @Entity
 @Table(name = "equipment")
-@Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 @Builder
 public class Equipment extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "equipment_id")
-    private Long id;
+    private Long id; // 장비 ID
 
     @Column(name = "equipment_name", nullable = false, length = 100)
-    private String name;
+    private String name; // 장비명
 
     @Column(name = "equipment_code", length = 50)
-    private String code;
+    private String code; // 장비 코드
 
     @Enumerated(EnumType.STRING)
     @Column(name = "equipment_type", length = 50)
-    private EquipmentType type;
+    private EquipmentType type; // 장비 타입
 
     @Column(name = "start_unit", nullable = false)
-    private Integer startUnit;
+    private Integer startUnit; // 시작 유닛
 
     @Column(name = "unit_size", nullable = false)
-    private Integer unitSize;
+    private Integer unitSize; // 유닛 크기
 
     @Enumerated(EnumType.STRING)
     @Column(name = "position_type", length = 50)
-    private EquipmentPositionType positionType;
+    private EquipmentPositionType positionType; // 위치 타입
 
     @Column(name = "model_name", length = 100)
-    private String modelName;
+    private String modelName; // 모델명
 
     @Column(name = "manufacturer", length = 100)
-    private String manufacturer;
+    private String manufacturer; // 제조사
 
     @Column(name = "serial_number", length = 100)
-    private String serialNumber;
+    private String serialNumber; // 시리얼 번호
 
     @Column(name = "ip_address", length = 50)
-    private String ipAddress;
+    private String ipAddress; // IP 주소
 
     @Column(name = "mac_address", length = 50)
-    private String macAddress;
+    private String macAddress; // MAC 주소
 
     @Column(name = "os", length = 100)
-    private String os;
+    private String os; // 운영체제
 
     @Column(name = "cpu_spec", length = 255)
-    private String cpuSpec;
+    private String cpuSpec; // CPU 사양
 
     @Column(name = "memory_spec", length = 255)
-    private String memorySpec;
+    private String memorySpec; // 메모리 사양
 
     @Column(name = "disk_spec", length = 255)
-    private String diskSpec;
+    private String diskSpec; // 디스크 사양
 
     @Column(name = "power_consumption", precision = 10, scale = 2)
-    private BigDecimal powerConsumption;
+    private BigDecimal powerConsumption; // 전력 소비량
 
     @Column(name = "weight", precision = 10, scale = 2)
-    private BigDecimal weight;
+    private BigDecimal weight; // 무게
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
-    private EquipmentStatus status;
+    private EquipmentStatus status; // 장비 상태
 
     @Column(name = "image_url", length = 500)
-    private String imageUrl;
+    private String imageUrl; // 이미지 URL
 
     @Column(name = "installation_date")
-    private LocalDate installationDate;
+    private LocalDate installationDate; // 설치일
 
     @Lob
     @Column(name = "notes")
-    private String notes;
+    private String notes; // 비고
 
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt; // 생성일시
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt; // 수정일시
 
     @Column(name = "maneger_id", nullable = false, length = 50)
-    private Long managerId;
+    private Long managerId; // 관리자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id", nullable = false)
-    private Rack rack;
+    private Rack rack; // 소속 랙
 
     @Column(name = "position", nullable = false)
-    private Integer position;
+    private Integer position; // 위치
 
     @Column(name = "height", nullable = false)
-    private Integer height;
+    private Integer height; // 높이
 
     @Enumerated(EnumType.STRING)
     @Column(name = "del_yn", nullable = false)
     @Builder.Default
-    private DelYN delYn = DelYN.N;
+    private DelYN delYn = DelYN.N; // 삭제 여부
 
     @PrePersist
     protected void onCreate() {
@@ -135,15 +138,24 @@ public class Equipment extends BaseTimeEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * 타임스탬프 업데이트
+     */
     public void updateTimestamp() {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * 소프트 삭제
+     */
     public void softDelete() {
         this.delYn = DelYN.Y;
         this.updateTimestamp();
     }
 
+    /**
+     * 장비 정보 수정
+     */
     public void updateInfo(EquipmentUpdateRequest request) {
         if (request.equipmentName() != null && !request.equipmentName().trim().isEmpty()) {
             this.name = request.equipmentName();
@@ -203,6 +215,9 @@ public class Equipment extends BaseTimeEntity {
         this.updateTimestamp();
     }
 
+    /**
+     * 장비 상태 변경
+     */
     public void changeStatus(EquipmentStatus newStatus, String reason, String updatedBy) {
         String statusChangeLog = String.format(
                 "[%s] 상태 변경: %s → %s (변경자: %s, 사유: %s)",

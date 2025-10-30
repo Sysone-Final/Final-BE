@@ -8,24 +8,35 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * RackDepartment 데이터 접근 계층
+ */
 public interface RackDepartmentRepository extends JpaRepository<RackDepartment, Long> {
 
-
-    // 랙의 주 담당 부서 조회
+    /**
+     * 랙의 주 담당 부서 조회
+     */
     Optional<RackDepartment> findByRackIdAndIsPrimary(Long rackId, Boolean isPrimary);
 
-    // 랙-부서 매핑 존재 여부 확인
+    /**
+     * 랙-부서 매핑 존재 여부 확인
+     */
     boolean existsByRackIdAndDepartmentId(Long rackId, Long departmentId);
 
-    // 랙-부서 매핑 조회
+    /**
+     * 랙-부서 매핑 조회
+     */
     Optional<RackDepartment> findByRackIdAndDepartmentId(Long rackId, Long departmentId);
 
-
-    // 특정 부서가 담당하는 랙 수 조회
+    /**
+     * 특정 부서가 담당하는 랙 수 조회
+     */
     @Query("SELECT COUNT(rd) FROM RackDepartment rd WHERE rd.department.id = :departmentId")
     Long countByDepartmentId(@Param("departmentId") Long departmentId);
 
-    // 부서별 랙 목록 조회 (다대다 조인)
+    /**
+     * 부서별 랙 목록 조회
+     */
     @Query("""
         SELECT rd.rack FROM RackDepartment rd
         WHERE rd.department.id = :departmentId

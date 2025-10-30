@@ -7,6 +7,9 @@ import org.example.finalbe.domains.datacenter.domain.DataCenter;
 
 import java.math.BigDecimal;
 
+/**
+ * 전산실 목록 조회 응답 DTO
+ */
 @Builder
 public record DataCenterListResponse(
         Long id,
@@ -21,6 +24,9 @@ public record DataCenterListResponse(
         BigDecimal totalArea,
         String managerName
 ) {
+    /**
+     * Entity → DTO 변환
+     */
     public static DataCenterListResponse from(DataCenter dataCenter) {
         return DataCenterListResponse.builder()
                 .id(dataCenter.getId())

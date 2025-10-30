@@ -1,17 +1,10 @@
 package org.example.finalbe.domains.member.dto;
 
-import lombok.Builder;
-import java.time.LocalDateTime;
-
-@Builder
+/**
+ * 로그아웃 응답 DTO
+ */
 public record MemberLogoutResponse(
-        String message,
-        LocalDateTime logoutTime
+        String userName,
+        String message
 ) {
-    public static MemberLogoutResponse of(String message) {
-        return MemberLogoutResponse.builder()
-                .message(message)
-                .logoutTime(LocalDateTime.now())
-                .build();
-    }
 }

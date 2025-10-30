@@ -1,21 +1,26 @@
 package org.example.finalbe.domains.member.dto;
 
-import lombok.Builder;
 import org.example.finalbe.domains.member.domain.Member;
 
-@Builder
+/**
+ * 회원가입 응답 DTO
+ */
 public record MemberSignupResponse(
-        Long userId,
+        Long id,
         String userName,
-        String companyName,  // 추가
+        String name,
+        String email,
+        String role,
         String message
 ) {
     public static MemberSignupResponse from(Member member, String message) {
-        return MemberSignupResponse.builder()
-                .userId(member.getId())
-                .userName(member.getUserName())
-                .companyName(member.getCompany().getName())  // 추가
-                .message(message)
-                .build();
+        return new MemberSignupResponse(
+                member.getId(),
+                member.getUserName(),
+                member.getName(),
+                member.getEmail(),
+                member.getRole().name(),
+                message
+        );
     }
 }

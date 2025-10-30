@@ -5,6 +5,9 @@ import lombok.Builder;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * 장비 수정 요청 DTO
+ */
 @Builder
 public record EquipmentUpdateRequest(
         String equipmentName,

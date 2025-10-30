@@ -8,6 +8,9 @@ import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 전산실 상세 조회 응답 DTO
+ */
 @Builder
 public record DataCenterDetailResponse(
         Long id,
@@ -34,10 +37,11 @@ public record DataCenterDetailResponse(
         String managerName,
         String managerEmail,
         LocalDateTime createdAt,
-        String createdBy,
-        LocalDateTime updatedAt,
-        String updatedBy
+        LocalDateTime updatedAt
 ) {
+    /**
+     * Entity → DTO 변환
+     */
     public static DataCenterDetailResponse from(DataCenter dataCenter) {
         return DataCenterDetailResponse.builder()
                 .id(dataCenter.getId())
@@ -64,9 +68,7 @@ public record DataCenterDetailResponse(
                 .managerName(dataCenter.getManager().getName())
                 .managerEmail(dataCenter.getManager().getEmail())
                 .createdAt(dataCenter.getCreatedAt())
-                .createdBy(dataCenter.getCreatedBy())
                 .updatedAt(dataCenter.getUpdatedAt())
-                .updatedBy(dataCenter.getUpdatedBy())
                 .build();
     }
 }

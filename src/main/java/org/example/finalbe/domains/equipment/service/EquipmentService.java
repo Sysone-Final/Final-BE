@@ -6,7 +6,6 @@ import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.EquipmentStatus;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.*;
-import org.example.finalbe.domains.company.repository.CompanyRepository;
 import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.dto.*;
@@ -15,7 +14,6 @@ import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.repository.RackRepository;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -25,8 +23,12 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Slf4j
+/**
+ * 장비 서비스
+ * 랙 내 장비의 생성, 조회, 수정, 삭제 처리
+ */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class EquipmentService {
@@ -36,54 +38,9 @@ public class EquipmentService {
     private final MemberRepository memberRepository;
     private final CompanyDataCenterRepository companyDataCenterRepository;
 
-    private Member getCurrentMember() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AccessDeniedException("인증이 필요합니다.");
-        }
-
-        String userId = authentication.getName();
-
-        if (userId == null || userId.equals("anonymousUser")) {
-            throw new AccessDeniedException("인증이 필요합니다.");
-        }
-
-        try {
-            return memberRepository.findById(Long.parseLong(userId))
-                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
-        }
-    }
-
-    private void validateWritePermission(Member member) {
-        if (member.getRole() == Role.VIEWER) {
-            throw new AccessDeniedException("조회 권한만 있습니다. 수정 권한이 필요합니다.");
-        }
-    }
-
-    private void validateEquipmentAccess(Member member, Long equipmentId) {
-        if (member.getRole() == Role.ADMIN) {
-            return;
-        }
-
-        Equipment equipment = equipmentRepository.findById(equipmentId)
-                .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
-
-        Long datacenterId = equipment.getRack().getDatacenter().getId();
-        Long companyId = member.getCompany().getId();
-
-        // CompanyDataCenter 테이블에서 접근 권한 확인
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
-                companyId, datacenterId);
-
-        if (!hasAccess) {
-            throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
-        }
-    }
-
-
+    /**
+     * 랙별 장비 목록 조회
+     */
     public List<EquipmentListResponse> getEquipmentsByRack(
             Long rackId, String status, String type, String sortBy) {
 
@@ -92,7 +49,6 @@ public class EquipmentService {
         if (rackId == null || rackId <= 0) {
             throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
         }
-
 
         List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
 
@@ -113,6 +69,9 @@ public class EquipmentService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 장비 상세 조회
+     */
     public EquipmentDetailResponse getEquipmentById(Long id) {
         log.info("Fetching equipment with id: {}", id);
 
@@ -130,6 +89,59 @@ public class EquipmentService {
         return EquipmentDetailResponse.from(equipment);
     }
 
+    /**
+     * 전산실별 장비 목록 조회
+     */
+    public List<EquipmentListResponse> getEquipmentsByDatacenter(
+            Long datacenterId, String status, String type) {
+
+        log.info("Fetching equipments for datacenter: {}", datacenterId);
+
+        if (datacenterId == null || datacenterId <= 0) {
+            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
+        }
+
+        List<Equipment> equipments = equipmentRepository.findByDatacenterIdAndDelYn(datacenterId, DelYN.N);
+
+        return equipments.stream()
+                .filter(eq -> status == null || eq.getStatus().name().equals(status))
+                .filter(eq -> type == null || eq.getType().name().equals(type))
+                .map(EquipmentListResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 장비 검색
+     */
+    public List<EquipmentListResponse> searchEquipments(String keyword, String type, String status) {
+        log.info("Searching equipments with keyword: {}", keyword);
+
+        if (keyword == null || keyword.trim().isEmpty()) {
+            throw new IllegalArgumentException("검색어를 입력해주세요.");
+        }
+
+        Member currentMember = getCurrentMember();
+
+        List<Equipment> equipments;
+
+        if (currentMember.getRole() == Role.ADMIN) {
+            equipments = equipmentRepository.searchByKeywordAndDelYn(keyword, DelYN.N);
+        } else {
+            Long companyId = currentMember.getCompany().getId();
+            equipments = equipmentRepository.searchByKeywordAndCompanyIdAndDelYn(
+                    keyword, companyId, DelYN.N);
+        }
+
+        return equipments.stream()
+                .filter(eq -> type == null || eq.getType().name().equals(type))
+                .filter(eq -> status == null || eq.getStatus().name().equals(status))
+                .map(EquipmentListResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 장비 생성
+     */
     @Transactional
     public EquipmentDetailResponse createEquipment(EquipmentCreateRequest request) {
         Member currentMember = getCurrentMember();
@@ -153,7 +165,6 @@ public class EquipmentService {
         Rack rack = rackRepository.findActiveById(request.rackId())
                 .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
 
-        // ✅ 수정된 부분 - CompanyDataCenter 테이블에서 접근 권한 확인
         if (currentMember.getRole() != Role.ADMIN) {
             Long datacenterId = rack.getDatacenter().getId();
             Long companyId = currentMember.getCompany().getId();
@@ -181,6 +192,9 @@ public class EquipmentService {
         return EquipmentDetailResponse.from(savedEquipment);
     }
 
+    /**
+     * 장비 수정
+     */
     @Transactional
     public EquipmentDetailResponse updateEquipment(Long id, EquipmentUpdateRequest request) {
         Member currentMember = getCurrentMember();
@@ -236,6 +250,9 @@ public class EquipmentService {
         return EquipmentDetailResponse.from(equipment);
     }
 
+    /**
+     * 장비 삭제
+     */
     @Transactional
     public void deleteEquipment(Long id) {
         Member currentMember = getCurrentMember();
@@ -263,6 +280,9 @@ public class EquipmentService {
         log.info("Equipment soft deleted successfully with id: {}", id);
     }
 
+    /**
+     * 장비 상태 변경
+     */
     @Transactional
     public EquipmentDetailResponse changeEquipmentStatus(Long id, EquipmentStatusChangeRequest request) {
         Member currentMember = getCurrentMember();
@@ -293,47 +313,51 @@ public class EquipmentService {
         return EquipmentDetailResponse.from(equipment);
     }
 
-    public List<EquipmentListResponse> getEquipmentsByDatacenter(
-            Long datacenterId, String status, String type) {
+    // === Private Helper Methods ===
 
-        log.info("Fetching equipments for datacenter: {}", datacenterId);
+    private Member getCurrentMember() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (datacenterId == null || datacenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("인증이 필요합니다.");
         }
 
-        List<Equipment> equipments = equipmentRepository.findByDatacenterIdAndDelYn(datacenterId, DelYN.N);
+        String userId = authentication.getName();
 
-        return equipments.stream()
-                .filter(eq -> status == null || eq.getStatus().name().equals(status))
-                .filter(eq -> type == null || eq.getType().name().equals(type))
-                .map(EquipmentListResponse::from)
-                .collect(Collectors.toList());
+        if (userId == null || userId.equals("anonymousUser")) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+
+        try {
+            return memberRepository.findById(Long.parseLong(userId))
+                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
+        }
     }
 
-    public List<EquipmentListResponse> searchEquipments(String keyword, String type, String status) {
-        log.info("Searching equipments with keyword: {}", keyword);
+    private void validateWritePermission(Member member) {
+        if (member.getRole() == Role.VIEWER) {
+            throw new AccessDeniedException("조회 권한만 있습니다. 수정 권한이 필요합니다.");
+        }
+    }
 
-        if (keyword == null || keyword.trim().isEmpty()) {
-            throw new IllegalArgumentException("검색어를 입력해주세요.");
+    private void validateEquipmentAccess(Member member, Long equipmentId) {
+        if (member.getRole() == Role.ADMIN) {
+            return;
         }
 
-        Member currentMember = getCurrentMember();
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        List<Equipment> equipments;
+        Long datacenterId = equipment.getRack().getDatacenter().getId();
+        Long companyId = member.getCompany().getId();
 
-        if (currentMember.getRole() == Role.ADMIN) {
-            equipments = equipmentRepository.searchByKeywordAndDelYn(keyword, DelYN.N);
-        } else {
-            Long companyId = currentMember.getCompany().getId();
-            equipments = equipmentRepository.searchByKeywordAndCompanyIdAndDelYn(
-                    keyword, companyId, DelYN.N);
+        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+                companyId, datacenterId);
+
+        if (!hasAccess) {
+            throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
         }
-
-        return equipments.stream()
-                .filter(eq -> type == null || eq.getType().name().equals(type))
-                .filter(eq -> status == null || eq.getStatus().name().equals(status))
-                .map(EquipmentListResponse::from)
-                .collect(Collectors.toList());
     }
 }

@@ -1,10 +1,13 @@
 package org.example.finalbe.domains.company.dto;
 
 import lombok.Builder;
-
 import org.example.finalbe.domains.company.domain.Company;
+
 import java.time.LocalDateTime;
 
+/**
+ * 회사 상세 조회 응답 DTO
+ */
 @Builder
 public record CompanyDetailResponse(
         Long id,
@@ -25,7 +28,14 @@ public record CompanyDetailResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
+    /**
+     * Entity → DTO 변환
+     */
     public static CompanyDetailResponse from(Company company) {
+        if (company == null) {
+            throw new IllegalArgumentException("Company 엔티티가 null입니다.");
+        }
+
         return CompanyDetailResponse.builder()
                 .id(company.getId())
                 .code(company.getCode())

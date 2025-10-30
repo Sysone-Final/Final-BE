@@ -4,6 +4,11 @@
 //import org.springframework.web.servlet.config.annotation.CorsRegistry;
 //import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 //
+/**
+ * Web MVC 설정 클래스
+ * CORS 설정 등 웹 관련 설정
+ * (현재 주석 처리됨)
+ */
 //@Configuration
 //public class WebConfig implements WebMvcConfigurer {
 //

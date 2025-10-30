@@ -26,6 +26,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 랙 관리 서비스
+ * 랙의 CRUD 및 검색, 권한 관리 기능 제공
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -91,7 +95,6 @@ public class RackService {
     /**
      * 랙 목록 조회
      */
-
     public List<RackListResponse> getRacksByDataCenter(
             Long dataCenterId, String status, String sortBy) {
 
@@ -165,7 +168,7 @@ public class RackService {
             throw new DuplicateException("랙 이름", request.rackName());
         }
 
-        // 랙 생성 (department 필드 없음)
+        // 랙 생성
         Rack rack = request.toEntity(dataCenter, currentMember.getUserName());
         Rack savedRack = rackRepository.save(rack);
 
@@ -305,13 +308,11 @@ public class RackService {
     }
 
     /**
-     * 부서별 랙 목록 조회 (다대다 관계 사용)
-     * 드롭다운에서 선택한 부서 ID로 조회
+     * 부서별 랙 목록 조회
      */
     public List<RackListResponse> getRacksByDepartment(Long departmentId) {
         log.debug("Fetching racks by department ID: {}", departmentId);
 
-        // RackDepartment를 통해 다대다 조회
         List<Rack> racks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
 
         return racks.stream()

@@ -14,7 +14,9 @@ import org.example.finalbe.domains.rack.dto.RackUpdateRequest;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-
+/**
+ * 랙 엔티티
+ */
 @Entity
 @Table(name = "rack")
 @Getter
@@ -27,99 +29,126 @@ public class Rack extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "rack_id")
-    private Long id;
+    private Long id; // 랙 ID
 
     @Column(name = "rack_name", nullable = false, length = 100)
-    private String rackName;
+    private String rackName; // 랙 이름
 
     @Column(name = "group_number", length = 50)
-    private String groupNumber;
+    private String groupNumber; // 그룹 번호
 
     @Column(name = "rack_location", length = 100)
-    private String rackLocation;
+    private String rackLocation; // 랙 위치
 
     @Column(name = "total_units", nullable = false)
-    private Integer totalUnits;
+    private Integer totalUnits; // 전체 유닛 수
 
     @Column(name = "used_units", nullable = false)
-    private Integer usedUnits;
+    private Integer usedUnits; // 사용 중인 유닛 수
 
     @Column(name = "available_units", nullable = false)
-    private Integer availableUnits;
+    private Integer availableUnits; // 사용 가능한 유닛 수
 
     @Enumerated(EnumType.STRING)
     @Column(name = "door_direction", length = 10)
-    private DoorDirection doorDirection;
+    private DoorDirection doorDirection; // 도어 방향
 
     @Enumerated(EnumType.STRING)
     @Column(name = "zone_direction", length = 10)
-    private ZoneDirection zoneDirection;
+    private ZoneDirection zoneDirection; // 존 방향
 
     @Column(name = "width")
-    private BigDecimal width;
+    private BigDecimal width; // 폭 (mm)
 
     @Column(name = "depth")
-    private BigDecimal depth;
+    private BigDecimal depth; // 깊이 (mm)
+
+    @Column(name = "height")
+    private BigDecimal height; // 높이 (mm)
 
     @Column(name = "department", length = 100)
-    private String department;
+    private String department; // 담당 부서명
 
     @Column(name = "max_power_capacity")
-    private BigDecimal maxPowerCapacity;
+    private BigDecimal maxPowerCapacity; // 최대 전력 용량 (W)
 
     @Column(name = "current_power_usage")
-    private BigDecimal currentPowerUsage;
+    private BigDecimal currentPowerUsage; // 현재 전력 사용량 (W)
 
     @Column(name = "measured_power")
-    private BigDecimal measuredPower;
+    private BigDecimal measuredPower; // 실측 전력 사용량 (W)
 
     @Column(name = "max_weight_capacity")
-    private BigDecimal maxWeightCapacity;
+    private BigDecimal maxWeightCapacity; // 최대 무게 용량 (kg)
 
     @Column(name = "current_weight")
-    private BigDecimal currentWeight;
+    private BigDecimal currentWeight; // 현재 무게 (kg)
 
     @Column(name = "manufacturer", length = 100)
-    private String manufacturer;
+    private String manufacturer; // 제조사
 
     @Column(name = "serial_number", length = 100)
-    private String serialNumber;
+    private String serialNumber; // 일련번호
 
     @Column(name = "management_number", length = 100)
-    private String managementNumber;
+    private String managementNumber; // 관리 번호
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private RackStatus status;
+    private RackStatus status; // 랙 상태
 
     @Enumerated(EnumType.STRING)
     @Column(name = "rack_type", length = 20)
-    private RackType rackType;
+    private RackType rackType; // 랙 타입
 
     @Column(name = "color_code", length = 20)
-    private String colorCode;
+    private String colorCode; // 색상 코드
 
     @Column(name = "notes", length = 1000)
-    private String notes;
+    private String notes; // 비고
 
     @Column(name = "created_by", length = 100)
-    private String createdBy;
+    private String createdBy; // 생성자
 
     @Column(name = "updated_by", length = 100)
-    private String updatedBy;
+    private String updatedBy; // 최종 수정자
 
-    @Column(name = "manager_id", nullable = false, length = 50)
-    private Long managerId;
+    @Column(name = "manager_id", nullable = false)
+    private Long managerId; // 담당자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "datacenter_id", nullable = false)
-    private DataCenter datacenter;
+    private DataCenter datacenter; // 소속 전산실
 
     /**
-     * 랙 정보 업데이트
+     * 엔티티 생성 시 기본값 설정
+     */
+    @PrePersist
+    protected void onCreate() {
+        if (this.status == null) {
+            this.status = RackStatus.ACTIVE;
+        }
+        if (this.currentPowerUsage == null) {
+            this.currentPowerUsage = BigDecimal.ZERO;
+        }
+        if (this.currentWeight == null) {
+            this.currentWeight = BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * 엔티티 수정 시 업데이트
+     */
+    @PreUpdate
+    protected void onUpdate() {
+        // BaseTimeEntity에서 updatedAt 자동 갱신
+    }
+
+    /**
+     * 랙 정보 수정
      */
     public void updateInfo(RackUpdateRequest request, String updatedBy) {
-        if (request.rackName() != null && !request.rackName().trim().isEmpty()) {
+        if (request.rackName() != null) {
             this.rackName = request.rackName();
         }
         if (request.groupNumber() != null) {
@@ -129,7 +158,6 @@ public class Rack extends BaseTimeEntity {
             this.rackLocation = request.rackLocation();
         }
         if (request.totalUnits() != null) {
-            // 총 유닛 수 변경 시 사용 가능 유닛 재계산
             this.totalUnits = request.totalUnits();
             this.availableUnits = this.totalUnits - this.usedUnits;
         }
@@ -187,12 +215,12 @@ public class Rack extends BaseTimeEntity {
      * 랙 상태 변경
      */
     public void changeStatus(RackStatus newStatus, String reason, String updatedBy) {
+        RackStatus oldStatus = this.status;
         this.status = newStatus;
 
-        // 상태 변경 이력을 notes에 추가
         String statusChangeLog = String.format("[%s] 상태 변경: %s → %s (사유: %s, 변경자: %s)",
                 java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
-                this.status,
+                oldStatus,
                 newStatus,
                 reason != null ? reason : "없음",
                 updatedBy);
@@ -207,17 +235,17 @@ public class Rack extends BaseTimeEntity {
         this.updateTimestamp();
     }
 
+    /**
+     * 랙에 장비 배치
+     */
     public void placeEquipment(Equipment equipment, Integer startUnit, Integer unitSize) {
-        // 장비에 랙 정보 설정
         equipment.setRack(this);
         equipment.setStartUnit(startUnit);
         equipment.setUnitSize(unitSize);
 
-        // 사용중 유닛 증가
         this.usedUnits += unitSize;
         this.availableUnits = this.totalUnits - this.usedUnits;
 
-        // 전력 사용량 증가 (BigDecimal 연산)
         if (equipment.getPowerConsumption() != null) {
             if (this.currentPowerUsage == null) {
                 this.currentPowerUsage = BigDecimal.ZERO;
@@ -225,7 +253,6 @@ public class Rack extends BaseTimeEntity {
             this.currentPowerUsage = this.currentPowerUsage.add(equipment.getPowerConsumption());
         }
 
-        // 무게 증가 (BigDecimal 연산)
         if (equipment.getWeight() != null) {
             if (this.currentWeight == null) {
                 this.currentWeight = BigDecimal.ZERO;
@@ -237,48 +264,45 @@ public class Rack extends BaseTimeEntity {
     }
 
     /**
-     * 장비 제거
+     * 랙에서 장비 제거
      */
     public void removeEquipment(Equipment equipment) {
-        // 사용중 유닛 감소
         this.usedUnits -= equipment.getUnitSize();
         this.availableUnits = this.totalUnits - this.usedUnits;
 
-        // 전력 사용량 감소 (BigDecimal 연산)
         if (equipment.getPowerConsumption() != null && this.currentPowerUsage != null) {
             this.currentPowerUsage = this.currentPowerUsage.subtract(equipment.getPowerConsumption());
             if (this.currentPowerUsage.compareTo(BigDecimal.ZERO) < 0) {
-                this.currentPowerUsage = BigDecimal.ZERO; // 음수 방지
+                this.currentPowerUsage = BigDecimal.ZERO;
             }
         }
 
-        // 무게 감소 (BigDecimal 연산)
         if (equipment.getWeight() != null && this.currentWeight != null) {
             this.currentWeight = this.currentWeight.subtract(equipment.getWeight());
             if (this.currentWeight.compareTo(BigDecimal.ZERO) < 0) {
-                this.currentWeight = BigDecimal.ZERO; // 음수 방지
+                this.currentWeight = BigDecimal.ZERO;
             }
         }
 
         this.updateTimestamp();
     }
 
-
     /**
-     * 장비 이동
+     * 랙 내에서 장비 이동
      */
     public void moveEquipment(Equipment equipment, Integer fromUnit, Integer toUnit) {
-        // 장비의 시작 유닛만 변경
         equipment.setStartUnit(toUnit);
         this.updateTimestamp();
     }
 
+    /**
+     * 랙 사용률 계산
+     */
     public BigDecimal getUsageRate() {
         if (this.totalUnits == null || this.totalUnits == 0) {
             return BigDecimal.ZERO;
         }
 
-        // Integer → BigDecimal 변환
         BigDecimal used = BigDecimal.valueOf(this.usedUnits);
         BigDecimal total = BigDecimal.valueOf(this.totalUnits);
 
@@ -300,7 +324,6 @@ public class Rack extends BaseTimeEntity {
             return BigDecimal.ZERO;
         }
 
-        // 둘 다 BigDecimal이므로 그대로 사용 가능
         return this.currentPowerUsage
                 .divide(this.maxPowerCapacity, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))

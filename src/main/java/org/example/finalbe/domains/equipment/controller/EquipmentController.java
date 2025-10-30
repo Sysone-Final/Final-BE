@@ -15,10 +15,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 장비 CRUD 컨트롤러
+ * 장비 관리 컨트롤러
+ * 랙 내 장비의 생성, 조회, 수정, 삭제 API 제공
  */
 @RestController
-@RequestMapping("/equipments")
+@RequestMapping("/api/equipments")
 @RequiredArgsConstructor
 @Validated
 public class EquipmentController {
@@ -26,10 +27,14 @@ public class EquipmentController {
     private final EquipmentService equipmentService;
 
     /**
-     * 특정 랙에 설치된 장비 목록을 조회하는 기능
-     * 상태, 타입, 정렬 기준으로 필터링 가능
-     * 예: 특정 랙의 모든 서버 장비만 보기
-     * 권한: 모든 사용자 접근 가능
+     * 랙별 장비 목록 조회
+     * GET /api/equipments/rack/{rackId}
+     *
+     * @param rackId 랙 ID
+     * @param status 상태 필터 (선택)
+     * @param type 타입 필터 (선택)
+     * @param sortBy 정렬 기준 (선택)
+     * @return 장비 목록
      */
     @GetMapping("/rack/{rackId}")
     public ResponseEntity<CommonResDto> getEquipmentsByRack(
@@ -40,27 +45,74 @@ public class EquipmentController {
 
         List<EquipmentListResponse> equipments = equipmentService.getEquipmentsByRack(
                 rackId, status, type, sortBy);
-
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", equipments));
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", equipments));
     }
 
     /**
-     * 특정 장비의 상세 정보를 조회하는 기능
-     * 장비의 모델명, 시리얼 번호, 설치 위치, 상태 등 모든 정보 제공
-     * 권한: 모든 사용자 접근 가능
+     * 장비 상세 조회
+     * GET /api/equipments/{id}
+     *
+     * @param id 장비 ID
+     * @return 장비 상세 정보
      */
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getEquipmentById(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장비 ID입니다.") Long id) {
 
         EquipmentDetailResponse equipment = equipmentService.getEquipmentById(id);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "장비 조회 완료", equipment));
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 조회 완료", equipment));
     }
 
     /**
-     * 새로운 장비를 등록하는 기능
-     * 장비 이름, 모델, 타입, 시리얼 번호 등의 정보를 입력받아 생성
-     * 권한: ADMIN 또는 OPERATOR만 가능
+     * 전산실별 장비 목록 조회
+     * GET /api/equipments/datacenter/{datacenterId}
+     *
+     * @param datacenterId 전산실 ID
+     * @param status 상태 필터 (선택)
+     * @param type 타입 필터 (선택)
+     * @return 장비 목록
+     */
+    @GetMapping("/datacenter/{datacenterId}")
+    public ResponseEntity<CommonResDto> getEquipmentByDatacenter(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long datacenterId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String type) {
+
+        List<EquipmentListResponse> equipments = equipmentService.getEquipmentsByDatacenter(
+                datacenterId, status, type);
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", equipments));
+    }
+
+    /**
+     * 장비 검색
+     * GET /api/equipments/search
+     *
+     * @param type 타입 필터 (선택)
+     * @param status 상태 필터 (선택)
+     * @param keyword 검색 키워드 (선택)
+     * @return 장비 목록
+     */
+    @GetMapping("/search")
+    public ResponseEntity<CommonResDto> getEquipmentsBySearch(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword) {
+
+        List<EquipmentListResponse> equipments = equipmentService.searchEquipments(
+                keyword, type, status);
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "검색 완료", equipments));
+    }
+
+    /**
+     * 장비 생성
+     * POST /api/equipments
+     *
+     * @param request 장비 생성 요청 DTO
+     * @return 생성된 장비 정보
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -71,9 +123,12 @@ public class EquipmentController {
     }
 
     /**
-     * 기존 장비의 정보를 수정하는 기능
-     * 장비의 이름, 모델, 담당자 등을 변경
-     * 권한: ADMIN 또는 OPERATOR만 가능
+     * 장비 수정
+     * PUT /api/equipments/{id}
+     *
+     * @param id 장비 ID
+     * @param request 장비 수정 요청 DTO
+     * @return 수정된 장비 정보
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -82,13 +137,16 @@ public class EquipmentController {
             @Valid @RequestBody EquipmentUpdateRequest request) {
 
         EquipmentDetailResponse equipment = equipmentService.updateEquipment(id, request);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "장비 수정 완료", equipment));
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 수정 완료", equipment));
     }
 
     /**
-     * 장비를 삭제하는 기능 (소프트 삭제)
-     * 실제로 데이터를 지우지 않고 삭제 표시만 함
-     * 권한: ADMIN만 가능
+     * 장비 삭제
+     * DELETE /api/equipments/{id}
+     *
+     * @param id 장비 ID
+     * @return 삭제 완료 메시지
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -96,21 +154,26 @@ public class EquipmentController {
             @PathVariable @Min(value = 1, message = "유효하지 않은 장비 ID입니다.") Long id) {
 
         equipmentService.deleteEquipment(id);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "장비 삭제 완료", null));
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 삭제 완료", null));
     }
 
     /**
-     * 장비의 상태를 변경하는 기능
-     * 예: NORMAL → MAINTENANCE, MAINTENANCE → ERROR 등
-     * 권한: ADMIN 또는 OPERATOR만 가능
+     * 장비 상태 변경
+     * PUT /api/equipments/{id}/status
+     *
+     * @param id 장비 ID
+     * @param request 상태 변경 요청 DTO
+     * @return 상태 변경된 장비 정보
      */
-    @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> changeEquipmentStatus(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장비 ID입니다.") Long id,
             @Valid @RequestBody EquipmentStatusChangeRequest request) {
 
         EquipmentDetailResponse equipment = equipmentService.changeEquipmentStatus(id, request);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "장비 상태 변경 완료", equipment));
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 상태 변경 완료", equipment));
     }
 }

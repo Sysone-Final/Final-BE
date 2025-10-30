@@ -6,6 +6,9 @@ import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.math.BigDecimal;
 
+/**
+ * 랙 카드 뷰 응답 DTO
+ */
 @Builder
 public record RackCardResponse(
         Long id,
@@ -34,7 +37,7 @@ public record RackCardResponse(
                 .totalUnits(rack.getTotalUnits())
                 .currentPowerUsage(rack.getCurrentPowerUsage())
                 .maxPowerCapacity(rack.getMaxPowerCapacity())
-                .temperature(null) // TODO: 모니터링 데이터 연동
+                .temperature(null)
                 .managerId(rack.getManagerId())
                 .department(rack.getDepartment())
                 .build();

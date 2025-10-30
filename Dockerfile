@@ -3,9 +3,10 @@
 FROM gradle:8.4-jdk17-alpine AS build
 WORKDIR /home/gradle/src
 COPY --chown=gradle:gradle . .
-# '--no-daemon' 옵션은 CI 환경에서 빌드 안정성을 높여줍니다.
-# The '--no-daemon' option improves build stability in CI environments.
-RUN gradle build --no-daemon
+
+# 테스트는 GitHub Actions에서 이미 수행했으므로 빌드만 실행
+# Tests are already run in GitHub Actions, so we skip them during Docker build
+RUN gradle build --no-daemon -x test
 
 # 2단계: 빌드된 결과물만 가져와 최종 실행 이미지 생성
 # Stage 2: Create the final execution image with only the build artifacts

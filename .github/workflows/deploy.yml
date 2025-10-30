@@ -7,6 +7,23 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # PostgreSQL 서비스 컨테이너 추가
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,7 +39,12 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Test with Gradle
-        run: ./gradlew test # test 대신 build를 실행해서 빌드 가능 여부를 확인해도 좋습니다.
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/testdb
+          DB_USERNAME: testuser
+          DB_PASSWORD: testpass
+          JWT_SECRET: test-jwt-secret-key-for-github-actions-minimum-32-characters-long-required
+        run: ./gradlew test
 
   deploy:
     needs: test # test 작업이 성공해야만 실행됩니다.

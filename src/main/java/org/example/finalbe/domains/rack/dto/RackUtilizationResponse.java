@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
 
+/**
+ * 랙 사용률 응답 DTO
+ */
 @Builder
 public record RackUtilizationResponse(
         Long rackId,

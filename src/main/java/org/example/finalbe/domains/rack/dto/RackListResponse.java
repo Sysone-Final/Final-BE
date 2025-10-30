@@ -6,6 +6,9 @@ import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.math.BigDecimal;
 
+/**
+ * 랙 목록 조회 응답 DTO
+ */
 @Builder
 public record RackListResponse(
         Long id,

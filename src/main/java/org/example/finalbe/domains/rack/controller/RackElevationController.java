@@ -16,7 +16,7 @@ import java.util.Map;
 
 /**
  * 랙 실장도 관리 컨트롤러
- * 실장도(Elevation View): 랙의 1U~42U 유닛을 시각적으로 표시
+ * 장비 배치 및 이동 API 제공
  */
 @RestController
 @RequestMapping("/api/racks")
@@ -27,10 +27,12 @@ public class RackElevationController {
     private final RackElevationService rackElevationService;
 
     /**
-     * 랙의 실장도(배치도)를 조회하는 기능
-     * 랙 안에 어떤 장비가 몇 번 유닛에 설치되어 있는지 시각적으로 보여줌
-     * 앞면(FRONT) 또는 뒷면(REAR) 뷰 선택 가능
-     * 권한: 모든 사용자 접근 가능
+     * 랙 실장도 조회
+     * GET /api/racks/{id}/elevation
+     *
+     * @param id 랙 ID
+     * @param view 뷰 타입 (FRONT/REAR, 기본값: FRONT)
+     * @return 랙 실장도 정보 (유닛별 장비 배치 현황)
      */
     @GetMapping("/{id}/elevation")
     public ResponseEntity<CommonResDto> getRackElevation(
@@ -42,10 +44,13 @@ public class RackElevationController {
     }
 
     /**
-     * 랙에 장비를 배치하는 기능
-     * 특정 장비를 랙의 원하는 유닛 위치에 설치
-     * 시작 유닛 위치와 장비가 차지할 유닛 개수를 지정
-     * 권한: ADMIN 또는 OPERATOR만 가능
+     * 장비 배치
+     * POST /api/racks/{id}/equipment/{equipmentId}/place
+     *
+     * @param id 랙 ID
+     * @param equipmentId 장비 ID
+     * @param request 배치 요청 DTO (시작 유닛, 유닛 크기 등)
+     * @return 배치 완료 메시지
      */
     @PostMapping("/{id}/equipment/{equipmentId}/place")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -59,10 +64,13 @@ public class RackElevationController {
     }
 
     /**
-     * 랙 내에서 장비의 위치를 이동시키는 기능
-     * 이미 설치된 장비를 다른 유닛 위치로 옮김
-     * 예: 10번 유닛에 있던 장비를 20번 유닛으로 이동
-     * 권한: ADMIN 또는 OPERATOR만 가능
+     * 장비 이동
+     * PUT /api/racks/{id}/equipment/{equipmentId}/move
+     *
+     * @param id 랙 ID
+     * @param equipmentId 장비 ID
+     * @param request 이동 요청 DTO (이전 유닛, 이동할 유닛)
+     * @return 이동 완료 메시지
      */
     @PutMapping("/{id}/equipment/{equipmentId}/move")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -76,10 +84,12 @@ public class RackElevationController {
     }
 
     /**
-     * 장비 배치가 가능한지 미리 검증하는 기능
-     * 실제로 배치하기 전에 해당 위치에 공간이 충분한지, 다른 장비와 겹치지 않는지 확인
-     * 배치 가능 여부와 문제점을 미리 알려줌
-     * 권한: ADMIN 또는 OPERATOR만 가능
+     * 장비 배치 검증
+     * POST /api/racks/{id}/validate-placement
+     *
+     * @param id 랙 ID
+     * @param request 배치 요청 DTO
+     * @return 배치 가능 여부 및 검증 결과
      */
     @PostMapping("/{id}/validate-placement")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -92,10 +102,11 @@ public class RackElevationController {
     }
 
     /**
-     * 랙의 사용률 정보를 조회하는 기능
-     * 전체 유닛 중 몇 개가 사용 중인지, 몇 개가 비어있는지 등의 통계 정보 제공
-     * 예: 42U 중 30U 사용 중 (71% 사용률)
-     * 권한: 모든 사용자 접근 가능
+     * 랙 사용률 조회
+     * GET /api/racks/{id}/utilization
+     *
+     * @param id 랙 ID
+     * @return 랙 사용률 정보 (유닛, 전력, 중량 사용률)
      */
     @GetMapping("/{id}/utilization")
     public ResponseEntity<CommonResDto> getRackUtilization(

@@ -5,12 +5,14 @@ import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.DeviceStatus;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.device.domain.Device;
-
 import org.example.finalbe.domains.device.domain.DeviceType;
 import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.time.LocalDate;
 
+/**
+ * 장치 생성 요청 DTO
+ */
 @Builder
 public record DeviceCreateRequest(
         @NotBlank(message = "장치명을 입력해주세요.")
@@ -62,8 +64,11 @@ public record DeviceCreateRequest(
         @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.")
         Long datacenterId,
 
-        Long rackId  // server 타입일 경우 필수
+        Long rackId
 ) {
+    /**
+     * DTO를 Entity로 변환
+     */
     public Device toEntity(DeviceType deviceType, DataCenter datacenter, Rack rack, Long managerId) {
         return Device.builder()
                 .deviceName(this.deviceName)

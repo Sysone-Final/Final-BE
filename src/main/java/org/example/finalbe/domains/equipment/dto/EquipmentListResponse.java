@@ -5,6 +5,9 @@ import org.example.finalbe.domains.equipment.domain.Equipment;
 
 import java.math.BigDecimal;
 
+/**
+ * 장비 목록 조회 응답 DTO
+ */
 @Builder
 public record EquipmentListResponse(
         Long equipmentId,

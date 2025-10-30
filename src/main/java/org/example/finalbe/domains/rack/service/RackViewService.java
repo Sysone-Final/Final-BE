@@ -27,7 +27,6 @@ public class RackViewService {
 
     /**
      * 랙 카드 뷰 조회
-     * 대시보드용 그리드 레이아웃에 표시할 랙 요약 정보
      */
     public List<RackCardResponse> getRackCards(Long dataCenterId) {
         log.debug("Fetching rack cards for datacenter: {}", dataCenterId);
@@ -43,13 +42,6 @@ public class RackViewService {
 
     /**
      * 랙 통계 조회
-     * 전산실 내 모든 랙의 통계 데이터 집계
-     *
-     * 포함 정보:
-     * - 기본 통계 (전체 랙 수, 활성 랙 수, 점검중 랙 수)
-     * - 평균 사용률 및 전력 사용률
-     * - 랙별 사용 데이터 (차트용)
-     * - 부서별/담당자별 랙 분포
      */
     public RackStatisticsResponse getRackStatistics(Long dataCenterId) {
         log.debug("Fetching rack statistics for datacenter: {}", dataCenterId);

@@ -21,12 +21,6 @@ import java.util.stream.Collectors;
  * - @Service: Spring의 Service 계층 빈으로 등록
  * - @Transactional: 트랜잭션 관리 (데이터 일관성 보장)
  * - @Slf4j: 로깅 기능 (log.info(), log.error() 등 사용 가능)
- *
- * Service 계층의 역할:
- * 1. 비즈니스 로직 처리
- * 2. 트랜잭션 관리
- * 3. Entity ↔ DTO 변환
- * 4. 예외 처리 및 검증
  */
 @Slf4j // Lombok의 로깅 기능
 @Service // Spring의 Service Layer Bean으로 등록

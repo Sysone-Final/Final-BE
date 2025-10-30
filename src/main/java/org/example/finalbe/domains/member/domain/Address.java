@@ -6,13 +6,16 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * 주소 임베디드 타입
+ */
 @Getter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Embeddable
 public class Address {
-    private String city;
-    private String street;
-    private String zipcode;
+    private String city; // 도시
+    private String street; // 상세 주소
+    private String zipcode; // 우편번호
 }

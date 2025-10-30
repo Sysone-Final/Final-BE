@@ -3,7 +3,9 @@ package org.example.finalbe.domains.device.dto;
 import lombok.Builder;
 import org.example.finalbe.domains.device.domain.DeviceType;
 
-
+/**
+ * 장치 타입 목록 조회 응답 DTO
+ */
 @Builder
 public record DeviceTypeListResponse(
         Long id,

@@ -83,24 +83,29 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_PRIVATE_KEY }}
           script: |
-            # --- 디버깅 로그 추가 (권한 확인) ---
-            echo "--- Verifying permissions ---"
-            ls -ld /home/sana2d2v
-            ls -ld /home/sana2d2v/app
-            echo "--- Starting deploy script ---"
-            
-            # 1. app 폴더로 이동해서 코드 최신화
+            # 1. app 폴더로 이동
             cd /home/sana2d2v/app
+            
+            # 2.  Git 소유권 문제 해결
+            git config --global --add safe.directory /home/sana2d2v/app
+            
+            # 3.  서버에 있는 로컬 변경사항을 강제로 버림 (git pull 충돌 방지)
+            git reset --hard HEAD
+            
+            # 4. 최신 코드를 pull
             git pull
             
-            # 2. docker-compose.yml이 있는 상위 폴더로 이동
+            # 5. docker-compose.yml이 있는 상위 폴더로 이동
             cd ..
             
-            # 3. 모든 docker 명령어를 'sudo'로 실행
+            # 6. 'sudo'로 docker 명령어 실행 
             sudo docker-compose down
             sudo docker-compose pull
             sudo docker-compose up -d
-            sudo docker-compose logs app
-            sudo docker image prune -f
             
+            # 7. 5초 대기 후 로그 확인 (서버가 뜰 시간)
+            sleep 5
+            sudo docker-compose logs app
+            
+            sudo docker image prune -f
             echo "✅ Backend Deploy Success!"

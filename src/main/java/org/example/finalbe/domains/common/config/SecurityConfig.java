@@ -13,10 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Spring Security 설정 클래스
- * JWT 기반 인증 및 권한 관리
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -25,17 +21,14 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    /**
-     * SecurityFilterChain 빈 설정
-     * HTTP 보안 설정 및 인증/인가 규칙 정의
-     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configure(http))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/refresh").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
                         .requestMatchers("/api/companies/**").authenticated()
                         .requestMatchers("/api/datacenters/**").authenticated()
@@ -51,10 +44,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * PasswordEncoder 빈 설정
-     * BCrypt 알고리즘으로 비밀번호 암호화
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);

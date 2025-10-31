@@ -83,7 +83,7 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_PRIVATE_KEY }}
           script: |
-            # 1. app 폴더로 이동
+            # 1. (중요) app 폴더로 이동하고 여기서 모든 작업을 수행합니다.
             cd /home/sana2d2v/app
             
             # 2. 'root' 사용자가 이 디렉토리를 신뢰하도록 설정
@@ -95,10 +95,10 @@ jobs:
             # 4. 'sudo' (root) 권한으로 최신 코드를 pull
             sudo git pull
             
-            # 5. docker-compose.yml이 있는 상위 폴더로 이동
-            cd ..
             
-            # 6.  'app'과 'nginx' 컨테이너 모두 강제 삭제
+            
+            # 6. 'app'과 'nginx' 컨테이너 모두 강제 삭제
+        
             sudo docker stop final-be-app || true
             sudo docker rm final-be-app || true
             sudo docker stop final-be-nginx || true

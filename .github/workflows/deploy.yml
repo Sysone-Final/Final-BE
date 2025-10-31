@@ -85,6 +85,8 @@ jobs:
             cd /home/sana2d2v/app
             git pull
 
+            cd ..
+            
             # 기존 컨테이너 중지 및 제거
             docker-compose down
 

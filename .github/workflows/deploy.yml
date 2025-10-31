@@ -51,9 +51,7 @@ jobs:
   deploy:
     needs: test # test 작업이 성공해야만 실행됩니다.
     runs-on: ubuntu-latest
-    if: |
-      github.ref == 'refs/heads/main' ||
-      github.ref == 'refs/heads/refactor/SYSONE-88-(53+63)-리팩토링'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor/SYSONE-88-(53+63)-리팩토링'
 
     steps:
       - name: Checkout code

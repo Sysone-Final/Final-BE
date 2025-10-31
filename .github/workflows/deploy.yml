@@ -98,9 +98,11 @@ jobs:
             # 5. docker-compose.yml이 있는 상위 폴더로 이동
             cd ..
             
-            # 6. 컨테이너 충돌 방지를 위해 강제 삭제 (|| true는 오류가 나도 무시)
+            # 6.  'app'과 'nginx' 컨테이너 모두 강제 삭제
             sudo docker stop final-be-app || true
             sudo docker rm final-be-app || true
+            sudo docker stop final-be-nginx || true
+            sudo docker rm final-be-nginx || true
             
             # 7. 'sudo'로 docker 명령어 실행
             sudo docker-compose down

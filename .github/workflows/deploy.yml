@@ -83,7 +83,7 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_PRIVATE_KEY }}
           script: |
-            # 1. (중요) app 폴더로 이동하고 여기서 모든 작업을 수행합니다.
+            # 1. app 폴더로 이동
             cd /home/sana2d2v/app
             
             # 2. 'root' 사용자가 이 디렉토리를 신뢰하도록 설정
@@ -95,17 +95,16 @@ jobs:
             # 4. 'sudo' (root) 권한으로 최신 코드를 pull
             sudo git pull
             
-            
-            
-            # 6. 'app'과 'nginx' 컨테이너 모두 강제 삭제
-        
+            # 5. 'app'과 'nginx' 컨테이너 모두 강제 삭제
             sudo docker stop final-be-app || true
             sudo docker rm final-be-app || true
             sudo docker stop final-be-nginx || true
             sudo docker rm final-be-nginx || true
             
+            # 6. --volumes 플래그를 추가하여 Docker의 잘못된 캐시(볼륨)를 삭제
+            sudo docker-compose down --volumes
+            
             # 7. 'sudo'로 docker 명령어 실행
-            sudo docker-compose down
             sudo docker-compose pull
             sudo docker-compose up -d
             

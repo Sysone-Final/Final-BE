@@ -31,6 +31,8 @@ public class CompanyController {
      * GET /api/companies
      *
      * @return 회사 목록
+     *
+     *
      */
     @GetMapping
     public ResponseEntity<CommonResDto> getAllCompanies() {

@@ -2,7 +2,9 @@ name: Backend CI/CD to GCP
 
 on:
   push:
-    branches: [ "main", "ci/SYSONE-38-backend-deploy" ]
+    branches:
+      - "main"
+      - "refactor/SYSONE-88-(53+63)-리팩토링"
 
 jobs:
   test:
@@ -49,7 +51,10 @@ jobs:
   deploy:
     needs: test # test 작업이 성공해야만 실행됩니다.
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci/SYSONE-38-backend-deploy'
+    if: |
+      github.ref == 'refs/heads/main' || 
+      github.ref == 'refs/heads/ci/SYSONE-38-backend-deploy' ||
+      github.ref == 'refs/heads/refactor/SYSONE-88-(53+63)-리팩토링'
 
     steps:
       - name: Checkout code

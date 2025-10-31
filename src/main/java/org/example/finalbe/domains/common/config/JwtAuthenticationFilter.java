@@ -1,0 +1,128 @@
+package org.example.finalbe.domains.common.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.common.dto.CommonErrorDto;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtTokenProvider jwtTokenProvider;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        try {
+            String requestURI = request.getRequestURI();
+            String method = request.getMethod();
+
+            // permitAll 경로는 JWT 필터 스킵
+            if (shouldSkipFilter(requestURI, method)) {
+                log.debug("Skipping JWT filter for public path: {} {}", method, requestURI);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            String token = resolveToken(request);
+
+            if (token != null) {
+                if (!jwtTokenProvider.validateToken(token)) {
+                    log.warn("Invalid JWT token for request: {}", requestURI);
+                    sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+                    return;
+                }
+
+                String userId = jwtTokenProvider.getUserId(token);
+                String role = jwtTokenProvider.getRole(token);
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userId,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                );
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                log.debug("User authenticated: userId={}, role={}", userId, role);
+            } else {
+                log.debug("No JWT token found for request: {}", requestURI);
+                // permitAll 경로가 아닌데 토큰이 없으면 401 반환
+                // (이미 shouldSkipFilter에서 permitAll 경로는 필터링됨)
+            }
+
+            filterChain.doFilter(request, response);
+
+        } catch (Exception e) {
+            log.error("JWT authentication failed for request: {}", request.getRequestURI(), e);
+            SecurityContextHolder.clearContext();
+
+            // permitAll 경로는 예외가 발생해도 에러 응답 대신 필터 체인 계속 진행
+            String requestURI = request.getRequestURI();
+            String method = request.getMethod();
+            if (shouldSkipFilter(requestURI, method)) {
+                filterChain.doFilter(request, response);
+            } else {
+                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "인증에 실패했습니다.");
+            }
+        }
+    }
+
+    private boolean shouldSkipFilter(String requestURI, String method) {
+        // 인증 API는 항상 스킵
+        if (requestURI.startsWith("/api/auth/")) {
+            return true;
+        }
+
+        // GET /api/companies 스킵
+        if ("GET".equalsIgnoreCase(method)) {
+            if (requestURI.equals("/api/companies") || requestURI.equals("/api/companies/")) {
+                return true;
+            }
+        }
+
+        // /api/devices/** 모든 메서드 스킵
+        if (requestURI.startsWith("/api/devices")) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+
+        CommonErrorDto errorDto = new CommonErrorDto(status, message);
+        response.getWriter().write(objectMapper.writeValueAsString(errorDto));
+    }
+}

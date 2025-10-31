@@ -18,6 +18,8 @@ bin/
 *.ipr
 out/
 
+.gradle/
+
 ### Gradle ###
 build/
 
@@ -35,3 +37,5 @@ build/
 .env
 .DS_Store
 HELP.md
+
+.gradle/

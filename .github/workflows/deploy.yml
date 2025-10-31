@@ -5,6 +5,7 @@ on:
     branches:
       - "main"
       - "refactor/SYSONE-88-(53+63)-리팩토링"
+      - "ci/SYSONE-38-backend-deploy"
 
 jobs:
   test:
@@ -51,7 +52,7 @@ jobs:
   deploy:
     needs: test # test 작업이 성공해야만 실행됩니다.
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor/SYSONE-88-(53+63)-리팩토링'
+#    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor/SYSONE-88-(53+63)-리팩토링'
 
     steps:
       - name: Checkout code
@@ -82,20 +83,34 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_PRIVATE_KEY }}
           script: |
+            # 1. app 폴더로 이동
             cd /home/sana2d2v/app
-            git pull
-
-            # 기존 컨테이너 중지 및 제거
-            docker-compose down
-
-            # 최신 이미지 pull (강제로 다시 받기)
-            docker-compose pull
-
-            # 컨테이너 시작
-            docker-compose up -d
-
-            # 로그 확인 (디버깅용)
-            docker-compose logs app
-
-            docker image prune -f
+            
+            # 2. 'root' 사용자가 이 디렉토리를 신뢰하도록 설정
+            sudo git config --global --add safe.directory /home/sana2d2v/app
+            
+            # 3. 'sudo' (root) 권한으로 로컬 변경사항을 강제 리셋
+            sudo git reset --hard HEAD
+            
+            # 4. 'sudo' (root) 권한으로 최신 코드를 pull
+            sudo git pull
+            
+            # 5. 'app'과 'nginx' 컨테이너 모두 강제 삭제
+            sudo docker stop final-be-app || true
+            sudo docker rm final-be-app || true
+            sudo docker stop final-be-nginx || true
+            sudo docker rm final-be-nginx || true
+            
+            # 6. --volumes 플래그를 추가하여 Docker의 잘못된 캐시(볼륨)를 삭제
+            sudo docker-compose down --volumes
+            
+            # 7. 'sudo'로 docker 명령어 실행
+            sudo docker-compose pull
+            sudo docker-compose up -d
+            
+            # 8. 5초 대기 후 로그 확인
+            sleep 5
+            sudo docker-compose logs app
+            
+            sudo docker image prune -f
             echo "✅ Backend Deploy Success!"

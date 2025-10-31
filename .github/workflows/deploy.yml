@@ -52,6 +52,7 @@ jobs:
   deploy:
     needs: test # test 작업이 성공해야만 실행됩니다.
     runs-on: ubuntu-latest
+#    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/refactor/SYSONE-88-(53+63)-리팩토링'
 
     steps:
       - name: Checkout code
@@ -82,24 +83,19 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_PRIVATE_KEY }}
           script: |
-            # --- 디버깅 로그 추가 (권한 확인) ---
-            echo "--- Verifying permissions ---"
-            ls -ld /home/sana2d2v
-            ls -ld /home/sana2d2v/app
-            echo "--- Starting deploy script ---"
-
-            # 1. app 폴더로 이동해서 코드 최신화
-            cd /home/sana2d2v/app
-            git pull
-
-            # 2. docker-compose.yml이 있는 상위 폴더로 이동
-            cd ..
-
-            # 3. 모든 docker 명령어를 'sudo'로 실행
-            sudo docker-compose down
-            sudo docker-compose pull
-            sudo docker-compose up -d
-            sudo docker-compose logs app
-            sudo docker image prune -f
-
+            # 디렉토리 이동 및 git pull
+            cd /home/sana2d2v/app && git pull
+            
+            # docker-compose.yml이 있는 디렉토리로 이동
+            cd /home/sana2d2v
+            
+            # Docker 명령 실행 (docker 그룹 권한 활용)
+            /usr/local/bin/docker-compose down
+            /usr/local/bin/docker-compose pull
+            /usr/local/bin/docker-compose up -d
+            /usr/local/bin/docker-compose logs --tail=50 app
+            
+            # 사용하지 않는 이미지 정리
+            /usr/bin/docker image prune -f
+            
             echo "✅ Backend Deploy Success!"

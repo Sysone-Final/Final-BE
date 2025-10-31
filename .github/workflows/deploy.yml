@@ -83,19 +83,20 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.GCP_PRIVATE_KEY }}
           script: |
-            # 디렉토리 이동 및 git pull
-            cd /home/sana2d2v/app && git pull
+            bash -lc '
+              set -e  # 오류 발생 시 즉시 중단
             
-            # docker-compose.yml이 있는 디렉토리로 이동
-            cd /home/sana2d2v
+              cd /home/sana2d2v/app
+              git pull
             
-            # Docker 명령 실행 (docker 그룹 권한 활용)
-            /usr/local/bin/docker-compose down
-            /usr/local/bin/docker-compose pull
-            /usr/local/bin/docker-compose up -d
-            /usr/local/bin/docker-compose logs --tail=50 app
+              cd /home/sana2d2v
             
-            # 사용하지 않는 이미지 정리
-            /usr/bin/docker image prune -f
+              docker-compose down
+              docker-compose pull
+              docker-compose up -d
+              docker-compose logs --tail=50 app
             
-            echo "✅ Backend Deploy Success!"
+              docker image prune -f
+            
+              echo "✅ Backend Deploy Success!"
+            '

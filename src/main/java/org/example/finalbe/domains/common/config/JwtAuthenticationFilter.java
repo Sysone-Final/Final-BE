@@ -82,9 +82,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
-        // GET /api/companies는 스킵 (끝에 슬래시가 있어도 허용)
         if ("GET".equalsIgnoreCase(method)) {
-            // /api/companies 또는 /api/companies/ 모두 허용
             if (requestURI.equals("/api/companies") || requestURI.equals("/api/companies/")) {
                 return true;
             }

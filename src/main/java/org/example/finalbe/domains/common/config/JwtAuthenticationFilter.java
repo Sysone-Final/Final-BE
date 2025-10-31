@@ -49,8 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (token != null) {
                 if (!jwtTokenProvider.validateToken(token)) {
                     log.warn("Invalid JWT token for request: {}", requestURI);
-                    // 토큰이 유효하지 않아도 다음 필터로 진행 (permitAll 경로 대비)
-                    filterChain.doFilter(request, response);
+                    sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
                     return;
                 }
 
@@ -68,6 +67,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("User authenticated: userId={}, role={}", userId, role);
             } else {
                 log.debug("No JWT token found for request: {}", requestURI);
+                // permitAll 경로가 아닌데 토큰이 없으면 401 반환
+                // (이미 shouldSkipFilter에서 permitAll 경로는 필터링됨)
             }
 
             filterChain.doFilter(request, response);

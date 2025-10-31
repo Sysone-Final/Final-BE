@@ -47,6 +47,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/departments/**").authenticated()
                         .anyRequest().authenticated()
                 )
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"인증이 필요합니다.\"}");
+                        })
+                )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -55,14 +62,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://serverway.shop",
-                "http://serverway.shop",
-                "https://api.serverway.shop",
-                "http://api.serverway.shop"
-        ));
+        // 배포
+        // configuration.setAllowedOrigins(List.of(
+        //         "http://localhost:3000",
+        //         "http://localhost:5173",
+        //         "https://serverway.shop",
+        //         "http://serverway.shop",
+        //         "https://api.serverway.shop",
+        //         "http://api.serverway.shop"
+        // ));
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

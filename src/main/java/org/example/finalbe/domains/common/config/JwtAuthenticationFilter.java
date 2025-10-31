@@ -49,6 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (token != null) {
                 if (!jwtTokenProvider.validateToken(token)) {
                     log.warn("Invalid JWT token for request: {}", requestURI);
+                    // 토큰이 유효하지 않아도 다음 필터로 진행 (permitAll 경로 대비)
                     filterChain.doFilter(request, response);
                     return;
                 }
@@ -65,6 +66,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 log.debug("User authenticated: userId={}, role={}", userId, role);
+            } else {
+                log.debug("No JWT token found for request: {}", requestURI);
             }
 
             filterChain.doFilter(request, response);
@@ -72,7 +75,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             log.error("JWT authentication failed for request: {}", request.getRequestURI(), e);
             SecurityContextHolder.clearContext();
-            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "인증에 실패했습니다.");
+
+            // permitAll 경로는 예외가 발생해도 에러 응답 대신 필터 체인 계속 진행
+            String requestURI = request.getRequestURI();
+            String method = request.getMethod();
+            if (shouldSkipFilter(requestURI, method)) {
+                filterChain.doFilter(request, response);
+            } else {
+                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "인증에 실패했습니다.");
+            }
         }
     }
 
@@ -82,6 +93,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
+        // GET /api/companies 스킵
         if ("GET".equalsIgnoreCase(method)) {
             if (requestURI.equals("/api/companies") || requestURI.equals("/api/companies/")) {
                 return true;

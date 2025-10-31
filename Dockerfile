@@ -19,7 +19,7 @@ COPY --from=build /home/gradle/src/build/libs/*.jar app.jar
 
 # 애플리케이션이 8080 포트를 사용함을 명시합니다.
 # Expose port 8080 to indicate which port the application uses.
-EXPOSE 8080
+EXPOSE 8081
 
 # 컨테이너가 시작될 때 app.jar 파일을 실행합니다.
 # Specify the command to run when the container starts.

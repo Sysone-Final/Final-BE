@@ -21,10 +21,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * JWT 인증 필터
- * 모든 HTTP 요청에서 JWT 토큰을 검증하고 인증 정보를 SecurityContext에 저장
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -33,20 +29,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * 필터의 핵심 메서드
-     * 모든 HTTP 요청에서 실행되어 JWT 토큰을 검증
-     */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
+            String requestURI = request.getRequestURI();
+            String method = request.getMethod();
+
+            // permitAll 경로는 JWT 필터 스킵
+            if (shouldSkipFilter(requestURI, method)) {
+                log.debug("Skipping JWT filter for public path: {} {}", method, requestURI);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String token = resolveToken(request);
 
             if (token != null) {
                 if (!jwtTokenProvider.validateToken(token)) {
-                    log.warn("Invalid JWT token for request: {}", request.getRequestURI());
+                    log.warn("Invalid JWT token for request: {}", requestURI);
                     filterChain.doFilter(request, response);
                     return;
                 }
@@ -74,10 +76,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    /**
-     * HTTP 요청 헤더에서 JWT 토큰 추출
-     * "Authorization: Bearer {token}" 형식에서 토큰만 추출
-     */
+    private boolean shouldSkipFilter(String requestURI, String method) {
+        // 인증 API는 항상 스킵
+        if (requestURI.startsWith("/api/auth/")) {
+            return true;
+        }
+
+        // GET /api/companies는 스킵
+        if ("GET".equalsIgnoreCase(method) && requestURI.equals("/api/companies")) {
+            return true;
+        }
+
+        // /api/devices/** 모든 메서드 스킵
+        if (requestURI.startsWith("/api/devices")) {
+            return true;
+        }
+
+        return false;
+    }
+
     private String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
@@ -86,10 +103,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
-    /**
-     * 에러 응답 전송
-     * JSON 형식으로 에러 정보를 클라이언트에 전달
-     */
     private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);

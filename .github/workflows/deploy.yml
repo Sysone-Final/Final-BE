@@ -89,21 +89,25 @@ jobs:
             # 2. 'root' 사용자가 이 디렉토리를 신뢰하도록 설정
             sudo git config --global --add safe.directory /home/sana2d2v/app
             
-            # 3.  'sudo' (root) 권한으로 로컬 변경사항을 강제 리셋
+            # 3. 'sudo' (root) 권한으로 로컬 변경사항을 강제 리셋
             sudo git reset --hard HEAD
             
-            # 4.  'sudo' (root) 권한으로 최신 코드를 pull
+            # 4. 'sudo' (root) 권한으로 최신 코드를 pull
             sudo git pull
             
             # 5. docker-compose.yml이 있는 상위 폴더로 이동
             cd ..
             
-            # 6. 'sudo'로 docker 명령어 실행
+            # 6. 컨테이너 충돌 방지를 위해 강제 삭제 (|| true는 오류가 나도 무시)
+            sudo docker stop final-be-app || true
+            sudo docker rm final-be-app || true
+            
+            # 7. 'sudo'로 docker 명령어 실행
             sudo docker-compose down
             sudo docker-compose pull
             sudo docker-compose up -d
             
-            # 7. 5초 대기 후 로그 확인
+            # 8. 5초 대기 후 로그 확인
             sleep 5
             sudo docker-compose logs app
             

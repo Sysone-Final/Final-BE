@@ -42,7 +42,7 @@ public class DataCenter extends BaseTimeEntity {
     private String location; // 전산실 위치/주소
 
     @Column(name = "floor", length = 50)
-    private String floor; // 전산실 층수
+    private Integer floor; // 전산실 층수
 
     @Column(name = "rows")
     private Integer rows; // 랙 배치 행 수
@@ -50,8 +50,6 @@ public class DataCenter extends BaseTimeEntity {
     @Column(name = "columns")
     private Integer columns; // 랙 배치 열 수
 
-    @Column(name = "background_image_url", length = 500)
-    private String backgroundImageUrl; // 평면도 이미지 URL
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
@@ -100,10 +98,9 @@ public class DataCenter extends BaseTimeEntity {
             String name,
             String code,
             String location,
-            String floor,
+            Integer floor,
             Integer rows,
             Integer columns,
-            String backgroundImageUrl,
             DataCenterStatus status,
             String description,
             BigDecimal totalArea,
@@ -122,7 +119,6 @@ public class DataCenter extends BaseTimeEntity {
         if (floor != null) this.floor = floor;
         if (rows != null) this.rows = rows;
         if (columns != null) this.columns = columns;
-        if (backgroundImageUrl != null) this.backgroundImageUrl = backgroundImageUrl;
         if (status != null) this.status = status;
         if (description != null) this.description = description;
         if (totalArea != null) this.totalArea = totalArea;

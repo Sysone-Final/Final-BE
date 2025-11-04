@@ -74,7 +74,6 @@ public record EquipmentCreateRequest(
 
         String status,
 
-        String imageUrl,
 
         @PastOrPresent(message = "설치일은 미래 날짜일 수 없습니다.")
         LocalDate installationDate,
@@ -113,7 +112,6 @@ public record EquipmentCreateRequest(
                 .powerConsumption(powerConsumption)
                 .weight(weight)
                 .status(status != null ? EquipmentStatus.valueOf(status) : EquipmentStatus.NORMAL)
-                .imageUrl(imageUrl)
                 .installationDate(installationDate)
                 .notes(notes)
                 .managerId(managerId)

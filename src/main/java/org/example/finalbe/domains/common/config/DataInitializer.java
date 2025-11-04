@@ -12,7 +12,6 @@ import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.device.domain.Device;
 import org.example.finalbe.domains.device.domain.DeviceType;
 import org.example.finalbe.domains.device.repository.DeviceRepository;
-
 import org.example.finalbe.domains.device.repository.DeviceTypeRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
@@ -22,6 +21,7 @@ import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +54,19 @@ public class DataInitializer implements CommandLineRunner {
         log.info("=".repeat(80));
 
         try {
+            // ⭐ 기존 데이터가 있으면 초기화 건너뛰기
+            if (companyRepository.count() > 0) {
+                log.info("✅ 기존 데이터가 존재하여 초기화를 건너뜁니다.");
+                log.info("   - 회사: {}개", companyRepository.count());
+                log.info("   - 사용자: {}명", memberRepository.count());
+                log.info("   - 전산실: {}개", dataCenterRepository.count());
+                log.info("   - 랙: {}개", rackRepository.count());
+                log.info("   - 장비: {}개", equipmentRepository.count());
+                log.info("   - 장치: {}개", deviceRepository.count());
+                log.info("=".repeat(80));
+                return;
+            }
+
             // 1. 회사 데이터 생성
             List<Company> companies = createCompanies();
             log.info("✅ {} 개의 회사 생성 완료", companies.size());
@@ -91,8 +104,12 @@ public class DataInitializer implements CommandLineRunner {
             printTestAccounts(members);
             log.info("=".repeat(80));
 
+        } catch (DataIntegrityViolationException e) {
+            // 중복 키 에러는 무시 (이미 데이터 존재)
+            log.warn("⚠️ 중복 데이터 발견 - 초기화를 건너뜁니다: {}", e.getMessage());
         } catch (Exception e) {
-            log.error("❌ 초기 데이터 로딩 중 오류 발생: {}", e.getMessage(), e);
+            // 다른 에러는 로그만 남기고 앱은 계속 실행
+            log.error("❌ 초기 데이터 로딩 중 오류 발생 (앱은 계속 실행됩니다): {}", e.getMessage());
         }
     }
 
@@ -167,7 +184,7 @@ public class DataInitializer implements CommandLineRunner {
                     .name("관리자" + userIndex)
                     .email("admin" + userIndex + "@" + company.getCode().toLowerCase() + ".com")
                     .phone("010-1000-" + String.format("%04d", userIndex))
-                    .department("경영지원팀")  // 부서 추가!
+                    .department("경영지원팀")
                     .status(UserStatus.ACTIVE)
                     .role(Role.ADMIN)
                     .company(company)
@@ -185,7 +202,7 @@ public class DataInitializer implements CommandLineRunner {
                     .name("운영자" + userIndex)
                     .email("operator" + userIndex + "@" + company.getCode().toLowerCase() + ".com")
                     .phone("010-2000-" + String.format("%04d", userIndex))
-                    .department("운영팀")  // 부서 추가!
+                    .department("운영팀")
                     .status(UserStatus.ACTIVE)
                     .role(Role.OPERATOR)
                     .company(company)
@@ -203,7 +220,7 @@ public class DataInitializer implements CommandLineRunner {
                     .name("조회자" + userIndex)
                     .email("viewer" + userIndex + "@" + company.getCode().toLowerCase() + ".com")
                     .phone("010-3000-" + String.format("%04d", userIndex))
-                    .department("관리팀")  // 부서 추가!
+                    .department("관리팀")
                     .status(UserStatus.ACTIVE)
                     .role(Role.VIEWER)
                     .company(company)
@@ -231,10 +248,9 @@ public class DataInitializer implements CommandLineRunner {
                 .name("서울 제1전산실")
                 .code("DC001")
                 .location("서울시 구로구 디지털로 300")
-                .floor("3F")
+                .floor(3)
                 .rows(10)
                 .columns(20)
-                .backgroundImageUrl("https://example.com/datacenter1.png")
                 .status(DataCenterStatus.ACTIVE)
                 .description("서울 메인 데이터센터")
                 .totalArea(new BigDecimal("1000.50"))
@@ -253,10 +269,9 @@ public class DataInitializer implements CommandLineRunner {
                 .name("서울 제2전산실")
                 .code("DC002")
                 .location("서울시 금천구 가산디지털로 200")
-                .floor("5F")
+                .floor(5)
                 .rows(8)
                 .columns(15)
-                .backgroundImageUrl("https://example.com/datacenter2.png")
                 .status(DataCenterStatus.ACTIVE)
                 .description("서울 백업 데이터센터")
                 .totalArea(new BigDecimal("800.00"))
@@ -275,10 +290,9 @@ public class DataInitializer implements CommandLineRunner {
                 .name("부산 전산실")
                 .code("DC003")
                 .location("부산시 해운대구 센텀로 100")
-                .floor("2F")
+                .floor(2)
                 .rows(6)
                 .columns(12)
-                .backgroundImageUrl("https://example.com/datacenter3.png")
                 .status(DataCenterStatus.ACTIVE)
                 .description("부산 지역 데이터센터")
                 .totalArea(new BigDecimal("600.00"))
@@ -297,10 +311,9 @@ public class DataInitializer implements CommandLineRunner {
                 .name("대전 전산실")
                 .code("DC004")
                 .location("대전시 유성구 테크노로 50")
-                .floor("1F")
+                .floor(1)
                 .rows(5)
                 .columns(10)
-                .backgroundImageUrl("https://example.com/datacenter4.png")
                 .status(DataCenterStatus.MAINTENANCE)
                 .description("대전 연구단지 데이터센터 (점검중)")
                 .totalArea(new BigDecimal("500.00"))
@@ -406,7 +419,6 @@ public class DataInitializer implements CommandLineRunner {
                     .build();
 
             racks.add(rack);
-            // 랙을 추가할 때마다 카운트 증가
             dc1.incrementRackCount();
         }
 
@@ -443,7 +455,6 @@ public class DataInitializer implements CommandLineRunner {
                     .build();
 
             racks.add(rack);
-            // 랙을 추가할 때마다 카운트 증가
             dc2.incrementRackCount();
         }
 
@@ -480,13 +491,10 @@ public class DataInitializer implements CommandLineRunner {
                     .build();
 
             racks.add(rack);
-            // 랙을 추가할 때마다 카운트 증가
             dc3.incrementRackCount();
         }
 
         List<Rack> savedRacks = rackRepository.saveAll(racks);
-
-        // 전산실 변경사항 저장 (incrementRackCount로 이미 증가된 상태)
         dataCenterRepository.saveAll(List.of(dc1, dc2, dc3));
 
         return savedRacks;
@@ -501,7 +509,7 @@ public class DataInitializer implements CommandLineRunner {
             Rack rack = racks.get(rackIdx);
 
             for (int equipIdx = 1; equipIdx <= 3; equipIdx++) {
-                int startUnit = (equipIdx - 1) * 10 + 1; // 1, 11, 21
+                int startUnit = (equipIdx - 1) * 10 + 1;
                 equipments.add(Equipment.builder()
                         .name(rack.getRackName() + "-서버-" + equipIdx)
                         .code(rack.getRackName() + "-SRV-" + equipIdx)
@@ -521,7 +529,6 @@ public class DataInitializer implements CommandLineRunner {
                         .powerConsumption(new BigDecimal("750.0"))
                         .weight(new BigDecimal("35.5"))
                         .status(EquipmentStatus.NORMAL)
-                        .imageUrl("https://example.com/server.png")
                         .installationDate(LocalDate.of(2024, 1, 15))
                         .notes("메인 서버 " + equipIdx)
                         .managerId(manager1.getId())
@@ -537,10 +544,10 @@ public class DataInitializer implements CommandLineRunner {
         // 랙의 사용 유닛 업데이트
         for (int i = 0; i < 3 && i < racks.size(); i++) {
             Rack rack = racks.get(i);
-            rack.setUsedUnits(12); // 4U x 3개 = 12U
-            rack.setAvailableUnits(30); // 42 - 12 = 30
-            rack.setCurrentPowerUsage(new BigDecimal("2250.0")); // 750W x 3
-            rack.setCurrentWeight(new BigDecimal("106.5")); // 35.5kg x 3
+            rack.setUsedUnits(12);
+            rack.setAvailableUnits(30);
+            rack.setCurrentPowerUsage(new BigDecimal("2250.0"));
+            rack.setCurrentWeight(new BigDecimal("106.5"));
         }
         rackRepository.saveAll(racks.subList(0, Math.min(3, racks.size())));
 

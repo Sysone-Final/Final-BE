@@ -5,8 +5,10 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.monitoring.domain.DiskMetric;
+import org.example.finalbe.domains.monitoring.domain.EnvironmentMetric;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
 import org.example.finalbe.domains.monitoring.repository.DiskMetricRepository;
+import org.example.finalbe.domains.monitoring.repository.EnvironmentMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.SystemMetricRepository;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,6 +28,7 @@ public class ServerRoomDataSimulator {
     private final SystemMetricRepository systemMetricRepository;
     private final DiskMetricRepository diskMetricRepository;
     private final NetworkMetricRepository networkMetricRepository;
+    private final EnvironmentMetricRepository environmentMetricRepository;
 
     private static final int[] DEVICE_IDS = {1, 3, 4, 6, 7, 8, 9, 10, 11};
     private static final Map<Integer, List<String>> DEVICE_PARTITIONS = new HashMap<>();
@@ -46,6 +49,12 @@ public class ServerRoomDataSimulator {
     private final Map<String, Long> cumulativeContextSwitches = new HashMap<>();
     private final Map<String, Long> cumulativeIoReads = new HashMap<>();
     private final Map<String, Long> cumulativeIoWrites = new HashMap<>();
+
+    // 환경 메트릭 추적용 (최저/최고값 계산)
+    private final Map<Integer, Double> minTemperatureTracker = new HashMap<>();
+    private final Map<Integer, Double> maxTemperatureTracker = new HashMap<>();
+    private final Map<Integer, Double> minHumidityTracker = new HashMap<>();
+    private final Map<Integer, Double> maxHumidityTracker = new HashMap<>();
 
     @PostConstruct
     public void init() {
@@ -75,9 +84,14 @@ public class ServerRoomDataSimulator {
 
         for (int deviceId : DEVICE_IDS) {
             anomalyStates.put(deviceId, new AnomalyState());
+            // 환경 메트릭 초기값 설정
+            minTemperatureTracker.put(deviceId, 22.0);
+            maxTemperatureTracker.put(deviceId, 22.0);
+            minHumidityTracker.put(deviceId, 45.0);
+            maxHumidityTracker.put(deviceId, 45.0);
         }
 
-        log.info("✅ 초기화 완료! {}개 서버 모니터링 시작", DEVICE_IDS.length);
+        log.info("✅ 초기화 완료! {}개 서버 모니터링 시작 (온도/습도 포함)", DEVICE_IDS.length);
     }
 
     @Scheduled(fixedDelay = 5000, initialDelay = 2000)
@@ -101,6 +115,10 @@ public class ServerRoomDataSimulator {
                     NetworkMetric nicMetric = generateNetworkMetric(deviceId, nic, now);
                     networkMetricRepository.save(nicMetric);
                 }
+
+                // 환경 메트릭 생성 및 저장
+                EnvironmentMetric envMetric = generateEnvironmentMetric(deviceId, now);
+                environmentMetricRepository.save(envMetric);
             }
 
             maybeUpdateAnomalies();
@@ -198,56 +216,59 @@ public class ServerRoomDataSimulator {
                 .build();
 
         // ===== 디스크 용량 (그래프 4.1, 4.5) =====
-        long totalBytes = partition.startsWith("/") ?
-                100L * 1024 * 1024 * 1024 : 500L * 1024 * 1024 * 1024;
+        long totalBytes = 500L * 1024 * 1024 * 1024;  // 500GB
+        double baseUsage = 30 + rand.nextDouble() * 40;
+        double usedPercent = Math.min(95, baseUsage);
 
-        double baseUsage = 30 + rand.nextDouble() * 30;
-        double usagePercent = state.hasDiskAnomaly ?
-                Math.min(95, baseUsage + 25 + rand.nextDouble() * 15) : baseUsage;
-
-        long usedBytes = (long)(totalBytes * usagePercent / 100);
+        long usedBytes = (long)(totalBytes * usedPercent / 100);
         long freeBytes = totalBytes - usedBytes;
 
         metric.setTotalBytes(totalBytes);
         metric.setUsedBytes(usedBytes);
         metric.setFreeBytes(freeBytes);
-        metric.setUsedPercentage(usagePercent);
+        metric.setUsedPercentage(usedPercent);
 
-        // ===== I/O 메트릭 (그래프 4.2, 4.3, 4.4) =====
+        // ===== 디스크 I/O (그래프 4.2, 4.3, 4.4) =====
+        double baseReadBps = 5_000_000 + rand.nextDouble() * 10_000_000;  // 5~15 MB/s
+        double baseWriteBps = 3_000_000 + rand.nextDouble() * 7_000_000;  // 3~10 MB/s
+
         double ioReadBps = state.hasDiskAnomaly ?
-                rand.nextDouble() * 100_000_000 : rand.nextDouble() * 10_000_000;
+                baseReadBps * (2 + rand.nextDouble() * 3) : baseReadBps;
 
         double ioWriteBps = state.hasDiskAnomaly ?
-                rand.nextDouble() * 150_000_000 : rand.nextDouble() * 20_000_000;
+                baseWriteBps * (2 + rand.nextDouble() * 3) : baseWriteBps;
 
         metric.setIoReadBps(ioReadBps);
         metric.setIoWriteBps(ioWriteBps);
 
-        double ioTimePercent = Math.min(100, (ioReadBps + ioWriteBps) / 2_000_000);
-        metric.setIoTimePercentage(ioTimePercent);
+        // I/O 사용률
+        double ioTimePercentage = state.hasDiskAnomaly ?
+                Math.min(95, 30 + rand.nextDouble() * 50) : 5 + rand.nextDouble() * 20;
 
-        // IOPS 누적 카운터
-        String readKey = "read_" + deviceId + "_" + partition;
-        String writeKey = "write_" + deviceId + "_" + partition;
+        metric.setIoTimePercentage(ioTimePercentage);
 
-        long prevReads = cumulativeIoReads.getOrDefault(readKey, 0L);
-        long prevWrites = cumulativeIoWrites.getOrDefault(writeKey, 0L);
+        // 누적 I/O 카운터
+        String key = deviceId + "_" + partition;
 
-        long readInc = (long)(ioReadBps / 4096 * 5);  // 5초간 증가량
+        long prevReadCount = cumulativeIoReads.getOrDefault(key, 0L);
+        long prevWriteCount = cumulativeIoWrites.getOrDefault(key, 0L);
+
+        long readInc = (long)(ioReadBps / 4096 * 5);  // 5초간 읽기 횟수
         long writeInc = (long)(ioWriteBps / 4096 * 5);
 
-        long newReads = prevReads + readInc;
-        long newWrites = prevWrites + writeInc;
+        long newReadCount = prevReadCount + readInc;
+        long newWriteCount = prevWriteCount + writeInc;
 
-        cumulativeIoReads.put(readKey, newReads);
-        cumulativeIoWrites.put(writeKey, newWrites);
+        cumulativeIoReads.put(key, newReadCount);
+        cumulativeIoWrites.put(key, newWriteCount);
 
-        metric.setIoReadCount(newReads);
-        metric.setIoWriteCount(newWrites);
+        metric.setIoReadCount(newReadCount);
+        metric.setIoWriteCount(newWriteCount);
 
         // ===== inode (그래프 4.6) =====
-        long totalInodes = 6_000_000L;
-        double inodeUsagePercent = usagePercent * 0.7;  // 디스크 사용률의 70%
+        long totalInodes = 32_000_000L;
+        double inodeUsagePercent = 15 + rand.nextDouble() * 30;
+
         long usedInodes = (long)(totalInodes * inodeUsagePercent / 100);
         long freeInodes = totalInodes - usedInodes;
 
@@ -361,6 +382,91 @@ public class ServerRoomDataSimulator {
         return metric;
     }
 
+    /**
+     * 환경 메트릭 생성 (온도/습도)
+     */
+    private EnvironmentMetric generateEnvironmentMetric(int deviceId, LocalDateTime time) {
+        AnomalyState state = anomalyStates.get(deviceId);
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        EnvironmentMetric metric = EnvironmentMetric.builder()
+                .deviceId(deviceId)
+                .generateTime(time)
+                .build();
+
+        // ===== 온도 생성 (정상 범위: 18°C ~ 26°C, 권장: 20°C ~ 24°C) =====
+        double baseTemperature = 20.0 + rand.nextDouble() * 4.0;  // 20~24°C
+
+        double currentTemperature;
+        if (state.hasTemperatureAnomaly) {
+            // 이상 징후 시 온도 급상승 (28°C ~ 35°C)
+            currentTemperature = 28.0 + rand.nextDouble() * 7.0;
+        } else {
+            // 정상 범위 내 변동
+            currentTemperature = baseTemperature + (rand.nextDouble() - 0.5) * 2.0;
+        }
+
+        metric.setTemperature(Math.round(currentTemperature * 100.0) / 100.0);
+
+        // 최저/최고 온도 추적
+        double currentMin = minTemperatureTracker.get(deviceId);
+        double currentMax = maxTemperatureTracker.get(deviceId);
+
+        if (currentTemperature < currentMin) {
+            minTemperatureTracker.put(deviceId, currentTemperature);
+            currentMin = currentTemperature;
+        }
+        if (currentTemperature > currentMax) {
+            maxTemperatureTracker.put(deviceId, currentTemperature);
+            currentMax = currentTemperature;
+        }
+
+        metric.setMinTemperature(Math.round(currentMin * 100.0) / 100.0);
+        metric.setMaxTemperature(Math.round(currentMax * 100.0) / 100.0);
+
+        // 온도 경고 설정 (26°C 이상 경고)
+        metric.setTemperatureWarning(currentTemperature >= 26.0);
+
+        // ===== 습도 생성 (정상 범위: 40% ~ 60%, 권장: 45% ~ 55%) =====
+        double baseHumidity = 45.0 + rand.nextDouble() * 10.0;  // 45~55%
+
+        double currentHumidity;
+        if (state.hasHumidityAnomaly) {
+            // 이상 징후 시 습도 급상승 또는 급하강
+            if (rand.nextBoolean()) {
+                currentHumidity = 65.0 + rand.nextDouble() * 15.0;  // 높음: 65~80%
+            } else {
+                currentHumidity = 20.0 + rand.nextDouble() * 15.0;  // 낮음: 20~35%
+            }
+        } else {
+            // 정상 범위 내 변동
+            currentHumidity = baseHumidity + (rand.nextDouble() - 0.5) * 5.0;
+        }
+
+        metric.setHumidity(Math.round(currentHumidity * 100.0) / 100.0);
+
+        // 최저/최고 습도 추적
+        double currentMinHumidity = minHumidityTracker.get(deviceId);
+        double currentMaxHumidity = maxHumidityTracker.get(deviceId);
+
+        if (currentHumidity < currentMinHumidity) {
+            minHumidityTracker.put(deviceId, currentHumidity);
+            currentMinHumidity = currentHumidity;
+        }
+        if (currentHumidity > currentMaxHumidity) {
+            maxHumidityTracker.put(deviceId, currentHumidity);
+            currentMaxHumidity = currentHumidity;
+        }
+
+        metric.setMinHumidity(Math.round(currentMinHumidity * 100.0) / 100.0);
+        metric.setMaxHumidity(Math.round(currentMaxHumidity * 100.0) / 100.0);
+
+        // 습도 경고 설정 (40% 미만 또는 60% 초과 시 경고)
+        metric.setHumidityWarning(currentHumidity < 40.0 || currentHumidity > 60.0);
+
+        return metric;
+    }
+
     private void maybeUpdateAnomalies() {
         long currentTime = System.currentTimeMillis();
 
@@ -422,6 +528,34 @@ public class ServerRoomDataSimulator {
                 log.error("🚨 [Device {}] 네트워크 이상 징후 발생! (지속: {}초)",
                         deviceId, state.networkAnomalyDuration / 1000);
             }
+
+            // ===== 온도 이상 징후 =====
+            if (state.hasTemperatureAnomaly) {
+                if (currentTime - state.temperatureAnomalyStartTime > state.temperatureAnomalyDuration) {
+                    state.hasTemperatureAnomaly = false;
+                    log.warn("✅ [Device {}] 온도 이상 징후 해소!", deviceId);
+                }
+            } else if (random.nextDouble() < 0.04) {
+                state.hasTemperatureAnomaly = true;
+                state.temperatureAnomalyStartTime = currentTime;
+                state.temperatureAnomalyDuration = 35_000 + random.nextInt(85_000);
+                log.error("🚨 [Device {}] 온도 이상 징후 발생! (지속: {}초)",
+                        deviceId, state.temperatureAnomalyDuration / 1000);
+            }
+
+            // ===== 습도 이상 징후 =====
+            if (state.hasHumidityAnomaly) {
+                if (currentTime - state.humidityAnomalyStartTime > state.humidityAnomalyDuration) {
+                    state.hasHumidityAnomaly = false;
+                    log.warn("✅ [Device {}] 습도 이상 징후 해소!", deviceId);
+                }
+            } else if (random.nextDouble() < 0.03) {
+                state.hasHumidityAnomaly = true;
+                state.humidityAnomalyStartTime = currentTime;
+                state.humidityAnomalyDuration = 30_000 + random.nextInt(70_000);
+                log.error("🚨 [Device {}] 습도 이상 징후 발생! (지속: {}초)",
+                        deviceId, state.humidityAnomalyDuration / 1000);
+            }
         }
     }
 
@@ -441,5 +575,14 @@ public class ServerRoomDataSimulator {
         boolean hasNetworkAnomaly = false;
         long networkAnomalyStartTime = 0;
         long networkAnomalyDuration = 0;
+
+        // 온도/습도 이상 징후 추가
+        boolean hasTemperatureAnomaly = false;
+        long temperatureAnomalyStartTime = 0;
+        long temperatureAnomalyDuration = 0;
+
+        boolean hasHumidityAnomaly = false;
+        long humidityAnomalyStartTime = 0;
+        long humidityAnomalyDuration = 0;
     }
 }

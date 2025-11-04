@@ -88,7 +88,7 @@ public class DataCenter extends BaseTimeEntity {
     private BigDecimal humidityMax; // 최고 허용 습도 (%)
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id", nullable = false)
+    @JoinColumn(name = "manager_id")
     private Member manager; // 전산실 담당자
 
     /**

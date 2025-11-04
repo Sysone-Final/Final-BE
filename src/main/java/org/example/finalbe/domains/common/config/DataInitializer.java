@@ -504,52 +504,423 @@ public class DataInitializer implements CommandLineRunner {
         List<Equipment> equipments = new ArrayList<>();
         Member manager1 = members.get(0);
 
-        // 첫 3개 랙에 각각 3개의 장비 배치
-        for (int rackIdx = 0; rackIdx < 3 && rackIdx < racks.size(); rackIdx++) {
-            Rack rack = racks.get(rackIdx);
+        int equipmentCounter = 1;
 
-            for (int equipIdx = 1; equipIdx <= 3; equipIdx++) {
-                int startUnit = (equipIdx - 1) * 10 + 1;
+        // 각 랙마다 장비 배치 (총 10개 랙)
+        for (int rackIdx = 0; rackIdx < Math.min(10, racks.size()); rackIdx++) {
+            Rack rack = racks.get(rackIdx);
+            int currentUnit = 1; // 랙 하단부터 시작
+
+            // === 1. PDU (전력 분배) - 랙당 2개 (상단/하단) ===
+            equipments.add(Equipment.builder()
+                    .name(rack.getRackName() + "-PDU-TOP")
+                    .code("PDU-" + String.format("%03d", equipmentCounter++))
+                    .type(EquipmentType.PDU)
+                    .startUnit(40)
+                    .unitSize(2)
+                    .positionType(EquipmentPositionType.NORMAL)
+                    .modelName("APC Rack PDU 2G")
+                    .manufacturer("APC")
+                    .serialNumber("PDU-" + rack.getRackName() + "-TOP")
+                    .ipAddress("192.168.100." + (10 + rackIdx * 10))
+                    .powerConsumption(BigDecimal.ZERO)
+                    .weight(new BigDecimal("4.5"))
+                    .status(EquipmentStatus.NORMAL)
+                    .installationDate(LocalDate.of(2024, 1, 10))
+                    .notes("상단 전력 분배 장치")
+                    .managerId(manager1.getId())
+                    .rack(rack)
+                    .position(40)
+                    .height(2)
+                    .build());
+
+            equipments.add(Equipment.builder()
+                    .name(rack.getRackName() + "-PDU-BOTTOM")
+                    .code("PDU-" + String.format("%03d", equipmentCounter++))
+                    .type(EquipmentType.PDU)
+                    .startUnit(1)
+                    .unitSize(1)
+                    .positionType(EquipmentPositionType.NORMAL)
+                    .modelName("APC Rack PDU 2G")
+                    .manufacturer("APC")
+                    .serialNumber("PDU-" + rack.getRackName() + "-BTM")
+                    .ipAddress("192.168.100." + (11 + rackIdx * 10))
+                    .powerConsumption(BigDecimal.ZERO)
+                    .weight(new BigDecimal("3.5"))
+                    .status(EquipmentStatus.NORMAL)
+                    .installationDate(LocalDate.of(2024, 1, 10))
+                    .notes("하단 전력 분배 장치")
+                    .managerId(manager1.getId())
+                    .rack(rack)
+                    .position(1)
+                    .height(1)
+                    .build());
+
+            currentUnit = 2;
+
+            // === 2. 랙별 장비 구성 (타입별로 다르게) ===
+            if (rackIdx < 5) {
+                // Rack 0~4: 서버 중심 랙
+
+                // 스위치 1개
                 equipments.add(Equipment.builder()
-                        .name(rack.getRackName() + "-서버-" + equipIdx)
-                        .code(rack.getRackName() + "-SRV-" + equipIdx)
-                        .type(EquipmentType.SERVER)
-                        .startUnit(startUnit)
-                        .unitSize(4)
+                        .name(rack.getRackName() + "-SWITCH")
+                        .code("SW-" + String.format("%03d", equipmentCounter++))
+                        .type(EquipmentType.SWITCH)
+                        .startUnit(currentUnit)
+                        .unitSize(1)
                         .positionType(EquipmentPositionType.NORMAL)
-                        .modelName("Dell PowerEdge R740")
-                        .manufacturer("Dell")
-                        .serialNumber("SN-" + rack.getRackName() + "-" + equipIdx)
-                        .ipAddress("192.168.1." + ((rackIdx * 10) + equipIdx))
-                        .macAddress(String.format("AA:BB:CC:DD:%02d:%02d", rackIdx, equipIdx))
-                        .os("Ubuntu 22.04 LTS")
-                        .cpuSpec("Intel Xeon Gold 6248R 24C 48T")
-                        .memorySpec("128GB DDR4 ECC")
-                        .diskSpec("SSD 2TB NVMe x 4")
-                        .powerConsumption(new BigDecimal("750.0"))
-                        .weight(new BigDecimal("35.5"))
+                        .modelName("Cisco Catalyst 2960X")
+                        .manufacturer("Cisco")
+                        .serialNumber("SW-" + rack.getRackName())
+                        .ipAddress("192.168.1." + (100 + rackIdx))
+                        .macAddress(String.format("00:1A:2B:3C:%02d:01", rackIdx))
+                        .powerConsumption(new BigDecimal("50.0"))
+                        .weight(new BigDecimal("4.2"))
                         .status(EquipmentStatus.NORMAL)
                         .installationDate(LocalDate.of(2024, 1, 15))
-                        .notes("메인 서버 " + equipIdx)
+                        .notes("Top of Rack 스위치")
                         .managerId(manager1.getId())
                         .rack(rack)
-                        .position(startUnit)
-                        .height(4)
+                        .position(currentUnit)
+                        .height(1)
                         .build());
+                currentUnit += 1;
+
+                // 서버 3~4개
+                int serverCount = 3 + (rackIdx % 2);
+                for (int sIdx = 0; sIdx < serverCount; sIdx++) {
+                    equipments.add(Equipment.builder()
+                            .name(rack.getRackName() + "-SERVER-" + (sIdx + 1))
+                            .code("SRV-" + String.format("%03d", equipmentCounter++))
+                            .type(EquipmentType.SERVER)
+                            .startUnit(currentUnit)
+                            .unitSize(2)
+                            .positionType(EquipmentPositionType.NORMAL)
+                            .modelName("Dell PowerEdge R750")
+                            .manufacturer("Dell")
+                            .serialNumber("SRV-" + rack.getRackName() + "-" + (sIdx + 1))
+                            .ipAddress("10.0." + rackIdx + "." + (10 + sIdx))
+                            .macAddress(String.format("AA:BB:CC:DD:%02d:%02d", rackIdx, sIdx))
+                            .os("Ubuntu 22.04 LTS")
+                            .cpuSpec("Intel Xeon Silver 4314 16C 32T")
+                            .memorySpec("128GB DDR4 ECC")
+                            .diskSpec("SSD 1TB NVMe x 2")
+                            .powerConsumption(new BigDecimal("450.0"))
+                            .weight(new BigDecimal("28.5"))
+                            .status(EquipmentStatus.NORMAL)
+                            .installationDate(LocalDate.of(2024, 1, 15))
+                            .notes("웹 서버 " + (sIdx + 1))
+                            .managerId(manager1.getId())
+                            .rack(rack)
+                            .position(currentUnit)
+                            .height(2)
+                            .build());
+                    currentUnit += 2;
+                }
+
+                // KVM (일부 랙에만)
+                if (rackIdx % 2 == 0) {
+                    equipments.add(Equipment.builder()
+                            .name(rack.getRackName() + "-KVM")
+                            .code("KVM-" + String.format("%03d", equipmentCounter++))
+                            .type(EquipmentType.KVM)
+                            .startUnit(currentUnit)
+                            .unitSize(1)
+                            .positionType(EquipmentPositionType.NORMAL)
+                            .modelName("Raritan Dominion KX III")
+                            .manufacturer("Raritan")
+                            .serialNumber("KVM-" + rack.getRackName())
+                            .ipAddress("192.168.2." + (10 + rackIdx))
+                            .powerConsumption(new BigDecimal("25.0"))
+                            .weight(new BigDecimal("3.0"))
+                            .status(EquipmentStatus.NORMAL)
+                            .installationDate(LocalDate.of(2024, 1, 12))
+                            .notes("콘솔 스위치")
+                            .managerId(manager1.getId())
+                            .rack(rack)
+                            .position(currentUnit)
+                            .height(1)
+                            .build());
+                    currentUnit += 1;
+                }
+
+            } else if (rackIdx >= 5 && rackIdx < 8) {
+                // Rack 5~7: 네트워크/스토리지 랙
+
+                // 라우터
+                equipments.add(Equipment.builder()
+                        .name(rack.getRackName() + "-ROUTER")
+                        .code("RTR-" + String.format("%03d", equipmentCounter++))
+                        .type(EquipmentType.ROUTER)
+                        .startUnit(currentUnit)
+                        .unitSize(2)
+                        .positionType(EquipmentPositionType.NORMAL)
+                        .modelName("Cisco ISR 4451")
+                        .manufacturer("Cisco")
+                        .serialNumber("RTR-" + rack.getRackName())
+                        .ipAddress("192.168.254." + rackIdx)
+                        .macAddress(String.format("00:1B:2C:3D:%02d:00", rackIdx))
+                        .powerConsumption(new BigDecimal("150.0"))
+                        .weight(new BigDecimal("12.5"))
+                        .status(EquipmentStatus.NORMAL)
+                        .installationDate(LocalDate.of(2024, 1, 15))
+                        .notes("코어 라우터")
+                        .managerId(manager1.getId())
+                        .rack(rack)
+                        .position(currentUnit)
+                        .height(2)
+                        .build());
+                currentUnit += 2;
+
+                // 스위치 2개
+                for (int swIdx = 0; swIdx < 2; swIdx++) {
+                    equipments.add(Equipment.builder()
+                            .name(rack.getRackName() + "-SWITCH-" + (swIdx + 1))
+                            .code("SW-" + String.format("%03d", equipmentCounter++))
+                            .type(EquipmentType.SWITCH)
+                            .startUnit(currentUnit)
+                            .unitSize(1)
+                            .positionType(EquipmentPositionType.NORMAL)
+                            .modelName("Cisco Catalyst 9300")
+                            .manufacturer("Cisco")
+                            .serialNumber("SW-" + rack.getRackName() + "-" + (swIdx + 1))
+                            .ipAddress("192.168.1." + (150 + rackIdx * 10 + swIdx))
+                            .macAddress(String.format("00:1A:2B:3C:%02d:%02d", rackIdx, swIdx))
+                            .powerConsumption(new BigDecimal("120.0"))
+                            .weight(new BigDecimal("8.5"))
+                            .status(EquipmentStatus.NORMAL)
+                            .installationDate(LocalDate.of(2024, 1, 15))
+                            .notes("코어 스위치 " + (swIdx + 1))
+                            .managerId(manager1.getId())
+                            .rack(rack)
+                            .position(currentUnit)
+                            .height(1)
+                            .build());
+                    currentUnit += 1;
+                }
+
+                // 방화벽
+                if (rackIdx == 5 || rackIdx == 6) {
+                    equipments.add(Equipment.builder()
+                            .name(rack.getRackName() + "-FIREWALL")
+                            .code("FW-" + String.format("%03d", equipmentCounter++))
+                            .type(EquipmentType.FIREWALL)
+                            .startUnit(currentUnit)
+                            .unitSize(1)
+                            .positionType(EquipmentPositionType.NORMAL)
+                            .modelName("Fortinet FortiGate 600E")
+                            .manufacturer("Fortinet")
+                            .serialNumber("FW-" + rack.getRackName())
+                            .ipAddress("192.168.253." + rackIdx)
+                            .macAddress(String.format("00:09:0F:09:%02d:00", rackIdx))
+                            .powerConsumption(new BigDecimal("200.0"))
+                            .weight(new BigDecimal("11.0"))
+                            .status(EquipmentStatus.NORMAL)
+                            .installationDate(LocalDate.of(2024, 1, 15))
+                            .notes("경계 방화벽")
+                            .managerId(manager1.getId())
+                            .rack(rack)
+                            .position(currentUnit)
+                            .height(1)
+                            .build());
+                    currentUnit += 1;
+                }
+
+                // 로드밸런서
+                if (rackIdx == 7) {
+                    equipments.add(Equipment.builder()
+                            .name(rack.getRackName() + "-LOAD-BALANCER")
+                            .code("LB-" + String.format("%03d", equipmentCounter++))
+                            .type(EquipmentType.LOAD_BALANCER)
+                            .startUnit(currentUnit)
+                            .unitSize(1)
+                            .positionType(EquipmentPositionType.NORMAL)
+                            .modelName("F5 BIG-IP 4000s")
+                            .manufacturer("F5 Networks")
+                            .serialNumber("LB-" + rack.getRackName())
+                            .ipAddress("192.168.252." + rackIdx)
+                            .macAddress(String.format("F5:F5:F5:F5:%02d:00", rackIdx))
+                            .powerConsumption(new BigDecimal("180.0"))
+                            .weight(new BigDecimal("15.0"))
+                            .status(EquipmentStatus.NORMAL)
+                            .installationDate(LocalDate.of(2024, 1, 15))
+                            .notes("L7 로드밸런서")
+                            .managerId(manager1.getId())
+                            .rack(rack)
+                            .position(currentUnit)
+                            .height(1)
+                            .build());
+                    currentUnit += 1;
+                }
+
+                // 스토리지 1~2개
+                int storageCount = (rackIdx == 5) ? 2 : 1;
+                for (int stIdx = 0; stIdx < storageCount; stIdx++) {
+                    equipments.add(Equipment.builder()
+                            .name(rack.getRackName() + "-STORAGE-" + (stIdx + 1))
+                            .code("STG-" + String.format("%03d", equipmentCounter++))
+                            .type(EquipmentType.STORAGE)
+                            .startUnit(currentUnit)
+                            .unitSize(4)
+                            .positionType(EquipmentPositionType.NORMAL)
+                            .modelName("NetApp FAS2750")
+                            .manufacturer("NetApp")
+                            .serialNumber("STG-" + rack.getRackName() + "-" + (stIdx + 1))
+                            .ipAddress("10.10." + rackIdx + "." + (10 + stIdx))
+                            .macAddress(String.format("00:A0:98:00:%02d:%02d", rackIdx, stIdx))
+                            .diskSpec("24 x 8TB SAS HDD")
+                            .powerConsumption(new BigDecimal("800.0"))
+                            .weight(new BigDecimal("45.0"))
+                            .status(EquipmentStatus.NORMAL)
+                            .installationDate(LocalDate.of(2024, 1, 15))
+                            .notes("통합 스토리지 " + (stIdx + 1))
+                            .managerId(manager1.getId())
+                            .rack(rack)
+                            .position(currentUnit)
+                            .height(4)
+                            .build());
+                    currentUnit += 4;
+                }
+
+            } else {
+                // Rack 8~9: 혼합 랙
+
+                // 스위치
+                equipments.add(Equipment.builder()
+                        .name(rack.getRackName() + "-SWITCH")
+                        .code("SW-" + String.format("%03d", equipmentCounter++))
+                        .type(EquipmentType.SWITCH)
+                        .startUnit(currentUnit)
+                        .unitSize(1)
+                        .positionType(EquipmentPositionType.NORMAL)
+                        .modelName("HP Aruba 2930F")
+                        .manufacturer("HPE")
+                        .serialNumber("SW-" + rack.getRackName())
+                        .ipAddress("192.168.1." + (200 + rackIdx))
+                        .macAddress(String.format("00:1A:2B:3C:%02d:01", rackIdx))
+                        .powerConsumption(new BigDecimal("60.0"))
+                        .weight(new BigDecimal("5.0"))
+                        .status(EquipmentStatus.NORMAL)
+                        .installationDate(LocalDate.of(2024, 1, 15))
+                        .notes("엣지 스위치")
+                        .managerId(manager1.getId())
+                        .rack(rack)
+                        .position(currentUnit)
+                        .height(1)
+                        .build());
+                currentUnit += 1;
+
+                // 서버 2개
+                for (int sIdx = 0; sIdx < 2; sIdx++) {
+                    equipments.add(Equipment.builder()
+                            .name(rack.getRackName() + "-SERVER-" + (sIdx + 1))
+                            .code("SRV-" + String.format("%03d", equipmentCounter++))
+                            .type(EquipmentType.SERVER)
+                            .startUnit(currentUnit)
+                            .unitSize(2)
+                            .positionType(EquipmentPositionType.NORMAL)
+                            .modelName("HPE ProLiant DL380 Gen10")
+                            .manufacturer("HPE")
+                            .serialNumber("SRV-" + rack.getRackName() + "-" + (sIdx + 1))
+                            .ipAddress("10.0." + rackIdx + "." + (10 + sIdx))
+                            .macAddress(String.format("AA:BB:CC:DD:%02d:%02d", rackIdx, sIdx))
+                            .os("Windows Server 2022")
+                            .cpuSpec("Intel Xeon Gold 5218 16C 32T")
+                            .memorySpec("256GB DDR4 ECC")
+                            .diskSpec("SSD 2TB NVMe x 4")
+                            .powerConsumption(new BigDecimal("550.0"))
+                            .weight(new BigDecimal("32.0"))
+                            .status(EquipmentStatus.NORMAL)
+                            .installationDate(LocalDate.of(2024, 1, 15))
+                            .notes("애플리케이션 서버 " + (sIdx + 1))
+                            .managerId(manager1.getId())
+                            .rack(rack)
+                            .position(currentUnit)
+                            .height(2)
+                            .build());
+                    currentUnit += 2;
+                }
+
+                // 스토리지
+                equipments.add(Equipment.builder()
+                        .name(rack.getRackName() + "-STORAGE")
+                        .code("STG-" + String.format("%03d", equipmentCounter++))
+                        .type(EquipmentType.STORAGE)
+                        .startUnit(currentUnit)
+                        .unitSize(3)
+                        .positionType(EquipmentPositionType.NORMAL)
+                        .modelName("QNAP TS-1277XU-RP")
+                        .manufacturer("QNAP")
+                        .serialNumber("STG-" + rack.getRackName())
+                        .ipAddress("10.10." + rackIdx + ".10")
+                        .diskSpec("12 x 4TB NVMe SSD")
+                        .powerConsumption(new BigDecimal("350.0"))
+                        .weight(new BigDecimal("25.0"))
+                        .status(EquipmentStatus.NORMAL)
+                        .installationDate(LocalDate.of(2024, 1, 15))
+                        .notes("백업 스토리지")
+                        .managerId(manager1.getId())
+                        .rack(rack)
+                        .position(currentUnit)
+                        .height(3)
+                        .build());
+                currentUnit += 3;
             }
+
+            // === 3. 온습도 센서 (모든 랙 상단에 1개씩) ===
+            equipments.add(Equipment.builder()
+                    .name(rack.getRackName() + "-ENV-SENSOR")
+                    .code("ENV-" + String.format("%03d", equipmentCounter++))
+                    .type(EquipmentType.ENVIRONMENTAL_SENSOR)
+                    .startUnit(42)
+                    .unitSize(0) // 랙 유닛을 차지하지 않음
+                    .positionType(EquipmentPositionType.NORMAL)
+                    .modelName("Kentix MultiSensor-LAN")
+                    .manufacturer("Kentix")
+                    .serialNumber("ENV-" + rack.getRackName())
+                    .ipAddress("192.168.50." + (10 + rackIdx))
+                    .powerConsumption(new BigDecimal("5.0"))
+                    .weight(new BigDecimal("0.3"))
+                    .status(EquipmentStatus.NORMAL)
+                    .installationDate(LocalDate.of(2024, 1, 10))
+                    .notes("온습도 모니터링 센서")
+                    .managerId(manager1.getId())
+                    .rack(rack)
+                    .position(42)
+                    .height(0)
+                    .build());
         }
 
         List<Equipment> savedEquipments = equipmentRepository.saveAll(equipments);
 
-        // 랙의 사용 유닛 업데이트
-        for (int i = 0; i < 3 && i < racks.size(); i++) {
+        // 랙 사용률 업데이트
+        for (int i = 0; i < Math.min(10, racks.size()); i++) {
             Rack rack = racks.get(i);
-            rack.setUsedUnits(12);
-            rack.setAvailableUnits(30);
-            rack.setCurrentPowerUsage(new BigDecimal("2250.0"));
-            rack.setCurrentWeight(new BigDecimal("106.5"));
+            List<Equipment> rackEquipments = savedEquipments.stream()
+                    .filter(e -> e.getRack() != null && e.getRack().getId().equals(rack.getId()))
+                    .filter(e -> e.getType() != EquipmentType.ENVIRONMENTAL_SENSOR) // 센서 제외
+                    .toList();
+
+            int totalUsedUnits = rackEquipments.stream()
+                    .mapToInt(Equipment::getUnitSize)
+                    .sum();
+
+            BigDecimal totalPower = rackEquipments.stream()
+                    .map(e -> e.getPowerConsumption() != null ? e.getPowerConsumption() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalWeight = rackEquipments.stream()
+                    .map(e -> e.getWeight() != null ? e.getWeight() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            rack.setUsedUnits(totalUsedUnits);
+            rack.setAvailableUnits(42 - totalUsedUnits);
+            rack.setCurrentPowerUsage(totalPower);
+            rack.setCurrentWeight(totalWeight);
         }
-        rackRepository.saveAll(racks.subList(0, Math.min(3, racks.size())));
+
+        rackRepository.saveAll(racks.subList(0, Math.min(10, racks.size())));
 
         return savedEquipments;
     }

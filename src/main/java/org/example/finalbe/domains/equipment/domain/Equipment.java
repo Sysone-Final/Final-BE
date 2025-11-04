@@ -85,9 +85,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "status", length = 50)
     private EquipmentStatus status; // 장비 상태
 
-    @Column(name = "image_url", length = 500)
-    private String imageUrl; // 이미지 URL
-
     @Column(name = "installation_date")
     private LocalDate installationDate; // 설치일
 
@@ -201,9 +198,6 @@ public class Equipment extends BaseTimeEntity {
         }
         if (request.weight() != null) {
             this.weight = request.weight();
-        }
-        if (request.imageUrl() != null) {
-            this.imageUrl = request.imageUrl();
         }
         if (request.installationDate() != null) {
             this.installationDate = request.installationDate();

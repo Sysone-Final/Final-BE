@@ -31,7 +31,6 @@ public record EquipmentDetailResponse(
         BigDecimal powerConsumption,
         BigDecimal weight,
         String status,
-        String imageUrl,
         LocalDate installationDate,
         String notes,
         LocalDateTime createdAt,
@@ -63,7 +62,6 @@ public record EquipmentDetailResponse(
                 .powerConsumption(equipment.getPowerConsumption())
                 .weight(equipment.getWeight())
                 .status(equipment.getStatus() != null ? equipment.getStatus().name() : null)
-                .imageUrl(equipment.getImageUrl())
                 .installationDate(equipment.getInstallationDate())
                 .notes(equipment.getNotes())
                 .createdAt(equipment.getCreatedAt())

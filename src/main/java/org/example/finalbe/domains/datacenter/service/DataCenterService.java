@@ -204,7 +204,6 @@ public class DataCenterService {
                 request.floor(),
                 request.rows(),
                 request.columns(),
-                request.backgroundImageUrl(),
                 request.status(),
                 request.description(),
                 request.totalArea(),

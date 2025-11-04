@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "system_metrics", indexes = {
-        @Index(name = "idx_device_time", columnList = "deviceId,generateTime"),
+        @Index(name = "idx_equipment_time", columnList = "equipmentId,generateTime"),
         @Index(name = "idx_system_generate_time", columnList = "generateTime")
 })
 @Data
@@ -25,7 +25,7 @@ public class SystemMetric {
     private Long id;
 
     @Column(nullable = false)
-    private Integer deviceId;
+    private Long equipmentId;
 
     @Column(nullable = false)
     private LocalDateTime generateTime;

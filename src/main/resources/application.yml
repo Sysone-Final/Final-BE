@@ -9,8 +9,8 @@ spring:
     password: ${DB_PASSWORD}
 
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: 20          # 모니터링 데이터 대량 삽입을 위해 증가
+      minimum-idle: 10               # 최소 유휴 연결 증가
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
@@ -22,13 +22,23 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
-        format_sql: false
+        format_sql: true
         use_sql_comments: true
+        jdbc:
+          batch_size: 50              # 배치 INSERT 최적화 (중요!)
+        order_inserts: true            # INSERT 순서 최적화
+        order_updates: true            # UPDATE 순서 최적화
     open-in-view: false
+
+  # 스케줄러 설정 추가
+  task:
+    scheduling:
+      pool:
+        size: 5                        # 스케줄러 스레드 풀 크기
 
 jwt:
   secret: ${JWT_SECRET}
@@ -42,6 +52,15 @@ logging:
   level:
     root: INFO
     com.finalbe: DEBUG
-    org.hibernate.SQL: WARN
+    org.hibernate.SQL: DEBUG          # SQL 로그 보기 (개발 시)
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     com.zaxxer.hikari: WARN
+    # 스케줄러 로그 추가
+    org.springframework.scheduling: INFO
+
+# 모니터링 시뮬레이터 설정 (선택사항)
+monitoring:
+  simulator:
+    enabled: true                     # 시뮬레이터 활성화 여부
+    interval-seconds: 5               # 데이터 생성 주기 (초)
+    device-count: 9                   # 모니터링할 서버 개수

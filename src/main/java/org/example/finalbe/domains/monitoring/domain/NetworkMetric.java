@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "network_metrics", indexes = {
-        @Index(name = "idx_equipment_nic_time", columnList = "equipmentId,nicName,generateTime"),
+        @Index(name = "idx_equipment_nic_time", columnList = "equipment_id,nicName,generateTime"),
         @Index(name = "idx_network_generate_time", columnList = "generateTime")
 })
 @Data

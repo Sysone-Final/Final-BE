@@ -25,7 +25,6 @@ public record EquipmentUpdateRequest(
         String diskSpec,
         BigDecimal powerConsumption,
         BigDecimal weight,
-        String imageUrl,
         LocalDate installationDate,
         String notes
 ) {

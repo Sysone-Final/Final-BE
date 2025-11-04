@@ -26,7 +26,7 @@ public record DataCenterCreateRequest(
         String location,
 
         @Size(max = 50, message = "층수는 50자 이내로 입력해주세요.")
-        String floor,
+        Integer floor,
 
         @Min(value = 1, message = "행 수는 1 이상이어야 합니다.")
         Integer rows,
@@ -34,8 +34,6 @@ public record DataCenterCreateRequest(
         @Min(value = 1, message = "열 수는 1 이상이어야 합니다.")
         Integer columns,
 
-        @Size(max = 500, message = "배경 이미지 URL은 500자 이내로 입력해주세요.")
-        String backgroundImageUrl,
 
         DataCenterStatus status,
 

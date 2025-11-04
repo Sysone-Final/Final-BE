@@ -21,8 +21,7 @@ public record EquipmentListResponse(
         String modelName,
         String manufacturer,
         String ipAddress,
-        BigDecimal powerConsumption,
-        String imageUrl
+        BigDecimal powerConsumption
 ) {
     public static EquipmentListResponse from(Equipment equipment) {
         return EquipmentListResponse.builder()
@@ -38,7 +37,6 @@ public record EquipmentListResponse(
                 .manufacturer(equipment.getManufacturer())
                 .ipAddress(equipment.getIpAddress())
                 .powerConsumption(equipment.getPowerConsumption())
-                .imageUrl(equipment.getImageUrl())
                 .build();
     }
 }

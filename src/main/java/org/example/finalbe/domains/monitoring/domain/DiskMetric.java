@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "disk_metrics", indexes = {
         @Index(name = "idx_device_partition_time", columnList = "deviceId,partitionPath,generateTime"),
-        @Index(name = "idx_generate_time", columnList = "generateTime")
+        @Index(name = "idx_disk_generate_time", columnList = "generateTime")
 })
 @Data
 @Builder

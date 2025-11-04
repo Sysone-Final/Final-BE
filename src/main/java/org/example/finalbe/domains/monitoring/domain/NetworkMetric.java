@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "network_metrics", indexes = {
         @Index(name = "idx_device_nic_time", columnList = "deviceId,nicName,generateTime"),
-        @Index(name = "idx_generate_time", columnList = "generateTime")
+        @Index(name = "idx_network_generate_time", columnList = "generateTime")
 })
 @Data
 @Builder

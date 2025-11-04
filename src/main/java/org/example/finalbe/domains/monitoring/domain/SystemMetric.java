@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "system_metrics", indexes = {
         @Index(name = "idx_device_time", columnList = "deviceId,generateTime"),
-        @Index(name = "idx_generate_time", columnList = "generateTime")
+        @Index(name = "idx_system_generate_time", columnList = "generateTime")
 })
 @Data
 @Builder

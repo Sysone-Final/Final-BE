@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -172,7 +173,7 @@ public class ServerRoomDataSimulator {
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
 
         try {
             // 1. 장비별 메트릭 생성

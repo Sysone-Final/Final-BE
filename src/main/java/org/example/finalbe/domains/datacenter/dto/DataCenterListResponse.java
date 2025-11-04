@@ -16,7 +16,7 @@ public record DataCenterListResponse(
         String name,
         String code,
         String location,
-        String floor,
+        Integer floor,
         DataCenterStatus status,
         Integer maxRackCount,
         Integer currentRackCount,

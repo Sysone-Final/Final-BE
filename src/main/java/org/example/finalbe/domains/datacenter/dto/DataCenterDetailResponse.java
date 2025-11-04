@@ -17,10 +17,9 @@ public record DataCenterDetailResponse(
         String name,
         String code,
         String location,
-        String floor,
+        Integer floor,
         Integer rows,
         Integer columns,
-        String backgroundImageUrl,
         DataCenterStatus status,
         String description,
         BigDecimal totalArea,
@@ -51,7 +50,6 @@ public record DataCenterDetailResponse(
                 .floor(dataCenter.getFloor())
                 .rows(dataCenter.getRows())
                 .columns(dataCenter.getColumns())
-                .backgroundImageUrl(dataCenter.getBackgroundImageUrl())
                 .status(dataCenter.getStatus())
                 .description(dataCenter.getDescription())
                 .totalArea(dataCenter.getTotalArea())

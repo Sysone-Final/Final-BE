@@ -22,13 +22,14 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
         format_sql: true
         use_sql_comments: true
         jdbc:
+          time_zone: Asia/Seoul
           batch_size: 50              # 배치 INSERT 최적화 (중요!)
         order_inserts: true            # INSERT 순서 최적화
         order_updates: true            # UPDATE 순서 최적화

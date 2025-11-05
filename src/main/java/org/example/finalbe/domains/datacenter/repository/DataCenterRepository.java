@@ -44,30 +44,42 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
     List<DataCenter> searchByName(@Param("name") String name);
 
     /**
-     * 회사가 접근 가능한 전산실 목록 조회
+     * ★ 추가: 회사별 전산실 목록 조회
      */
     @Query("""
-    SELECT dc FROM DataCenter dc
-    JOIN FETCH dc.manager
-    JOIN CompanyDataCenter cdc ON dc.id = cdc.dataCenter.id
-    WHERE cdc.company.id = :companyId
-    AND dc.delYn = 'N'
-    AND cdc.delYn = 'N'
-    ORDER BY dc.name
+        SELECT dc FROM DataCenter dc
+        JOIN FETCH dc.manager
+        WHERE dc.company.id = :companyId
+        AND dc.delYn = 'N'
+        ORDER BY dc.name
     """)
-    List<DataCenter> findAccessibleDataCentersByCompanyId(@Param("companyId") Long companyId);
+    List<DataCenter> findByCompanyIdAndDelYn(@Param("companyId") Long companyId, DelYN delYn);
+
+    /**
+     * ★ 추가: 회사별 전산실 이름 검색
+     */
+    @Query("""
+        SELECT dc FROM DataCenter dc
+        WHERE dc.company.id = :companyId
+        AND dc.name LIKE %:name%
+        AND dc.delYn = 'N'
+    """)
+    List<DataCenter> searchByNameAndCompanyId(
+            @Param("name") String name,
+            @Param("companyId") Long companyId
+    );
 
     /**
      * 회사의 전산실 접근 권한 확인
+     * 전산실의 company_id와 회사 ID가 일치하는지 체크
      */
     @Query("""
-        SELECT CASE WHEN COUNT(cdc) > 0 THEN true ELSE false END
-        FROM CompanyDataCenter cdc
-        WHERE cdc.company.id = :companyId
-        AND cdc.dataCenter.id = :dataCenterId
-        AND cdc.delYn = 'N'
-        AND cdc.dataCenter.delYn = 'N'
-    """)
+    SELECT CASE WHEN COUNT(dc) > 0 THEN true ELSE false END
+    FROM DataCenter dc
+    WHERE dc.id = :dataCenterId
+    AND dc.company.id = :companyId
+    AND dc.delYn = 'N'
+""")
     boolean hasAccessToDataCenter(
             @Param("companyId") Long companyId,
             @Param("dataCenterId") Long dataCenterId

@@ -79,6 +79,7 @@ public class DataCenterService {
             return;
         }
 
+        // hasAccessToDataCenter로 권한 체크 (더 효율적)
         if (!dataCenterRepository.hasAccessToDataCenter(member.getCompany().getId(), dataCenterId)) {
             throw new AccessDeniedException("해당 전산실에 대한 접근 권한이 없습니다.");
         }
@@ -95,11 +96,13 @@ public class DataCenterService {
         List<DataCenter> dataCenters;
 
         if (currentMember.getRole() == Role.ADMIN) {
+            // ADMIN은 모든 전산실 조회
             dataCenters = dataCenterRepository.findByDelYn(DelYN.N);
             log.info("Admin user - returning all {} data centers", dataCenters.size());
         } else {
-            dataCenters = dataCenterRepository.findAccessibleDataCentersByCompanyId(
-                    currentMember.getCompany().getId());
+            // ★ 변경: 자기 회사 전산실만 조회
+            dataCenters = dataCenterRepository.findByCompanyIdAndDelYn(
+                    currentMember.getCompany().getId(), DelYN.N);
             log.info("Non-admin user - returning {} accessible data centers", dataCenters.size());
         }
 
@@ -130,12 +133,14 @@ public class DataCenterService {
 
     /**
      * 전산실 생성
+     * ★ 로그인한 사용자의 소속 회사를 전산실의 company로 설정
      */
     @Transactional
     public DataCenterDetailResponse createDataCenter(DataCenterCreateRequest request) {
         Member currentMember = getCurrentMember();
-        log.info("Creating data center with code: {} by user: {} (role: {})",
-                request.code(), currentMember.getId(), currentMember.getRole());
+        log.info("Creating data center with code: {} by user: {} (role: {}, company: {})",
+                request.code(), currentMember.getId(), currentMember.getRole(),
+                currentMember.getCompany().getId());
 
         validateWritePermission(currentMember);
 
@@ -156,10 +161,17 @@ public class DataCenterService {
         Member manager = memberRepository.findById(request.managerId())
                 .orElseThrow(() -> new EntityNotFoundException("담당자", request.managerId()));
 
-        DataCenter dataCenter = request.toEntity(manager, currentMember.getUserName());
+        // ★ 변경: 로그인한 사용자의 소속 회사를 전산실 company로 설정
+        DataCenter dataCenter = request.toEntity(
+                manager,
+                currentMember.getCompany(),  // 로그인 사용자의 소속 회사
+                currentMember.getUserName()
+        );
+
         DataCenter savedDataCenter = dataCenterRepository.save(dataCenter);
 
-        log.info("Data center created successfully with id: {}", savedDataCenter.getId());
+        log.info("Data center created successfully with id: {}, company: {}",
+                savedDataCenter.getId(), savedDataCenter.getCompany().getId());
 
         return DataCenterDetailResponse.from(savedDataCenter);
     }
@@ -261,15 +273,13 @@ public class DataCenterService {
         List<DataCenter> searchResults;
 
         if (currentMember.getRole() == Role.ADMIN) {
+            // ADMIN은 전체 검색
             searchResults = dataCenterRepository.searchByName(name);
             log.info("Admin user - searched all data centers, found: {}", searchResults.size());
         } else {
-            List<DataCenter> accessibleDataCenters = dataCenterRepository
-                    .findAccessibleDataCentersByCompanyId(currentMember.getCompany().getId());
-
-            searchResults = accessibleDataCenters.stream()
-                    .filter(dc -> dc.getName().contains(name))
-                    .collect(Collectors.toList());
+            // ★ 변경: 자기 회사 전산실에서만 검색
+            searchResults = dataCenterRepository.searchByNameAndCompanyId(
+                    name, currentMember.getCompany().getId());
             log.info("Non-admin user - searched accessible data centers, found: {}", searchResults.size());
         }
 

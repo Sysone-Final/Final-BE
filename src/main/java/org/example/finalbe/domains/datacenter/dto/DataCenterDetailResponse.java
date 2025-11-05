@@ -35,6 +35,8 @@ public record DataCenterDetailResponse(
         Long managerId,
         String managerName,
         String managerEmail,
+        Long companyId,        // ★ 추가
+        String companyName,    // ★ 추가
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -65,6 +67,8 @@ public record DataCenterDetailResponse(
                 .managerId(dataCenter.getManager().getId())
                 .managerName(dataCenter.getManager().getName())
                 .managerEmail(dataCenter.getManager().getEmail())
+                .companyId(dataCenter.getCompany().getId())
+                .companyName(dataCenter.getCompany().getName())
                 .createdAt(dataCenter.getCreatedAt())
                 .updatedAt(dataCenter.getUpdatedAt())
                 .build();

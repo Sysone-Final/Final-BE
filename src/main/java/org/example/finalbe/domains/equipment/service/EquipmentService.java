@@ -18,7 +18,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,7 +40,40 @@ public class EquipmentService {
     private final RackRepository rackRepository;
     private final MemberRepository memberRepository;
     private final CompanyDataCenterRepository companyDataCenterRepository;
+    /**
+     *  장비 목록 페이지네이션 조회
+     */
+    public Page<EquipmentListResponse> getPaginatedEquipments(
+            int page, int size, String keyword, String status) {
 
+        log.info("Fetching paginated equipments. Page: {}, Size: {}, Keyword: {}, Status: {}", page, size, keyword, status);
+
+        // Pageable 객체 생성 (0-based page)
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Member currentMember = getCurrentMember();
+        Long companyId = null;
+
+        // ADMIN이 아니면 자기 회사 장비만 보도록 companyId 설정
+        if (currentMember.getRole() != Role.ADMIN) {
+            companyId = currentMember.getCompany().getId();
+        }
+
+        // null이나 빈 문자열이면 null로 처리
+        String searchKeyword = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
+        String searchStatus = (status != null && !status.trim().isEmpty()) ? status.trim() : null;
+
+        // Repository 호출
+        Page<Equipment> equipmentPage = equipmentRepository.findPaginatedEquipments(
+                searchKeyword,
+                searchStatus,
+                companyId,
+                pageable
+        );
+
+        // Page<Equipment> -> Page<EquipmentListResponse>
+        return equipmentPage.map(EquipmentListResponse::from);
+    }
     /**
      * 랙별 장비 목록 조회
      */

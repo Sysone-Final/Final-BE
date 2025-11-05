@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 
@@ -25,6 +26,26 @@ import java.util.List;
 public class EquipmentController {
 
     private final EquipmentService equipmentService;
+
+    /**
+     * 장비 목록 페이지네이션 조회
+     * GET /api/equipments
+     * 프론트엔드가 요청하는 바로 그 엔드포인트입니다.
+     */
+    @GetMapping
+    public ResponseEntity<CommonResDto> getEquipments(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Min(1) int size,
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(required = false, defaultValue = "") String status) {
+
+        Page<EquipmentListResponse> paginatedEquipments = equipmentService.getPaginatedEquipments(
+                page, size, keyword, status);
+
+        // 응답을 CommonResDto로 감싸서 반환
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", paginatedEquipments));
+    }
 
     /**
      * 랙별 장비 목록 조회

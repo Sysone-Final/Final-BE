@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -80,4 +82,33 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
      */
     @Query("SELECT e FROM Equipment e WHERE e.id = :id AND e.delYn = 'N'")
     Optional<Equipment> findActiveById(@Param("id") Long id);
+
+    /**
+     *  모든 장비에 대한 페이지네이션 조회 (검색 포함)
+     * JpaSpecificationExecutor를 사용하는 것이 더 좋지만, 우선은 Query로 구현합니다.
+     */
+    @Query(value = "SELECT e FROM Equipment e " +
+            "WHERE e.delYn = 'N' " +
+            "AND (:companyId IS NULL OR e.rack.datacenter.id IN (SELECT cdc.dataCenter.id FROM CompanyDataCenter cdc WHERE cdc.company.id = :companyId AND cdc.delYn = 'N')) " +
+            "AND (:status IS NULL OR e.status = :status) " +
+            "AND (:keyword IS NULL OR " +
+            "   LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "   LOWER(e.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "   LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "   LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%')))",
+            countQuery = "SELECT count(e) FROM Equipment e " +
+                    "WHERE e.delYn = 'N' " +
+                    "AND (:companyId IS NULL OR e.rack.datacenter.id IN (SELECT cdc.dataCenter.id FROM CompanyDataCenter cdc WHERE cdc.company.id = :companyId AND cdc.delYn = 'N')) " +
+                    "AND (:status IS NULL OR e.status = :status) " +
+                    "AND (:keyword IS NULL OR " +
+                    "   LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                    "   LOWER(e.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                    "   LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                    "   LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Equipment> findPaginatedEquipments(
+            @Param("keyword") String keyword,
+            @Param("status") String status, // Enum 대신 String으로 받거나, Service에서 변환
+            @Param("companyId") Long companyId, // ADMIN이 아니면 회사 ID
+            Pageable pageable
+    );
 }

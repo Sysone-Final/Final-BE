@@ -98,18 +98,12 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt; // 수정일시
 
-    @Column(name = "maneger_id", nullable = false, length = 50)
+    @Column(name = "maneger_id", length = 50)
     private Long managerId; // 관리자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id", nullable = false)
     private Rack rack; // 소속 랙
-
-    @Column(name = "position", nullable = false)
-    private Integer position; // 위치
-
-    @Column(name = "height", nullable = false)
-    private Integer height; // 높이
 
     @Enumerated(EnumType.STRING)
     @Column(name = "del_yn", nullable = false)

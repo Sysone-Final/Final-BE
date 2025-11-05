@@ -4,7 +4,6 @@ import jakarta.validation.constraints.*;
 import lombok.Builder;
 
 import org.example.finalbe.domains.common.enumdir.DataCenterStatus;
-import org.example.finalbe.domains.company.domain.Company;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.member.domain.Member;
 
@@ -26,7 +25,8 @@ public record DataCenterCreateRequest(
         @Size(max = 255, message = "위치는 255자 이내로 입력해주세요.")
         String location,
 
-        @Size(max = 50, message = "층수는 50자 이내로 입력해주세요.")
+        @Min(value = -10, message = "층수는 -10 이상이어야 합니다.")
+        @Max(value = 200, message = "층수는 200 이하여야 합니다.")
         Integer floor,
 
         @Min(value = 1, message = "행 수는 1 이상이어야 합니다.")
@@ -80,9 +80,9 @@ public record DataCenterCreateRequest(
 ) {
     /**
      * DTO를 Entity로 변환
-     * ★ company 파라미터 추가
+     * ★ company 파라미터 제거
      */
-    public DataCenter toEntity(Member manager, Company company, String createdBy) {
+    public DataCenter toEntity(Member manager) {
         return DataCenter.builder()
                 .name(this.name)
                 .code(this.code)
@@ -102,7 +102,6 @@ public record DataCenterCreateRequest(
                 .humidityMin(this.humidityMin)
                 .humidityMax(this.humidityMax)
                 .manager(manager)
-                .company(company) // ★ 소속 회사 설정
                 .build();
     }
 }

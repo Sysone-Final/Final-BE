@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
+import org.example.finalbe.domains.common.enumdir.EquipmentPositionType;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 
 import java.math.BigDecimal;
@@ -21,6 +22,7 @@ public record EquipmentListResponse(
         String modelName,
         String manufacturer,
         String ipAddress,
+        EquipmentPositionType positionType,
         BigDecimal powerConsumption
 ) {
     public static EquipmentListResponse from(Equipment equipment) {
@@ -37,6 +39,7 @@ public record EquipmentListResponse(
                 .manufacturer(equipment.getManufacturer())
                 .ipAddress(equipment.getIpAddress())
                 .powerConsumption(equipment.getPowerConsumption())
+                .positionType(equipment.getPositionType())
                 .build();
     }
 }

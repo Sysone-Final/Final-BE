@@ -200,7 +200,6 @@ public class DepartmentService {
                 .member(member)
                 .department(department)
                 .isPrimary(isPrimary)
-                .position(request.position())
                 .joinDate(request.joinDate() != null ? request.joinDate() : LocalDate.now())
                 .createdBy(currentMember.getUserName())
                 .build();

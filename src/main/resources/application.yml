@@ -47,7 +47,7 @@ jwt:
   refresh-token-validity: 604800000
 
 cookie:
-  secure: false
+  secure: true
 
 logging:
   level:

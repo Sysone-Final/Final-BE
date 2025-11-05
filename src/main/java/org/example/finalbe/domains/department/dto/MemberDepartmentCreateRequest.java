@@ -22,9 +22,6 @@ public record MemberDepartmentCreateRequest(
 
         Boolean isPrimary,
 
-        @Size(max = 100, message = "직급은 100자를 초과할 수 없습니다.")
-        String position,
-
         LocalDate joinDate
 ) {
 }

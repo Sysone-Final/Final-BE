@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "disk_metrics", indexes = {
-        @Index(name = "idx_device_partition_time", columnList = "deviceId,partitionPath,generateTime"),
-        @Index(name = "idx_disk_generate_time", columnList = "generateTime")
+        @Index(name = "idx_disk_equipment_time", columnList = "equipment_id, generate_time"), // 이름 변경
+        @Index(name = "idx_disk_generate_time", columnList = "generate_time")
 })
 @Data
 @Builder
@@ -24,10 +24,8 @@ public class DiskMetric {
     private Long id;
 
     @Column(nullable = false)
-    private Integer deviceId;
+    private Long equipmentId;
 
-    @Column(nullable = false, length = 100)
-    private String partitionPath;
 
     @Column(nullable = false)
     private LocalDateTime generateTime;

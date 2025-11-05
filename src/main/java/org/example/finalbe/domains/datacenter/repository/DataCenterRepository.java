@@ -16,14 +16,25 @@ import java.util.Optional;
 public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
 
     /**
-     * 활성 전산실 목록 조회
+     * ★ 수정: 활성 전산실 목록 조회 (Manager만 Fetch Join)
      */
-    List<DataCenter> findByDelYn(DelYN delYn);
+    @Query("""
+        SELECT dc FROM DataCenter dc
+        LEFT JOIN FETCH dc.manager
+        WHERE dc.delYn = :delYn
+        ORDER BY dc.name
+    """)
+    List<DataCenter> findByDelYn(@Param("delYn") DelYN delYn);
 
     /**
-     * ID로 활성 전산실 조회
+     * ★ 수정: ID로 활성 전산실 조회 (Manager만 Fetch Join)
      */
-    @Query("SELECT dc FROM DataCenter dc WHERE dc.id = :id AND dc.delYn = 'N'")
+    @Query("""
+        SELECT dc FROM DataCenter dc
+        LEFT JOIN FETCH dc.manager
+        WHERE dc.id = :id 
+        AND dc.delYn = 'N'
+    """)
     Optional<DataCenter> findActiveById(@Param("id") Long id);
 
     /**
@@ -32,56 +43,31 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
     boolean existsByCodeAndDelYn(String code, DelYN delYn);
 
     /**
-     * 상태별 전산실 조회
-     */
-    @Query("SELECT dc FROM DataCenter dc WHERE dc.status = :status AND dc.delYn = 'N'")
-    List<DataCenter> findByStatus(@Param("status") DataCenterStatus status);
-
-    /**
-     * 전산실 이름으로 검색 (부분 일치)
-     */
-    @Query("SELECT dc FROM DataCenter dc WHERE dc.name LIKE %:name% AND dc.delYn = 'N'")
-    List<DataCenter> searchByName(@Param("name") String name);
-
-    /**
-     * ★ 추가: 회사별 전산실 목록 조회
+     * ★ 수정: 상태별 전산실 조회
      */
     @Query("""
         SELECT dc FROM DataCenter dc
-        JOIN FETCH dc.manager
-        WHERE dc.company.id = :companyId
+        LEFT JOIN FETCH dc.manager
+        WHERE dc.status = :status 
         AND dc.delYn = 'N'
         ORDER BY dc.name
     """)
-    List<DataCenter> findByCompanyIdAndDelYn(@Param("companyId") Long companyId, DelYN delYn);
+    List<DataCenter> findByStatus(@Param("status") DataCenterStatus status);
 
     /**
-     * ★ 추가: 회사별 전산실 이름 검색
+     * ★ 수정: 전산실 이름으로 검색
      */
     @Query("""
         SELECT dc FROM DataCenter dc
-        WHERE dc.company.id = :companyId
-        AND dc.name LIKE %:name%
+        LEFT JOIN FETCH dc.manager
+        WHERE dc.name LIKE %:name%
         AND dc.delYn = 'N'
+        ORDER BY dc.name
     """)
-    List<DataCenter> searchByNameAndCompanyId(
-            @Param("name") String name,
-            @Param("companyId") Long companyId
-    );
+    List<DataCenter> searchByName(@Param("name") String name);
 
     /**
-     * 회사의 전산실 접근 권한 확인
-     * 전산실의 company_id와 회사 ID가 일치하는지 체크
+     * ★ 삭제: 회사별 전산실 조회 메서드 제거
+     * (CompanyDataCenter 매핑 테이블로 조회)
      */
-    @Query("""
-    SELECT CASE WHEN COUNT(dc) > 0 THEN true ELSE false END
-    FROM DataCenter dc
-    WHERE dc.id = :dataCenterId
-    AND dc.company.id = :companyId
-    AND dc.delYn = 'N'
-""")
-    boolean hasAccessToDataCenter(
-            @Param("companyId") Long companyId,
-            @Param("dataCenterId") Long dataCenterId
-    );
 }

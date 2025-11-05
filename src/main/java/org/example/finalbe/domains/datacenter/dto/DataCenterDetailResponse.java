@@ -34,9 +34,6 @@ public record DataCenterDetailResponse(
         BigDecimal humidityMax,
         Long managerId,
         String managerName,
-        String managerEmail,
-        Long companyId,        // ★ 추가
-        String companyName,    // ★ 추가
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -64,11 +61,8 @@ public record DataCenterDetailResponse(
                 .temperatureMax(dataCenter.getTemperatureMax())
                 .humidityMin(dataCenter.getHumidityMin())
                 .humidityMax(dataCenter.getHumidityMax())
-                .managerId(dataCenter.getManager().getId())
-                .managerName(dataCenter.getManager().getName())
-                .managerEmail(dataCenter.getManager().getEmail())
-                .companyId(dataCenter.getCompany().getId())
-                .companyName(dataCenter.getCompany().getName())
+                .managerId(dataCenter.getManager() != null ? dataCenter.getManager().getId() : null)
+                .managerName(dataCenter.getManager() != null ? dataCenter.getManager().getName() : null)
                 .createdAt(dataCenter.getCreatedAt())
                 .updatedAt(dataCenter.getUpdatedAt())
                 .build();

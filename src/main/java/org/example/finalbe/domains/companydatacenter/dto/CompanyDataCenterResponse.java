@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 public record CompanyDataCenterResponse(
         Long id,
         Long companyId,
+        String location,
+        String code,
         String companyName,
         Long dataCenterId,
         String dataCenterName,
@@ -26,6 +28,8 @@ public record CompanyDataCenterResponse(
         return CompanyDataCenterResponse.builder()
                 .id(companyDataCenter.getId())
                 .companyId(companyDataCenter.getCompany().getId())
+                .location(companyDataCenter.getDataCenter().getLocation())
+                .code(companyDataCenter.getDataCenter().getCode())
                 .companyName(companyDataCenter.getCompany().getName())
                 .dataCenterId(companyDataCenter.getDataCenter().getId())
                 .dataCenterName(companyDataCenter.getDataCenter().getName())

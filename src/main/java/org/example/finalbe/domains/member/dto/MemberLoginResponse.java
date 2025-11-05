@@ -12,7 +12,7 @@ public record MemberLoginResponse(
         String userName,
         String name,
         String role,
-        String companyName
+        Long companyId
 ) {
     public static MemberLoginResponse from(Member member, String accessToken) {
         return new MemberLoginResponse(
@@ -21,7 +21,7 @@ public record MemberLoginResponse(
                 member.getUserName(),
                 member.getName(),
                 member.getRole().name(),
-                member.getCompany().getName()
+                member.getCompany().getId()
         );
     }
 }

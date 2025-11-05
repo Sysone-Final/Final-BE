@@ -47,7 +47,7 @@ jwt:
   refresh-token-validity: 604800000
 
 cookie:
-  secure: false
+  secure: true
 
 
 # 모니터링 시뮬레이터 설정 (선택사항)

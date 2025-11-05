@@ -39,6 +39,12 @@ public class CpuMetricController {
      * CPU 섹션 전체 데이터 조회
      * GET /api/monitoring/cpu/section
      *
+     * 1. CPU 사용률 추이 - 서버가 시간별로 얼마나 바쁜지 (0~100%)
+     * 2. CPU 모드별 분포 - CPU가 무슨 일(사용자 프로그램, 시스템 작업, 대기 등)로 바쁜지
+     * 3. 시스템 부하 - 처리해야 할 작업이 얼마나 쌓여있는지 (대기 중인 일의 양)
+     * 4. 컨텍스트 스위치 - CPU가 작업을 얼마나 자주 전환하는지 (초당 전환 횟수)
+     * 5. 현재 상태 - 지금 이 순간의 CPU 사용률과 최근 통계(평균/최대/최소)
+     *
      * @param equipmentId 장비 ID
      * @param startTime 시작 시간 (선택, 기본값: 1시간 전)
      * @param endTime 종료 시간 (선택, 기본값: 현재)
@@ -65,7 +71,6 @@ public class CpuMetricController {
         // 집계 레벨 자동 선택
         if (aggregationLevel == null) {
             aggregationLevel = cpuMetricService.determineOptimalAggregationLevel(startTime, endTime);
-            log.info("📊 자동 선택된 집계 레벨: {}", aggregationLevel);
         }
 
         CpuSectionResponseDto response = cpuMetricService.getCpuSectionData(
@@ -81,6 +86,13 @@ public class CpuMetricController {
     /**
      * 현재 CPU 상태만 조회 (게이지용)
      * GET /api/monitoring/cpu/current
+     *
+     * - 현재 CPU 사용률: 지금 이 순간 서버가 얼마나 바쁜지 (실시간 값)
+     * - 평균 CPU 사용률: 최근 1시간 동안 평균적으로 얼마나 바빴는지
+     * - 최대 CPU 사용률: 최근 1시간 중 가장 바빴던 순간의 값
+     * - 최소 CPU 사용률: 최근 1시간 중 가장 한가했던 순간의 값
+     *
+     * 예시: 식당의 현재 테이블 사용률과 오늘 평균/최대/최소 테이블 사용률
      *
      * @param equipmentId 장비 ID
      * @return 현재 CPU 상태
@@ -105,6 +117,13 @@ public class CpuMetricController {
     /**
      * CPU 사용률 추이만 조회 (그래프 1.1)
      * GET /api/monitoring/cpu/usage-trend
+     *
+     * 보여주는 통계:
+     * - CPU 사용률 추이: 시간대별로 서버가 얼마나 바빴는지 변화 추이
+     * - 0%에 가까우면 거의 쉬는 상태, 100%에 가까우면 한계치에 도달한 상태
+     *
+     * 예시: 식당의 시간대별 테이블 점유율 그래프
+     *         (점심시간에는 90%, 오후 3시에는 20% 이런 식으로)
      *
      * @param equipmentId 장비 ID
      * @param startTime 시작 시간
@@ -145,6 +164,15 @@ public class CpuMetricController {
      * 시스템 부하 추이만 조회 (그래프 1.3)
      * GET /api/monitoring/cpu/load-average
      *
+     * 보여주는 통계:
+     * - 시스템 부하(Load Average): CPU가 처리해야 할 작업이 얼마나 대기 중인지
+     * - 1분/5분/15분 평균으로 최근 부하 상태와 추세를 함께 파악
+     * - CPU 코어 수와 비교하여 과부하 여부 판단 가능
+     *   (예: 4코어 서버에서 Load Average가 8이면 작업이 2배 밀려있는 상태)
+     *
+     * 예시: 은행 창구 4개인데 대기 손님이 평균 10명이면 과부하
+     *         창구 수보다 대기자가 많으면 고객들이 오래 기다려야 함
+     *
      * @param equipmentId 장비 ID
      * @param startTime 시작 시간
      * @param endTime 종료 시간
@@ -183,6 +211,14 @@ public class CpuMetricController {
     /**
      * 여러 장비의 현재 CPU 상태 일괄 조회
      * GET /api/monitoring/cpu/current/batch
+     *
+     * 보여주는 통계:
+     * - 여러 서버의 CPU 상태를 한 번에 조회
+     * - 각 장비별로 현재 사용률, 평균/최대/최소 값 제공
+     * - 전체 서버 목록을 대시보드에 표시할 때 사용
+     *
+     * 예시: 체인점 여러 개의 테이블 사용률을 한눈에 보는 것
+     *         (강남점 80%, 홍대점 45%, 신촌점 92% 이런 식으로)
      *
      * @param equipmentIds 장비 ID 리스트 (쉼표로 구분, 예: "1,2,3,4,5")
      * @return 각 장비별 현재 CPU 상태

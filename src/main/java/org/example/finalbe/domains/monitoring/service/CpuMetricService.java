@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ public class CpuMetricService {
      * @param aggregationLevel 집계 레벨 (RAW, MIN, MIN5, HOUR)
      * @return CPU 섹션 응답 데이터
      */
-    public CpuSectionResponseDto getCpuSectionData(
+    public CpuSectionResponseDto    getCpuSectionData(
             Long equipmentId,
             LocalDateTime startTime,
             LocalDateTime endTime,
@@ -91,12 +92,37 @@ public class CpuMetricService {
         Double maxCpu = 0.0;
         Double minCpu = 0.0;
 
-        if (stats != null && stats.length >= 3) {
-            avgCpu = convertToDouble(stats[0]);
-            maxCpu = convertToDouble(stats[1]);
-            minCpu = convertToDouble(stats[2]);
+        log.info("CPU 통계 쿼리 결과 - stats: {}, length: {}",
+                stats, stats != null ? stats.length : "null");
+
+        if (stats != null && stats.length > 0) {
+            // stats[0]이 실제 데이터 배열인 경우
+            Object firstElement = stats[0];
+
+            if (firstElement instanceof Object[]) {
+                // 이중 배열 구조인 경우
+                Object[] innerArray = (Object[]) firstElement;
+                log.info("내부 배열 길이: {}, 데이터: {}", innerArray.length, Arrays.toString(innerArray));
+
+                if (innerArray.length >= 3) {
+                    avgCpu = convertToDouble(innerArray[0]);
+                    maxCpu = convertToDouble(innerArray[1]);
+                    minCpu = convertToDouble(innerArray[2]);
+
+                    log.info("✅ 변환 후 - avgCpu: {}, maxCpu: {}, minCpu: {}",
+                            avgCpu, maxCpu, minCpu);
+                }
+            } else if (stats.length >= 3) {
+                // 단일 배열 구조인 경우
+                avgCpu = convertToDouble(stats[0]);
+                maxCpu = convertToDouble(stats[1]);
+                minCpu = convertToDouble(stats[2]);
+
+                log.info("✅ 변환 후 - avgCpu: {}, maxCpu: {}, minCpu: {}",
+                        avgCpu, maxCpu, minCpu);
+            }
         } else {
-            log.warn("CPU 통계 쿼리 결과가 비정상입니다.");
+            log.warn("CPU 통계 쿼리 결과가 null이거나 비어있습니다.");
         }
 
         return CpuCurrentStatsDto.builder()

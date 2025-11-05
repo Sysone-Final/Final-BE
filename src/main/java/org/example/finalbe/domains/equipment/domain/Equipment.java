@@ -126,7 +126,7 @@ public class Equipment extends BaseTimeEntity {
             this.status = EquipmentStatus.NORMAL;
         }
         if (this.positionType == null) {
-            this.positionType = EquipmentPositionType.NORMAL;
+            this.positionType = EquipmentPositionType.FRONT;
         }
     }
 

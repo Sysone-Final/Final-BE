@@ -142,7 +142,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 2000)
+    @Scheduled(fixedDelay = 15000, initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
         if (activeEquipments.isEmpty()) {
@@ -248,7 +248,7 @@ public class ServerRoomDataSimulator {
         // ===== 컨텍스트 스위치 (그래프 1.4) =====
         String contextKey = "context_" + equipmentId;
         long prevContext = cumulativeContextSwitches.getOrDefault(contextKey, 0L);
-        long contextInc = (long)(cpuUsage * 100 + rand.nextInt(5000));
+        long contextInc = (long)(cpuUsage * 100 + rand.nextInt(15000));
         long newContext = prevContext + contextInc;
         cumulativeContextSwitches.put(contextKey, newContext);
         metric.setContextSwitches(newContext);
@@ -337,8 +337,8 @@ public class ServerRoomDataSimulator {
         long prevReadCount = cumulativeIoReads.getOrDefault(key, 0L);
         long prevWriteCount = cumulativeIoWrites.getOrDefault(key, 0L);
 
-        long readInc = (long)(ioReadBps / 4096 * 5);  // 5초간 읽기 횟수
-        long writeInc = (long)(ioWriteBps / 4096 * 5);
+        long readInc = (long)(ioReadBps / 4096 * 15);  // 5초간 읽기 횟수
+        long writeInc = (long)(ioWriteBps / 4096 * 15);
 
         long newReadCount = prevReadCount + readInc;
         long newWriteCount = prevWriteCount + writeInc;
@@ -413,10 +413,10 @@ public class ServerRoomDataSimulator {
         long prevInBytes = cumulativeInBytes.getOrDefault(key, 0L);
         long prevOutBytes = cumulativeOutBytes.getOrDefault(key, 0L);
 
-        long inPacketsInc = (long)(inPktsPerSec * 5);  // 5초간 증가량
-        long outPacketsInc = (long)(outPktsPerSec * 5);
-        long inBytesInc = (long)(inBytesPerSec * 5);
-        long outBytesInc = (long)(outBytesPerSec * 5);
+        long inPacketsInc = (long)(inPktsPerSec * 15);  // 5초간 증가량
+        long outPacketsInc = (long)(outPktsPerSec * 15);
+        long inBytesInc = (long)(inBytesPerSec * 15);
+        long outBytesInc = (long)(outBytesPerSec * 15);
 
         long newInPackets = prevInPackets + inPacketsInc;
         long newOutPackets = prevOutPackets + outPacketsInc;

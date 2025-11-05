@@ -40,8 +40,6 @@ public class MemberDepartment extends BaseTimeEntity {
     @Builder.Default
     private Boolean isPrimary = false; // 주 부서 여부
 
-    @Column(name = "position", length = 100)
-    private String position; // 직급
 
     @Column(name = "join_date")
     private java.time.LocalDate joinDate; // 배치일

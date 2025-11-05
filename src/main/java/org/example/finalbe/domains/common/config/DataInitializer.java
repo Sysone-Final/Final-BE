@@ -425,7 +425,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(0))
                 .department(departments.get(3)) // 경영지원팀
                 .isPrimary(true)
-                .position("팀장")
                 .joinDate(LocalDate.of(2024, 1, 1))
                 .createdBy(members.get(0).getUserName())
                 .build());
@@ -435,7 +434,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(1))
                 .department(departments.get(1)) // 운영팀
                 .isPrimary(true)
-                .position("선임")
                 .joinDate(LocalDate.of(2024, 1, 10))
                 .createdBy(members.get(0).getUserName())
                 .build());
@@ -445,7 +443,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(2))
                 .department(departments.get(2)) // IT지원팀
                 .isPrimary(true)
-                .position("사원")
                 .joinDate(LocalDate.of(2024, 2, 1))
                 .createdBy(members.get(0).getUserName())
                 .build());
@@ -456,7 +453,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(3))
                 .department(departments.get(4)) // 전산실운영팀
                 .isPrimary(true)
-                .position("본부장")
                 .joinDate(LocalDate.of(2023, 6, 15))
                 .createdBy(members.get(3).getUserName())
                 .build());
@@ -466,7 +462,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(4))
                 .department(departments.get(5)) // 인프라관리팀
                 .isPrimary(true)
-                .position("과장")
                 .joinDate(LocalDate.of(2023, 7, 1))
                 .createdBy(members.get(3).getUserName())
                 .build());
@@ -476,7 +471,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(5))
                 .department(departments.get(6)) // 보안관리팀
                 .isPrimary(true)
-                .position("대리")
                 .joinDate(LocalDate.of(2023, 8, 1))
                 .createdBy(members.get(3).getUserName())
                 .build());
@@ -487,7 +481,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(6))
                 .department(departments.get(8)) // 클라우드서비스팀
                 .isPrimary(true)
-                .position("이사")
                 .joinDate(LocalDate.of(2022, 3, 20))
                 .createdBy(members.get(6).getUserName())
                 .build());
@@ -497,7 +490,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(7))
                 .department(departments.get(9)) // DevOps팀
                 .isPrimary(true)
-                .position("책임")
                 .joinDate(LocalDate.of(2022, 5, 1))
                 .createdBy(members.get(6).getUserName())
                 .build());
@@ -507,7 +499,6 @@ public class DataInitializer implements CommandLineRunner {
                 .member(members.get(8))
                 .department(departments.get(11)) // 고객지원팀
                 .isPrimary(true)
-                .position("주임")
                 .joinDate(LocalDate.of(2023, 1, 1))
                 .createdBy(members.get(6).getUserName())
                 .build());
@@ -807,7 +798,7 @@ public class DataInitializer implements CommandLineRunner {
                     .type(EquipmentType.PDU)
                     .startUnit(40)
                     .unitSize(2)
-                    .positionType(EquipmentPositionType.NORMAL)
+                    .positionType(EquipmentPositionType.FRONT)
                     .modelName("APC Rack PDU 2G")
                     .manufacturer("APC")
                     .serialNumber("PDU-" + rack.getRackName() + "-TOP")
@@ -819,8 +810,6 @@ public class DataInitializer implements CommandLineRunner {
                     .notes("상단 전력 분배 장치")
                     .managerId(manager1.getId())
                     .rack(rack)
-                    .position(40)
-                    .height(2)
                     .build());
 
             equipments.add(Equipment.builder()
@@ -829,7 +818,7 @@ public class DataInitializer implements CommandLineRunner {
                     .type(EquipmentType.PDU)
                     .startUnit(1)
                     .unitSize(1)
-                    .positionType(EquipmentPositionType.NORMAL)
+                    .positionType(EquipmentPositionType.FRONT)
                     .modelName("APC Rack PDU 2G")
                     .manufacturer("APC")
                     .serialNumber("PDU-" + rack.getRackName() + "-BTM")
@@ -841,8 +830,6 @@ public class DataInitializer implements CommandLineRunner {
                     .notes("하단 전력 분배 장치")
                     .managerId(manager1.getId())
                     .rack(rack)
-                    .position(1)
-                    .height(1)
                     .build());
 
             currentUnit = 2;
@@ -858,7 +845,7 @@ public class DataInitializer implements CommandLineRunner {
                         .type(EquipmentType.SWITCH)
                         .startUnit(currentUnit)
                         .unitSize(1)
-                        .positionType(EquipmentPositionType.NORMAL)
+                        .positionType(EquipmentPositionType.FRONT)
                         .modelName("Cisco Catalyst 2960X")
                         .manufacturer("Cisco")
                         .serialNumber("SW-" + rack.getRackName())
@@ -871,8 +858,6 @@ public class DataInitializer implements CommandLineRunner {
                         .notes("Top of Rack 스위치")
                         .managerId(manager1.getId())
                         .rack(rack)
-                        .position(currentUnit)
-                        .height(1)
                         .build());
                 currentUnit += 1;
 
@@ -885,7 +870,7 @@ public class DataInitializer implements CommandLineRunner {
                             .type(EquipmentType.SERVER)
                             .startUnit(currentUnit)
                             .unitSize(2)
-                            .positionType(EquipmentPositionType.NORMAL)
+                            .positionType(EquipmentPositionType.FRONT)
                             .modelName("Dell PowerEdge R750")
                             .manufacturer("Dell")
                             .serialNumber("SRV-" + rack.getRackName() + "-" + (sIdx + 1))
@@ -902,8 +887,6 @@ public class DataInitializer implements CommandLineRunner {
                             .notes("웹 서버 " + (sIdx + 1))
                             .managerId(manager1.getId())
                             .rack(rack)
-                            .position(currentUnit)
-                            .height(2)
                             .build());
                     currentUnit += 2;
                 }
@@ -916,7 +899,7 @@ public class DataInitializer implements CommandLineRunner {
                             .type(EquipmentType.KVM)
                             .startUnit(currentUnit)
                             .unitSize(1)
-                            .positionType(EquipmentPositionType.NORMAL)
+                            .positionType(EquipmentPositionType.FRONT)
                             .modelName("Raritan Dominion KX III")
                             .manufacturer("Raritan")
                             .serialNumber("KVM-" + rack.getRackName())
@@ -928,8 +911,6 @@ public class DataInitializer implements CommandLineRunner {
                             .notes("콘솔 스위치")
                             .managerId(manager1.getId())
                             .rack(rack)
-                            .position(currentUnit)
-                            .height(1)
                             .build());
                     currentUnit += 1;
                 }
@@ -944,7 +925,7 @@ public class DataInitializer implements CommandLineRunner {
                         .type(EquipmentType.ROUTER)
                         .startUnit(currentUnit)
                         .unitSize(2)
-                        .positionType(EquipmentPositionType.NORMAL)
+                        .positionType(EquipmentPositionType.FRONT)
                         .modelName("Cisco ISR 4451")
                         .manufacturer("Cisco")
                         .serialNumber("RTR-" + rack.getRackName())
@@ -957,8 +938,6 @@ public class DataInitializer implements CommandLineRunner {
                         .notes("코어 라우터")
                         .managerId(manager1.getId())
                         .rack(rack)
-                        .position(currentUnit)
-                        .height(2)
                         .build());
                 currentUnit += 2;
 
@@ -970,7 +949,7 @@ public class DataInitializer implements CommandLineRunner {
                             .type(EquipmentType.SWITCH)
                             .startUnit(currentUnit)
                             .unitSize(1)
-                            .positionType(EquipmentPositionType.NORMAL)
+                            .positionType(EquipmentPositionType.FRONT)
                             .modelName("Cisco Catalyst 9300")
                             .manufacturer("Cisco")
                             .serialNumber("SW-" + rack.getRackName() + "-" + (swIdx + 1))
@@ -983,8 +962,6 @@ public class DataInitializer implements CommandLineRunner {
                             .notes("코어 스위치 " + (swIdx + 1))
                             .managerId(manager1.getId())
                             .rack(rack)
-                            .position(currentUnit)
-                            .height(1)
                             .build());
                     currentUnit += 1;
                 }
@@ -997,7 +974,7 @@ public class DataInitializer implements CommandLineRunner {
                             .type(EquipmentType.FIREWALL)
                             .startUnit(currentUnit)
                             .unitSize(1)
-                            .positionType(EquipmentPositionType.NORMAL)
+                            .positionType(EquipmentPositionType.FRONT)
                             .modelName("Fortinet FortiGate 600E")
                             .manufacturer("Fortinet")
                             .serialNumber("FW-" + rack.getRackName())
@@ -1010,8 +987,6 @@ public class DataInitializer implements CommandLineRunner {
                             .notes("경계 방화벽")
                             .managerId(manager1.getId())
                             .rack(rack)
-                            .position(currentUnit)
-                            .height(1)
                             .build());
                     currentUnit += 1;
                 }
@@ -1024,7 +999,7 @@ public class DataInitializer implements CommandLineRunner {
                             .type(EquipmentType.LOAD_BALANCER)
                             .startUnit(currentUnit)
                             .unitSize(1)
-                            .positionType(EquipmentPositionType.NORMAL)
+                            .positionType(EquipmentPositionType.FRONT)
                             .modelName("F5 BIG-IP 4000s")
                             .manufacturer("F5 Networks")
                             .serialNumber("LB-" + rack.getRackName())
@@ -1037,8 +1012,6 @@ public class DataInitializer implements CommandLineRunner {
                             .notes("L7 로드밸런서")
                             .managerId(manager1.getId())
                             .rack(rack)
-                            .position(currentUnit)
-                            .height(1)
                             .build());
                     currentUnit += 1;
                 }
@@ -1052,7 +1025,7 @@ public class DataInitializer implements CommandLineRunner {
                             .type(EquipmentType.STORAGE)
                             .startUnit(currentUnit)
                             .unitSize(4)
-                            .positionType(EquipmentPositionType.NORMAL)
+                            .positionType(EquipmentPositionType.FRONT)
                             .modelName("NetApp FAS2750")
                             .manufacturer("NetApp")
                             .serialNumber("STG-" + rack.getRackName() + "-" + (stIdx + 1))
@@ -1066,8 +1039,6 @@ public class DataInitializer implements CommandLineRunner {
                             .notes("통합 스토리지 " + (stIdx + 1))
                             .managerId(manager1.getId())
                             .rack(rack)
-                            .position(currentUnit)
-                            .height(4)
                             .build());
                     currentUnit += 4;
                 }
@@ -1082,7 +1053,7 @@ public class DataInitializer implements CommandLineRunner {
                         .type(EquipmentType.SWITCH)
                         .startUnit(currentUnit)
                         .unitSize(1)
-                        .positionType(EquipmentPositionType.NORMAL)
+                        .positionType(EquipmentPositionType.FRONT)
                         .modelName("HP Aruba 2930F")
                         .manufacturer("HPE")
                         .serialNumber("SW-" + rack.getRackName())
@@ -1095,8 +1066,6 @@ public class DataInitializer implements CommandLineRunner {
                         .notes("엣지 스위치")
                         .managerId(manager1.getId())
                         .rack(rack)
-                        .position(currentUnit)
-                        .height(1)
                         .build());
                 currentUnit += 1;
 
@@ -1108,7 +1077,7 @@ public class DataInitializer implements CommandLineRunner {
                             .type(EquipmentType.SERVER)
                             .startUnit(currentUnit)
                             .unitSize(2)
-                            .positionType(EquipmentPositionType.NORMAL)
+                            .positionType(EquipmentPositionType.FRONT)
                             .modelName("HPE ProLiant DL380 Gen10")
                             .manufacturer("HPE")
                             .serialNumber("SRV-" + rack.getRackName() + "-" + (sIdx + 1))
@@ -1125,8 +1094,6 @@ public class DataInitializer implements CommandLineRunner {
                             .notes("애플리케이션 서버 " + (sIdx + 1))
                             .managerId(manager1.getId())
                             .rack(rack)
-                            .position(currentUnit)
-                            .height(2)
                             .build());
                     currentUnit += 2;
                 }
@@ -1138,7 +1105,7 @@ public class DataInitializer implements CommandLineRunner {
                         .type(EquipmentType.STORAGE)
                         .startUnit(currentUnit)
                         .unitSize(3)
-                        .positionType(EquipmentPositionType.NORMAL)
+                        .positionType(EquipmentPositionType.FRONT)
                         .modelName("QNAP TS-1277XU-RP")
                         .manufacturer("QNAP")
                         .serialNumber("STG-" + rack.getRackName())
@@ -1151,8 +1118,6 @@ public class DataInitializer implements CommandLineRunner {
                         .notes("백업 스토리지")
                         .managerId(manager1.getId())
                         .rack(rack)
-                        .position(currentUnit)
-                        .height(3)
                         .build());
                 currentUnit += 3;
             }
@@ -1164,7 +1129,7 @@ public class DataInitializer implements CommandLineRunner {
                     .type(EquipmentType.ENVIRONMENTAL_SENSOR)
                     .startUnit(42)
                     .unitSize(0) // 랙 유닛을 차지하지 않음
-                    .positionType(EquipmentPositionType.NORMAL)
+                    .positionType(EquipmentPositionType.FRONT)
                     .modelName("Kentix MultiSensor-LAN")
                     .manufacturer("Kentix")
                     .serialNumber("ENV-" + rack.getRackName())
@@ -1176,8 +1141,6 @@ public class DataInitializer implements CommandLineRunner {
                     .notes("온습도 모니터링 센서")
                     .managerId(manager1.getId())
                     .rack(rack)
-                    .position(42)
-                    .height(0)
                     .build());
         }
 

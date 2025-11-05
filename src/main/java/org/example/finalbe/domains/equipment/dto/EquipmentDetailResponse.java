@@ -37,9 +37,7 @@ public record EquipmentDetailResponse(
         LocalDateTime updatedAt,
         Long managerId,
         Long rackId,
-        String rackName,
-        Integer position,
-        Integer height
+        String rackName
 ) {
     public static EquipmentDetailResponse from(Equipment equipment) {
         return EquipmentDetailResponse.builder()
@@ -69,8 +67,6 @@ public record EquipmentDetailResponse(
                 .managerId(equipment.getManagerId())
                 .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
-                .position(equipment.getPosition())
-                .height(equipment.getHeight())
                 .build();
     }
 }

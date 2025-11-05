@@ -83,11 +83,8 @@ public record EquipmentCreateRequest(
 
         @NotNull(message = "랙을 선택해주세요.")
         @Min(value = 1, message = "유효하지 않은 랙 ID입니다.")
-        Long rackId,
+        Long rackId
 
-        Integer position,
-
-        Integer height
 ) {
     /**
      * DTO를 Entity로 변환
@@ -99,7 +96,7 @@ public record EquipmentCreateRequest(
                 .type(equipmentType != null ? EquipmentType.valueOf(equipmentType) : null)
                 .startUnit(startUnit)
                 .unitSize(unitSize)
-                .positionType(positionType != null ? EquipmentPositionType.valueOf(positionType) : EquipmentPositionType.NORMAL)
+                .positionType(positionType != null ? EquipmentPositionType.valueOf(positionType) : EquipmentPositionType.FRONT)
                 .modelName(modelName)
                 .manufacturer(manufacturer)
                 .serialNumber(serialNumber)
@@ -116,8 +113,6 @@ public record EquipmentCreateRequest(
                 .notes(notes)
                 .managerId(managerId)
                 .rack(rack)
-                .position(position)
-                .height(height)
                 .build();
     }
 }

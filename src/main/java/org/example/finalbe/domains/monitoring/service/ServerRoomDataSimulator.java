@@ -38,7 +38,6 @@ public class ServerRoomDataSimulator {
     private final EquipmentRepository equipmentRepository;
     private final RackRepository rackRepository;
 
-    private static final Map<Long, List<String>> EQUIPMENT_PARTITIONS = new HashMap<>();
     private static final Map<Long, List<String>> EQUIPMENT_NICS = new HashMap<>();
 
     private final Map<Long, AnomalyState> anomalyStates = new HashMap<>();
@@ -81,15 +80,10 @@ public class ServerRoomDataSimulator {
             return;
         }
 
-        // 각 장비별 파티션/NIC 구성 초기화
+        // 각 장비별 NIC 구성 초기화
         for (Equipment equipment : activeEquipments) {
             Long equipmentId = equipment.getId();
             EquipmentType type = equipment.getType();
-
-            // 파티션 설정 (SERVER, STORAGE)
-            if (type == EquipmentType.SERVER || type == EquipmentType.STORAGE) {
-                EQUIPMENT_PARTITIONS.put(equipmentId, generateDefaultPartitions(equipment));
-            }
 
             // NIC 설정 (SERVER, SWITCH, ROUTER, FIREWALL, LOAD_BALANCER)
             if (hasNetworkMetric(type)) {
@@ -126,24 +120,6 @@ public class ServerRoomDataSimulator {
                     hasNetworkMetric(type) ? "✅" : "❌"
             );
         });
-    }
-
-    /**
-     * 장비별 기본 파티션 생성 (OS 기반)
-     */
-    private List<String> generateDefaultPartitions(Equipment equipment) {
-        if (equipment.getOs() == null) {
-            return Arrays.asList("C:", "D:");
-        }
-
-        String os = equipment.getOs().toLowerCase();
-        if (os.contains("windows")) {
-            return Arrays.asList("C:", "D:");
-        } else if (os.contains("linux") || os.contains("ubuntu") || os.contains("centos")) {
-            return Arrays.asList("/", "/boot", "/var");
-        } else {
-            return Arrays.asList("C:", "D:");
-        }
     }
 
     /**
@@ -189,13 +165,8 @@ public class ServerRoomDataSimulator {
 
                 // Disk 메트릭 - SERVER, STORAGE만
                 if (hasDiskMetric(type)) {
-                    List<String> partitions = EQUIPMENT_PARTITIONS.get(equipmentId);
-                    if (partitions != null) {
-                        for (String partition : partitions) {
-                            DiskMetric diskMetric = generateDiskMetric(equipmentId, partition, now);
-                            diskMetricRepository.save(diskMetric);
-                        }
-                    }
+                    DiskMetric diskMetric = generateDiskMetric(equipmentId, now);
+                    diskMetricRepository.save(diskMetric);
                 }
 
                 // Network 메트릭 - SERVER, SWITCH, ROUTER, FIREWALL, LOAD_BALANCER
@@ -319,13 +290,12 @@ public class ServerRoomDataSimulator {
     /**
      * 디스크 메트릭 생성 - 모든 그래프 지원
      */
-    private DiskMetric generateDiskMetric(Long equipmentId, String partition, LocalDateTime time) {
+    private DiskMetric generateDiskMetric(Long equipmentId, LocalDateTime time) {
         AnomalyState state = anomalyStates.get(equipmentId);
         ThreadLocalRandom rand = ThreadLocalRandom.current();
 
         DiskMetric metric = DiskMetric.builder()
                 .equipmentId(equipmentId)
-                .partitionPath(partition)
                 .generateTime(time)
                 .build();
 
@@ -362,7 +332,7 @@ public class ServerRoomDataSimulator {
         metric.setIoTimePercentage(ioTimePercentage);
 
         // 누적 I/O 카운터
-        String key = equipmentId + "_" + partition;
+        String key = "disk_" + equipmentId;
 
         long prevReadCount = cumulativeIoReads.getOrDefault(key, 0L);
         long prevWriteCount = cumulativeIoWrites.getOrDefault(key, 0L);

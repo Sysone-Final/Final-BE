@@ -8,6 +8,7 @@ import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.BusinessException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
+import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
@@ -41,6 +42,7 @@ public class RackService {
     private final EquipmentRepository equipmentRepository;
     private final MemberRepository memberRepository;
     private final RackDepartmentRepository rackDepartmentRepository;
+    private final CompanyDataCenterRepository cdcRepository;
 
     /**
      * 현재 로그인한 사용자 조회
@@ -85,7 +87,7 @@ public class RackService {
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
         // 회사의 전산실 접근 권한 확인
-        if (!dataCenterRepository.hasAccessToDataCenter(
+        if (!cdcRepository.existsByCompanyIdAndDataCenterId(
                 member.getCompany().getId(),
                 rack.getDatacenter().getId())) {
             throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
@@ -151,7 +153,7 @@ public class RackService {
                 .orElseThrow(() -> new EntityNotFoundException("전산실", request.datacenterId()));
 
         if (currentMember.getRole() != Role.ADMIN) {
-            if (!dataCenterRepository.hasAccessToDataCenter(
+            if (!cdcRepository.existsByCompanyIdAndDataCenterId(
                     currentMember.getCompany().getId(), request.datacenterId())) {
                 throw new AccessDeniedException("해당 전산실에 대한 접근 권한이 없습니다.");
             }

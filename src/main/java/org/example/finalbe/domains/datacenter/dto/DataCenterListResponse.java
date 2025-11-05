@@ -22,9 +22,7 @@ public record DataCenterListResponse(
         Integer currentRackCount,
         Integer availableRackCount,
         BigDecimal totalArea,
-        String managerName,
-        Long companyId,        // ★ 추가
-        String companyName     // ★ 추가
+        String managerName
 ) {
     /**
      * Entity → DTO 변환
@@ -41,9 +39,7 @@ public record DataCenterListResponse(
                 .currentRackCount(dataCenter.getCurrentRackCount())
                 .availableRackCount(dataCenter.getAvailableRackCount())
                 .totalArea(dataCenter.getTotalArea())
-                .managerName(dataCenter.getManager().getName())
-                .companyId(dataCenter.getCompany().getId())           // ★ 추가
-                .companyName(dataCenter.getCompany().getName())       // ★ 추가
+                .managerName(dataCenter.getManager() != null ? dataCenter.getManager().getName() : null)
                 .build();
     }
 }

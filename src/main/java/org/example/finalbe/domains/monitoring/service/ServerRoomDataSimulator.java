@@ -38,7 +38,6 @@ public class ServerRoomDataSimulator {
     private final EquipmentRepository equipmentRepository;
     private final RackRepository rackRepository;
 
-    private static final Map<Long, List<String>> EQUIPMENT_PARTITIONS = new HashMap<>();
     private static final Map<Long, List<String>> EQUIPMENT_NICS = new HashMap<>();
 
     private final Map<Long, AnomalyState> anomalyStates = new HashMap<>();
@@ -81,15 +80,10 @@ public class ServerRoomDataSimulator {
             return;
         }
 
-        // 각 장비별 파티션/NIC 구성 초기화
+        // 각 장비별 NIC 구성 초기화
         for (Equipment equipment : activeEquipments) {
             Long equipmentId = equipment.getId();
             EquipmentType type = equipment.getType();
-
-            // 파티션 설정 (SERVER, STORAGE)
-            if (type == EquipmentType.SERVER || type == EquipmentType.STORAGE) {
-                EQUIPMENT_PARTITIONS.put(equipmentId, generateDefaultPartitions(equipment));
-            }
 
             // NIC 설정 (SERVER, SWITCH, ROUTER, FIREWALL, LOAD_BALANCER)
             if (hasNetworkMetric(type)) {
@@ -129,24 +123,6 @@ public class ServerRoomDataSimulator {
     }
 
     /**
-     * 장비별 기본 파티션 생성 (OS 기반)
-     */
-    private List<String> generateDefaultPartitions(Equipment equipment) {
-        if (equipment.getOs() == null) {
-            return Arrays.asList("C:", "D:");
-        }
-
-        String os = equipment.getOs().toLowerCase();
-        if (os.contains("windows")) {
-            return Arrays.asList("C:", "D:");
-        } else if (os.contains("linux") || os.contains("ubuntu") || os.contains("centos")) {
-            return Arrays.asList("/", "/boot", "/var");
-        } else {
-            return Arrays.asList("C:", "D:");
-        }
-    }
-
-    /**
      * 장비 타입별 기본 NIC 생성
      */
     private List<String> generateDefaultNics(EquipmentType type) {
@@ -166,7 +142,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 2000)
+    @Scheduled(fixedDelay = 15000, initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
         if (activeEquipments.isEmpty()) {
@@ -189,13 +165,8 @@ public class ServerRoomDataSimulator {
 
                 // Disk 메트릭 - SERVER, STORAGE만
                 if (hasDiskMetric(type)) {
-                    List<String> partitions = EQUIPMENT_PARTITIONS.get(equipmentId);
-                    if (partitions != null) {
-                        for (String partition : partitions) {
-                            DiskMetric diskMetric = generateDiskMetric(equipmentId, partition, now);
-                            diskMetricRepository.save(diskMetric);
-                        }
-                    }
+                    DiskMetric diskMetric = generateDiskMetric(equipmentId, now);
+                    diskMetricRepository.save(diskMetric);
                 }
 
                 // Network 메트릭 - SERVER, SWITCH, ROUTER, FIREWALL, LOAD_BALANCER
@@ -277,7 +248,7 @@ public class ServerRoomDataSimulator {
         // ===== 컨텍스트 스위치 (그래프 1.4) =====
         String contextKey = "context_" + equipmentId;
         long prevContext = cumulativeContextSwitches.getOrDefault(contextKey, 0L);
-        long contextInc = (long)(cpuUsage * 100 + rand.nextInt(5000));
+        long contextInc = (long)(cpuUsage * 100 + rand.nextInt(15000));
         long newContext = prevContext + contextInc;
         cumulativeContextSwitches.put(contextKey, newContext);
         metric.setContextSwitches(newContext);
@@ -319,13 +290,12 @@ public class ServerRoomDataSimulator {
     /**
      * 디스크 메트릭 생성 - 모든 그래프 지원
      */
-    private DiskMetric generateDiskMetric(Long equipmentId, String partition, LocalDateTime time) {
+    private DiskMetric generateDiskMetric(Long equipmentId, LocalDateTime time) {
         AnomalyState state = anomalyStates.get(equipmentId);
         ThreadLocalRandom rand = ThreadLocalRandom.current();
 
         DiskMetric metric = DiskMetric.builder()
                 .equipmentId(equipmentId)
-                .partitionPath(partition)
                 .generateTime(time)
                 .build();
 
@@ -362,13 +332,13 @@ public class ServerRoomDataSimulator {
         metric.setIoTimePercentage(ioTimePercentage);
 
         // 누적 I/O 카운터
-        String key = equipmentId + "_" + partition;
+        String key = "disk_" + equipmentId;
 
         long prevReadCount = cumulativeIoReads.getOrDefault(key, 0L);
         long prevWriteCount = cumulativeIoWrites.getOrDefault(key, 0L);
 
-        long readInc = (long)(ioReadBps / 4096 * 5);  // 5초간 읽기 횟수
-        long writeInc = (long)(ioWriteBps / 4096 * 5);
+        long readInc = (long)(ioReadBps / 4096 * 15);  // 5초간 읽기 횟수
+        long writeInc = (long)(ioWriteBps / 4096 * 15);
 
         long newReadCount = prevReadCount + readInc;
         long newWriteCount = prevWriteCount + writeInc;
@@ -443,10 +413,10 @@ public class ServerRoomDataSimulator {
         long prevInBytes = cumulativeInBytes.getOrDefault(key, 0L);
         long prevOutBytes = cumulativeOutBytes.getOrDefault(key, 0L);
 
-        long inPacketsInc = (long)(inPktsPerSec * 5);  // 5초간 증가량
-        long outPacketsInc = (long)(outPktsPerSec * 5);
-        long inBytesInc = (long)(inBytesPerSec * 5);
-        long outBytesInc = (long)(outBytesPerSec * 5);
+        long inPacketsInc = (long)(inPktsPerSec * 15);  // 5초간 증가량
+        long outPacketsInc = (long)(outPktsPerSec * 15);
+        long inBytesInc = (long)(inBytesPerSec * 15);
+        long outBytesInc = (long)(outBytesPerSec * 15);
 
         long newInPackets = prevInPackets + inPacketsInc;
         long newOutPackets = prevOutPackets + outPacketsInc;

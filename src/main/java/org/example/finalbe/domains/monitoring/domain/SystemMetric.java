@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "system_metrics", indexes = {
-        @Index(name = "idx_equipment_time", columnList = "equipment_id,generateTime"),
-        @Index(name = "idx_system_generate_time", columnList = "generateTime")
+        @Index(name = "idx_system_equipment_time", columnList = "equipment_id, generate_time"), // 이름 변경
+        @Index(name = "idx_system_generate_time", columnList = "generate_time")
 })
 @Data
 @Builder

@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.DataCenterStatus;
+import org.example.finalbe.domains.company.domain.Company;
 import org.example.finalbe.domains.member.domain.Member;
 
 import java.math.BigDecimal;
@@ -19,7 +20,8 @@ import java.math.BigDecimal;
 @Table(name = "datacenter", indexes = {
         @Index(name = "idx_datacenter_name", columnList = "name"),
         @Index(name = "idx_datacenter_code", columnList = "code"),
-        @Index(name = "idx_datacenter_status", columnList = "status")
+        @Index(name = "idx_datacenter_status", columnList = "status"),
+        @Index(name = "idx_datacenter_company", columnList = "company_id")
 })
 @NoArgsConstructor
 @AllArgsConstructor
@@ -49,7 +51,6 @@ public class DataCenter extends BaseTimeEntity {
 
     @Column(name = "columns")
     private Integer columns; // 랙 배치 열 수
-
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
@@ -90,6 +91,11 @@ public class DataCenter extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
     private Member manager; // 전산실 담당자
+
+    // ★ 추가: 전산실 소속 회사
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company; // 전산실 소속 회사
 
     /**
      * 전산실 정보 수정 (부분 수정 지원)

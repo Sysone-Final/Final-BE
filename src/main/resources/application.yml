@@ -49,15 +49,6 @@ jwt:
 cookie:
   secure: true
 
-logging:
-  level:
-    root: INFO
-    com.finalbe: DEBUG
-    org.hibernate.SQL: DEBUG          # SQL 로그 보기 (개발 시)
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    com.zaxxer.hikari: WARN
-    # 스케줄러 로그 추가
-    org.springframework.scheduling: INFO
 
 # 모니터링 시뮬레이터 설정 (선택사항)
 monitoring:

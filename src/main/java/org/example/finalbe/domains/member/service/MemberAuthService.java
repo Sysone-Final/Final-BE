@@ -198,6 +198,7 @@ public class MemberAuthService {
         }
     }
 
+
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
 //        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken);
 //        cookie.setHttpOnly(true);

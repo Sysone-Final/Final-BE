@@ -2,13 +2,13 @@ package org.example.finalbe.domains.datacenter.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.Role;
-
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
+import org.example.finalbe.domains.companydatacenter.domain.CompanyDataCenter;
+import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.dto.*;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
@@ -22,9 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 전산실 서비스
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,9 +30,10 @@ public class DataCenterService {
 
     private final DataCenterRepository dataCenterRepository;
     private final MemberRepository memberRepository;
+    private final CompanyDataCenterRepository companyDataCenterRepository;
 
     /**
-     * 현재 인증된 사용자 조회
+     * 현재 로그인한 사용자 조회
      */
     private Member getCurrentMember() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -68,7 +66,7 @@ public class DataCenterService {
     }
 
     /**
-     * 전산실 접근 권한 확인 (ADMIN: 전체, OPERATOR/VIEWER: 자기 회사 전산실만)
+     * ★ CompanyDataCenter 매핑 테이블로 접근 권한 확인
      */
     private void validateDataCenterAccess(Member member, Long dataCenterId) {
         if (dataCenterId == null) {
@@ -76,17 +74,22 @@ public class DataCenterService {
         }
 
         if (member.getRole() == Role.ADMIN) {
-            return;
+            return; // ADMIN은 모든 전산실 접근 가능
         }
 
-        // hasAccessToDataCenter로 권한 체크 (더 효율적)
-        if (!dataCenterRepository.hasAccessToDataCenter(member.getCompany().getId(), dataCenterId)) {
+        // CompanyDataCenter 매핑 테이블에서 접근 권한 확인
+        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+                member.getCompany().getId(),
+                dataCenterId
+        );
+
+        if (!hasAccess) {
             throw new AccessDeniedException("해당 전산실에 대한 접근 권한이 없습니다.");
         }
     }
 
     /**
-     * 접근 가능한 전산실 목록 조회
+     * ★ CompanyDataCenter 매핑 테이블로 접근 가능한 전산실 목록 조회
      */
     public List<DataCenterListResponse> getAccessibleDataCenters() {
         Member currentMember = getCurrentMember();
@@ -100,9 +103,14 @@ public class DataCenterService {
             dataCenters = dataCenterRepository.findByDelYn(DelYN.N);
             log.info("Admin user - returning all {} data centers", dataCenters.size());
         } else {
-            // ★ 변경: 자기 회사 전산실만 조회
-            dataCenters = dataCenterRepository.findByCompanyIdAndDelYn(
-                    currentMember.getCompany().getId(), DelYN.N);
+            // 일반 사용자: CompanyDataCenter 매핑을 통해 접근 가능한 전산실만 조회
+            List<CompanyDataCenter> mappings = companyDataCenterRepository
+                    .findByCompanyId(currentMember.getCompany().getId());
+
+            dataCenters = mappings.stream()
+                    .map(CompanyDataCenter::getDataCenter)
+                    .collect(Collectors.toList());
+
             log.info("Non-admin user - returning {} accessible data centers", dataCenters.size());
         }
 
@@ -123,6 +131,7 @@ public class DataCenterService {
             throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
         }
 
+        // ★ CompanyDataCenter 매핑으로 접근 권한 확인
         validateDataCenterAccess(currentMember, id);
 
         DataCenter dataCenter = dataCenterRepository.findActiveById(id)
@@ -132,8 +141,7 @@ public class DataCenterService {
     }
 
     /**
-     * 전산실 생성
-     * ★ 로그인한 사용자의 소속 회사를 전산실의 company로 설정
+     * ★ 전산실 생성 + CompanyDataCenter 매핑 자동 생성
      */
     @Transactional
     public DataCenterDetailResponse createDataCenter(DataCenterCreateRequest request) {
@@ -161,17 +169,21 @@ public class DataCenterService {
         Member manager = memberRepository.findById(request.managerId())
                 .orElseThrow(() -> new EntityNotFoundException("담당자", request.managerId()));
 
-        // ★ 변경: 로그인한 사용자의 소속 회사를 전산실 company로 설정
-        DataCenter dataCenter = request.toEntity(
-                manager,
-                currentMember.getCompany(),  // 로그인 사용자의 소속 회사
-                currentMember.getUserName()
-        );
-
+        // ★ 전산실 생성 (company 제거)
+        DataCenter dataCenter = request.toEntity(manager);
         DataCenter savedDataCenter = dataCenterRepository.save(dataCenter);
 
-        log.info("Data center created successfully with id: {}, company: {}",
-                savedDataCenter.getId(), savedDataCenter.getCompany().getId());
+        // ★ CompanyDataCenter 매핑 자동 생성 (로그인 사용자의 회사와 매핑)
+        CompanyDataCenter mapping = CompanyDataCenter.builder()
+                .company(currentMember.getCompany())
+                .dataCenter(savedDataCenter)
+                .description("전산실 생성 시 자동 매핑")
+                .grantedBy(currentMember.getUserName())
+                .build();
+        companyDataCenterRepository.save(mapping);
+
+        log.info("Data center created successfully with id: {}, automatically mapped to company: {}",
+                savedDataCenter.getId(), currentMember.getCompany().getId());
 
         return DataCenterDetailResponse.from(savedDataCenter);
     }
@@ -259,7 +271,7 @@ public class DataCenterService {
     }
 
     /**
-     * 전산실 이름으로 검색
+     * ★ CompanyDataCenter 기반 전산실 이름 검색
      */
     public List<DataCenterListResponse> searchDataCentersByName(String name) {
         Member currentMember = getCurrentMember();
@@ -277,9 +289,15 @@ public class DataCenterService {
             searchResults = dataCenterRepository.searchByName(name);
             log.info("Admin user - searched all data centers, found: {}", searchResults.size());
         } else {
-            // ★ 변경: 자기 회사 전산실에서만 검색
-            searchResults = dataCenterRepository.searchByNameAndCompanyId(
-                    name, currentMember.getCompany().getId());
+            // 일반 사용자: 접근 가능한 전산실 중에서만 검색
+            List<CompanyDataCenter> mappings = companyDataCenterRepository
+                    .findByCompanyId(currentMember.getCompany().getId());
+
+            searchResults = mappings.stream()
+                    .map(CompanyDataCenter::getDataCenter)
+                    .filter(dc -> dc.getName().contains(name))
+                    .collect(Collectors.toList());
+
             log.info("Non-admin user - searched accessible data centers, found: {}", searchResults.size());
         }
 

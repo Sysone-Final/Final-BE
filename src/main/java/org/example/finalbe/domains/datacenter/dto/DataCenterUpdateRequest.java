@@ -20,7 +20,9 @@ public record DataCenterUpdateRequest(
         @Size(max = 255, message = "위치는 255자 이내로 입력해주세요.")
         String location,
 
-        @Size(max = 50, message = "층수는 50자 이내로 입력해주세요.")
+        // ★ 수정: @Size 제거, @Min/@Max 사용
+        @Min(value = -10, message = "층수는 -10 이상이어야 합니다.")
+        @Max(value = 200, message = "층수는 200 이하여야 합니다.")
         Integer floor,
 
         @Min(value = 1, message = "행 수는 1 이상이어야 합니다.")
@@ -28,7 +30,6 @@ public record DataCenterUpdateRequest(
 
         @Min(value = 1, message = "열 수는 1 이상이어야 합니다.")
         Integer columns,
-
 
         DataCenterStatus status,
 

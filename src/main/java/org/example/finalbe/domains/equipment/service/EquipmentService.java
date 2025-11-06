@@ -48,7 +48,7 @@ public class EquipmentService {
      * GET /api/equipments?page=0&size=10&keyword=&type=&status=&datacenterId=
      */
     public EquipmentPageResponse getEquipmentsWithFilters(
-            int page, int size, String keyword, String type, String status, Long datacenterId) {
+            int page, int size, String keyword, EquipmentType type, EquipmentStatus status, Long datacenterId) {
 
         log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, datacenterId: {}",
                 page, size, keyword, type, status, datacenterId);

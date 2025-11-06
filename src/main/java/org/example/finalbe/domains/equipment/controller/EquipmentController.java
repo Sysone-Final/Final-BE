@@ -3,6 +3,8 @@ package org.example.finalbe.domains.equipment.controller;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.common.dto.CommonResDto;
+import org.example.finalbe.domains.common.enumdir.EquipmentStatus;
+import org.example.finalbe.domains.common.enumdir.EquipmentType;
 import org.example.finalbe.domains.equipment.dto.*;
 import org.example.finalbe.domains.equipment.service.EquipmentService;
 import org.springframework.http.HttpStatus;
@@ -36,8 +38,8 @@ public class EquipmentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) EquipmentType type,
+            @RequestParam(required = false) EquipmentStatus status,
             @RequestParam(required = false) Long datacenterId) {
 
         EquipmentPageResponse response = equipmentService.getEquipmentsWithFilters(

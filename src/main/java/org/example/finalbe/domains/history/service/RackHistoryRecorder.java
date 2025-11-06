@@ -2,11 +2,9 @@ package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.finalbe.domains.common.enumdir.EntityType;
-import org.example.finalbe.domains.device.domain.Device;
-import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.history.dto.HistoryCreateRequest;
-import org.example.finalbe.domains.common.enumdir.HistoryAction;
+import org.example.finalbe.domains.history.enumdir.EntityType;
+import org.example.finalbe.domains.history.enumdir.HistoryAction;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.springframework.stereotype.Component;
@@ -17,8 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 히스토리 기록 헬퍼 클래스
- * 각 엔티티의 변경 사항을 추적하고 히스토리로 기록
+ * Rack 히스토리 기록 전담 클래스
  */
 @Component
 @Slf4j
@@ -30,7 +27,7 @@ public class RackHistoryRecorder {
     /**
      * Rack 생성 히스토리
      */
-    public void recordRackCreate(Rack rack, Member member, String ipAddress) {
+    public void recordCreate(Rack rack, Member member, String ipAddress) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -43,7 +40,7 @@ public class RackHistoryRecorder {
                 .changedByName(member.getName())
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
-                .afterValue(buildRackSnapshot(rack))
+                .afterValue(buildSnapshot(rack))
                 .ipAddress(ipAddress)
                 .build();
 
@@ -53,13 +50,13 @@ public class RackHistoryRecorder {
     /**
      * Rack 수정 히스토리
      */
-    public void recordRackUpdate(Rack oldRack, Rack newRack, Member member, String reason, String ipAddress) {
-        Map<String, Object> oldSnapshot = buildRackSnapshot(oldRack);
-        Map<String, Object> newSnapshot = buildRackSnapshot(newRack);
+    public void recordUpdate(Rack oldRack, Rack newRack, Member member, String reason, String ipAddress) {
+        Map<String, Object> oldSnapshot = buildSnapshot(oldRack);
+        Map<String, Object> newSnapshot = buildSnapshot(newRack);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
 
         if (changedFields.isEmpty()) {
-            return; // 변경사항 없음
+            return;
         }
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
@@ -86,8 +83,8 @@ public class RackHistoryRecorder {
     /**
      * Rack 상태 변경 히스토리
      */
-    public void recordRackStatusChange(Rack rack, String oldStatus, String newStatus,
-                                       Member member, String reason, String ipAddress) {
+    public void recordStatusChange(Rack rack, String oldStatus, String newStatus,
+                                   Member member, String reason, String ipAddress) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -112,7 +109,7 @@ public class RackHistoryRecorder {
     /**
      * Rack 삭제 히스토리
      */
-    public void recordRackDelete(Rack rack, Member member, String reason, String ipAddress) {
+    public void recordDelete(Rack rack, Member member, String reason, String ipAddress) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -125,278 +122,7 @@ public class RackHistoryRecorder {
                 .changedByName(member.getName())
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
-                .beforeValue(buildRackSnapshot(rack))
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Equipment 생성 히스토리
-     */
-    public void recordEquipmentCreate(Equipment equipment, Member member, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
-                .entityType(EntityType.EQUIPMENT)
-                .entityId(equipment.getId())
-                .entityName(equipment.getName())
-                .entityCode(equipment.getCode())
-                .action(HistoryAction.CREATE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("ALL"))
-                .afterValue(buildEquipmentSnapshot(equipment))
-                .ipAddress(ipAddress)
-                .metadata(Map.of("rackName", equipment.getRack().getRackName()))
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Equipment 수정 히스토리
-     */
-    public void recordEquipmentUpdate(Equipment oldEquipment, Equipment newEquipment,
-                                      Member member, String reason, String ipAddress) {
-        Map<String, Object> oldSnapshot = buildEquipmentSnapshot(oldEquipment);
-        Map<String, Object> newSnapshot = buildEquipmentSnapshot(newEquipment);
-        List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
-
-        if (changedFields.isEmpty()) {
-            return;
-        }
-
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(newEquipment.getRack().getDatacenter().getId())
-                .dataCenterName(newEquipment.getRack().getDatacenter().getName())
-                .entityType(EntityType.EQUIPMENT)
-                .entityId(newEquipment.getId())
-                .entityName(newEquipment.getName())
-                .entityCode(newEquipment.getCode())
-                .action(HistoryAction.UPDATE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(changedFields)
-                .beforeValue(oldSnapshot)
-                .afterValue(newSnapshot)
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .metadata(Map.of("rackName", newEquipment.getRack().getRackName()))
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Equipment 이동 히스토리 (랙 또는 유닛 변경)
-     */
-    public void recordEquipmentMove(Equipment equipment, String oldLocation, String newLocation,
-                                    Member member, String reason, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
-                .entityType(EntityType.EQUIPMENT)
-                .entityId(equipment.getId())
-                .entityName(equipment.getName())
-                .entityCode(equipment.getCode())
-                .action(HistoryAction.MOVE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("location", "rack", "startUnit"))
-                .beforeValue(Map.of("location", oldLocation))
-                .afterValue(Map.of("location", newLocation))
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .metadata(Map.of("rackName", equipment.getRack().getRackName()))
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Equipment 상태 변경 히스토리
-     */
-    public void recordEquipmentStatusChange(Equipment equipment, String oldStatus, String newStatus,
-                                            Member member, String reason, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
-                .entityType(EntityType.EQUIPMENT)
-                .entityId(equipment.getId())
-                .entityName(equipment.getName())
-                .entityCode(equipment.getCode())
-                .action(HistoryAction.STATUS_CHANGE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("status"))
-                .beforeValue(Map.of("status", oldStatus))
-                .afterValue(Map.of("status", newStatus))
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .metadata(Map.of("rackName", equipment.getRack().getRackName()))
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Equipment 삭제 히스토리
-     */
-    public void recordEquipmentDelete(Equipment equipment, Member member, String reason, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
-                .entityType(EntityType.EQUIPMENT)
-                .entityId(equipment.getId())
-                .entityName(equipment.getName())
-                .entityCode(equipment.getCode())
-                .action(HistoryAction.DELETE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("ALL"))
-                .beforeValue(buildEquipmentSnapshot(equipment))
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .metadata(Map.of("rackName", equipment.getRack().getRackName()))
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Device 생성 히스토리
-     */
-    public void recordDeviceCreate(Device device, Member member, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
-                .entityType(EntityType.DEVICE)
-                .entityId(device.getId())
-                .entityName(device.getDeviceName())
-                .entityCode(device.getDeviceCode())
-                .action(HistoryAction.CREATE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("ALL"))
-                .afterValue(buildDeviceSnapshot(device))
-                .ipAddress(ipAddress)
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Device 수정 히스토리
-     */
-    public void recordDeviceUpdate(Device oldDevice, Device newDevice,
-                                   Member member, String reason, String ipAddress) {
-        Map<String, Object> oldSnapshot = buildDeviceSnapshot(oldDevice);
-        Map<String, Object> newSnapshot = buildDeviceSnapshot(newDevice);
-        List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
-
-        if (changedFields.isEmpty()) {
-            return;
-        }
-
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(newDevice.getDatacenter().getId())
-                .dataCenterName(newDevice.getDatacenter().getName())
-                .entityType(EntityType.DEVICE)
-                .entityId(newDevice.getId())
-                .entityName(newDevice.getDeviceName())
-                .entityCode(newDevice.getDeviceCode())
-                .action(HistoryAction.UPDATE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(changedFields)
-                .beforeValue(oldSnapshot)
-                .afterValue(newSnapshot)
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Device 위치 변경 히스토리
-     */
-    public void recordDeviceMove(Device device, String oldPosition, String newPosition,
-                                 Member member, String reason, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
-                .entityType(EntityType.DEVICE)
-                .entityId(device.getId())
-                .entityName(device.getDeviceName())
-                .entityCode(device.getDeviceCode())
-                .action(HistoryAction.MOVE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("gridX", "gridY", "gridZ", "rotation"))
-                .beforeValue(Map.of("position", oldPosition))
-                .afterValue(Map.of("position", newPosition))
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Device 상태 변경 히스토리
-     */
-    public void recordDeviceStatusChange(Device device, String oldStatus, String newStatus,
-                                         Member member, String reason, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
-                .entityType(EntityType.DEVICE)
-                .entityId(device.getId())
-                .entityName(device.getDeviceName())
-                .entityCode(device.getDeviceCode())
-                .action(HistoryAction.STATUS_CHANGE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("status"))
-                .beforeValue(Map.of("status", oldStatus))
-                .afterValue(Map.of("status", newStatus))
-                .reason(reason)
-                .ipAddress(ipAddress)
-                .build();
-
-        historyService.recordHistory(request);
-    }
-
-    /**
-     * Device 삭제 히스토리
-     */
-    public void recordDeviceDelete(Device device, Member member, String reason, String ipAddress) {
-        HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
-                .entityType(EntityType.DEVICE)
-                .entityId(device.getId())
-                .entityName(device.getDeviceName())
-                .entityCode(device.getDeviceCode())
-                .action(HistoryAction.DELETE)
-                .changedBy(member.getId())
-                .changedByName(member.getName())
-                .changedByRole(member.getRole().name())
-                .changedFields(List.of("ALL"))
-                .beforeValue(buildDeviceSnapshot(device))
+                .beforeValue(buildSnapshot(rack))
                 .reason(reason)
                 .ipAddress(ipAddress)
                 .build();
@@ -406,7 +132,7 @@ public class RackHistoryRecorder {
 
     // === Private Helper Methods ===
 
-    private Map<String, Object> buildRackSnapshot(Rack rack) {
+    private Map<String, Object> buildSnapshot(Rack rack) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("rackName", rack.getRackName());
         snapshot.put("groupNumber", rack.getGroupNumber());
@@ -422,39 +148,6 @@ public class RackHistoryRecorder {
         snapshot.put("currentPowerUsage", rack.getCurrentPowerUsage());
         snapshot.put("maxWeightCapacity", rack.getMaxWeightCapacity());
         snapshot.put("currentWeight", rack.getCurrentWeight());
-        return snapshot;
-    }
-
-    private Map<String, Object> buildEquipmentSnapshot(Equipment equipment) {
-        Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("name", equipment.getName());
-        snapshot.put("code", equipment.getCode());
-        snapshot.put("type", equipment.getType() != null ? equipment.getType().name() : null);
-        snapshot.put("rackId", equipment.getRack() != null ? equipment.getRack().getId() : null);
-        snapshot.put("rackName", equipment.getRack() != null ? equipment.getRack().getRackName() : null);
-        snapshot.put("startUnit", equipment.getStartUnit());
-        snapshot.put("unitSize", equipment.getUnitSize());
-        snapshot.put("status", equipment.getStatus() != null ? equipment.getStatus().name() : null);
-        snapshot.put("ipAddress", equipment.getIpAddress());
-        snapshot.put("modelName", equipment.getModelName());
-        snapshot.put("manufacturer", equipment.getManufacturer());
-        snapshot.put("serialNumber", equipment.getSerialNumber());
-        return snapshot;
-    }
-
-    private Map<String, Object> buildDeviceSnapshot(Device device) {
-        Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("deviceName", device.getDeviceName());
-        snapshot.put("deviceCode", device.getDeviceCode());
-        snapshot.put("gridX", device.getGridX());
-        snapshot.put("gridY", device.getGridY());
-        snapshot.put("gridZ", device.getGridZ());
-        snapshot.put("rotation", device.getRotation());
-        snapshot.put("status", device.getStatus() != null ? device.getStatus().name() : null);
-        snapshot.put("modelName", device.getModelName());
-        snapshot.put("manufacturer", device.getManufacturer());
-        snapshot.put("serialNumber", device.getSerialNumber());
-        snapshot.put("deviceType", device.getDeviceType() != null ? device.getDeviceType().getTypeName() : null);
         return snapshot;
     }
 

@@ -3,8 +3,8 @@ package org.example.finalbe.domains.history.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.history.dto.HistoryCreateRequest;
-import org.example.finalbe.domains.history.enumdir.EntityType;
-import org.example.finalbe.domains.history.enumdir.HistoryAction;
+import org.example.finalbe.domains.common.enumdir.EntityType;
+import org.example.finalbe.domains.common.enumdir.HistoryAction;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.springframework.stereotype.Component;
@@ -27,7 +27,7 @@ public class RackHistoryRecorder {
     /**
      * Rack 생성 히스토리
      */
-    public void recordCreate(Rack rack, Member member, String ipAddress) {
+    public void recordCreate(Rack rack, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -41,7 +41,6 @@ public class RackHistoryRecorder {
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
                 .afterValue(buildSnapshot(rack))
-                .ipAddress(ipAddress)
                 .build();
 
         historyService.recordHistory(request);
@@ -50,7 +49,7 @@ public class RackHistoryRecorder {
     /**
      * Rack 수정 히스토리
      */
-    public void recordUpdate(Rack oldRack, Rack newRack, Member member, String reason, String ipAddress) {
+    public void recordUpdate(Rack oldRack, Rack newRack, Member member, String reason ) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldRack);
         Map<String, Object> newSnapshot = buildSnapshot(newRack);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
@@ -74,7 +73,6 @@ public class RackHistoryRecorder {
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
                 .reason(reason)
-                .ipAddress(ipAddress)
                 .build();
 
         historyService.recordHistory(request);
@@ -84,7 +82,7 @@ public class RackHistoryRecorder {
      * Rack 상태 변경 히스토리
      */
     public void recordStatusChange(Rack rack, String oldStatus, String newStatus,
-                                   Member member, String reason, String ipAddress) {
+                                   Member member, String reason ) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -100,7 +98,6 @@ public class RackHistoryRecorder {
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
                 .reason(reason)
-                .ipAddress(ipAddress)
                 .build();
 
         historyService.recordHistory(request);
@@ -109,7 +106,7 @@ public class RackHistoryRecorder {
     /**
      * Rack 삭제 히스토리
      */
-    public void recordDelete(Rack rack, Member member, String reason, String ipAddress) {
+    public void recordDelete(Rack rack, Member member, String reason ) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -124,7 +121,6 @@ public class RackHistoryRecorder {
                 .changedFields(List.of("ALL"))
                 .beforeValue(buildSnapshot(rack))
                 .reason(reason)
-                .ipAddress(ipAddress)
                 .build();
 
         historyService.recordHistory(request);

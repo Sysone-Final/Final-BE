@@ -1,6 +1,5 @@
 package org.example.finalbe.domains.rack.service;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.DelYN;
@@ -46,55 +45,6 @@ public class RackService {
     private final RackDepartmentRepository rackDepartmentRepository;
     private final CompanyDataCenterRepository cdcRepository;
     private final RackHistoryRecorder rackHistoryRecorder;
-    /**
-     * 현재 로그인한 사용자 조회
-     */
-    private Member getCurrentMember() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalStateException("인증되지 않은 사용자입니다.");
-        }
-
-        String userId = authentication.getName();
-        if (userId == null || userId.trim().isEmpty()) {
-            throw new IllegalStateException("사용자 ID를 찾을 수 없습니다.");
-        }
-
-        try {
-            return memberRepository.findById(Long.parseLong(userId))
-                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
-        }
-    }
-
-    /**
-     * 쓰기 권한 확인 (ADMIN, OPERATOR만 가능)
-     */
-    private void validateWritePermission(Member member) {
-        if (member.getRole() != Role.ADMIN && member.getRole() != Role.OPERATOR) {
-            throw new AccessDeniedException("관리자 또는 운영자만 수정할 수 있습니다.");
-        }
-    }
-
-    /**
-     * 랙 접근 권한 확인
-     */
-    private void validateRackAccess(Member member, Long rackId) {
-        if (member.getRole() == Role.ADMIN) {
-            return; // ADMIN은 모든 랙에 접근 가능
-        }
-
-        Rack rack = rackRepository.findActiveById(rackId)
-                .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
-
-        // 회사의 전산실 접근 권한 확인
-        if (!cdcRepository.existsByCompanyIdAndDataCenterId(
-                member.getCompany().getId(),
-                rack.getDatacenter().getId())) {
-            throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
-        }
-    }
 
     /**
      * 랙 목록 조회
@@ -143,7 +93,7 @@ public class RackService {
      * 랙 생성
      */
     @Transactional
-    public RackDetailResponse createRack(RackCreateRequest request, HttpServletRequest httpRequest) {
+    public RackDetailResponse createRack(RackCreateRequest request) {
         Member currentMember = getCurrentMember();
         log.info("Creating new rack: {} by user: {}", request.rackName(), currentMember.getId());
 
@@ -176,9 +126,8 @@ public class RackService {
         Rack rack = request.toEntity(dataCenter, currentMember.getUserName());
         Rack savedRack = rackRepository.save(rack);
 
-
-        String ipAddress = getClientIp(httpRequest);
-        rackHistoryRecorder.recordRackCreate(savedRack, currentMember, ipAddress);
+        // 히스토리 기록
+        rackHistoryRecorder.recordCreate(savedRack, currentMember);
 
         // 전산실의 현재 랙 수 증가
         dataCenter.incrementRackCount();
@@ -212,8 +161,14 @@ public class RackService {
             }
         }
 
+        // 수정 전 스냅샷 저장
+        Rack oldRack = cloneRack(rack);
+
         // 랙 정보 업데이트
         rack.updateInfo(request, currentMember.getUserName());
+
+        // 히스토리 기록
+        rackHistoryRecorder.recordUpdate(oldRack, rack, currentMember, "랙 정보 수정");
 
         log.info("Rack updated successfully for id: {}", id);
         return RackDetailResponse.from(rack);
@@ -247,6 +202,9 @@ public class RackService {
         // 소프트 삭제
         rack.softDelete();
 
+        // 히스토리 기록
+        rackHistoryRecorder.recordDelete(rack, currentMember, "랙 삭제");
+
         // 전산실의 현재 랙 수 감소
         rack.getDatacenter().decrementRackCount();
 
@@ -270,7 +228,14 @@ public class RackService {
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));
 
+        // 이전 상태 저장
+        String oldStatus = rack.getStatus() != null ? rack.getStatus().name() : "UNKNOWN";
+
         rack.changeStatus(request.status(), request.reason(), currentMember.getUserName());
+
+        // 히스토리 기록
+        rackHistoryRecorder.recordStatusChange(rack, oldStatus, request.status().name(),
+                currentMember, request.reason());
 
         log.info("Rack status changed successfully for id: {}", id);
         return RackDetailResponse.from(rack);
@@ -278,7 +243,6 @@ public class RackService {
 
     /**
      * 랙 검색
-     * 키워드로 랙 이름, 그룹 번호, 위치 검색
      */
     public List<RackListResponse> searchRacks(String keyword, Long dataCenterId) {
         Member currentMember = getCurrentMember();
@@ -328,17 +292,64 @@ public class RackService {
                 .collect(Collectors.toList());
     }
 
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
+    // === Private Helper Methods ===
+
+    private Member getCurrentMember() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
+
+        String userId = authentication.getName();
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalStateException("사용자 ID를 찾을 수 없습니다.");
         }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
+
+        try {
+            return memberRepository.findById(Long.parseLong(userId))
+                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
         }
-        return ip;
+    }
+
+    private void validateWritePermission(Member member) {
+        if (member.getRole() != Role.ADMIN && member.getRole() != Role.OPERATOR) {
+            throw new AccessDeniedException("관리자 또는 운영자만 수정할 수 있습니다.");
+        }
+    }
+
+    private void validateRackAccess(Member member, Long rackId) {
+        if (member.getRole() == Role.ADMIN) {
+            return; // ADMIN은 모든 랙에 접근 가능
+        }
+
+        Rack rack = rackRepository.findActiveById(rackId)
+                .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
+
+        // 회사의 전산실 접근 권한 확인
+        if (!cdcRepository.existsByCompanyIdAndDataCenterId(
+                member.getCompany().getId(),
+                rack.getDatacenter().getId())) {
+            throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
+        }
+    }
+
+    private Rack cloneRack(Rack rack) {
+        return Rack.builder()
+                .id(rack.getId())
+                .rackName(rack.getRackName())
+                .groupNumber(rack.getGroupNumber())
+                .rackLocation(rack.getRackLocation())
+                .totalUnits(rack.getTotalUnits())
+                .usedUnits(rack.getUsedUnits())
+                .availableUnits(rack.getAvailableUnits())
+                .status(rack.getStatus())
+                .rackType(rack.getRackType())
+                .doorDirection(rack.getDoorDirection())
+                .zoneDirection(rack.getZoneDirection())
+                .datacenter(rack.getDatacenter())
+                .managerId(rack.getManagerId())
+                .build();
     }
 }

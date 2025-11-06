@@ -51,7 +51,7 @@ public class EquipmentHistoryRecorder {
      * Equipment 수정 히스토리
      */
     public void recordUpdate(Equipment oldEquipment, Equipment newEquipment,
-                             Member member, String reason) {
+                             Member member ) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldEquipment);
         Map<String, Object> newSnapshot = buildSnapshot(newEquipment);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
@@ -74,7 +74,6 @@ public class EquipmentHistoryRecorder {
                 .changedFields(changedFields)
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
-                .reason(reason)
                 .metadata(Map.of("rackName", newEquipment.getRack().getRackName()))
                 .build();
 
@@ -85,7 +84,7 @@ public class EquipmentHistoryRecorder {
      * Equipment 이동 히스토리
      */
     public void recordMove(Equipment equipment, String oldLocation, String newLocation,
-                           Member member, String reason ) {
+                           Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(equipment.getRack().getDatacenter().getId())
                 .dataCenterName(equipment.getRack().getDatacenter().getName())
@@ -100,7 +99,6 @@ public class EquipmentHistoryRecorder {
                 .changedFields(List.of("location", "rack", "startUnit"))
                 .beforeValue(Map.of("location", oldLocation))
                 .afterValue(Map.of("location", newLocation))
-                .reason(reason)
                 .metadata(Map.of("rackName", equipment.getRack().getRackName()))
                 .build();
 
@@ -111,7 +109,7 @@ public class EquipmentHistoryRecorder {
      * Equipment 상태 변경 히스토리
      */
     public void recordStatusChange(Equipment equipment, String oldStatus, String newStatus,
-                                   Member member, String reason ) {
+                                   Member member  ) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(equipment.getRack().getDatacenter().getId())
                 .dataCenterName(equipment.getRack().getDatacenter().getName())
@@ -126,7 +124,6 @@ public class EquipmentHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .reason(reason)
                 .metadata(Map.of("rackName", equipment.getRack().getRackName()))
                 .build();
 
@@ -136,7 +133,7 @@ public class EquipmentHistoryRecorder {
     /**
      * Equipment 삭제 히스토리
      */
-    public void recordDelete(Equipment equipment, Member member, String reason ) {
+    public void recordDelete(Equipment equipment, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(equipment.getRack().getDatacenter().getId())
                 .dataCenterName(equipment.getRack().getDatacenter().getName())
@@ -150,7 +147,6 @@ public class EquipmentHistoryRecorder {
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
                 .beforeValue(buildSnapshot(equipment))
-                .reason(reason)
                 .metadata(Map.of("rackName", equipment.getRack().getRackName()))
                 .build();
 

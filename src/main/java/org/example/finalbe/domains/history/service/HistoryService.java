@@ -67,7 +67,6 @@ public class HistoryService {
                     .changedFields(request.changedFieldsAsJson())
                     .beforeValue(request.beforeValueAsJson())
                     .afterValue(request.afterValueAsJson())
-                    .reason(request.reason())
                     .metadata(request.metadataAsJson())
                     .description(request.generateDescription())
                     .build();

@@ -28,7 +28,6 @@ public record HistoryCreateRequest(
         List<String> changedFields,
         Map<String, Object> beforeValue,
         Map<String, Object> afterValue,
-        String reason,
         Map<String, Object> metadata
 ) {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -98,9 +97,6 @@ public record HistoryCreateRequest(
             }
         }
 
-        if (reason != null && !reason.trim().isEmpty()) {
-            desc.append(" - ").append(reason);
-        }
 
         return desc.toString();
     }

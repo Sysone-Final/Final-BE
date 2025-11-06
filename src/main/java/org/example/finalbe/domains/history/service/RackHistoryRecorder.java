@@ -49,7 +49,7 @@ public class RackHistoryRecorder {
     /**
      * Rack 수정 히스토리
      */
-    public void recordUpdate(Rack oldRack, Rack newRack, Member member, String reason ) {
+    public void recordUpdate(Rack oldRack, Rack newRack, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldRack);
         Map<String, Object> newSnapshot = buildSnapshot(newRack);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
@@ -72,7 +72,6 @@ public class RackHistoryRecorder {
                 .changedFields(changedFields)
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);
@@ -82,7 +81,7 @@ public class RackHistoryRecorder {
      * Rack 상태 변경 히스토리
      */
     public void recordStatusChange(Rack rack, String oldStatus, String newStatus,
-                                   Member member, String reason ) {
+                                   Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -97,7 +96,7 @@ public class RackHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .reason(reason)
+
                 .build();
 
         historyService.recordHistory(request);
@@ -106,7 +105,7 @@ public class RackHistoryRecorder {
     /**
      * Rack 삭제 히스토리
      */
-    public void recordDelete(Rack rack, Member member, String reason ) {
+    public void recordDelete(Rack rack, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(rack.getDatacenter().getId())
                 .dataCenterName(rack.getDatacenter().getName())
@@ -120,7 +119,6 @@ public class RackHistoryRecorder {
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
                 .beforeValue(buildSnapshot(rack))
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);

@@ -180,7 +180,7 @@ public class DeviceService {
         }
 
         // 히스토리 기록
-        deviceHistoryRecorder.recordUpdate(oldDevice, device, currentMember, "장치 정보 수정");
+        deviceHistoryRecorder.recordUpdate(oldDevice, device, currentMember);
 
         log.info("Device updated successfully");
         return DeviceDetailResponse.from(device);
@@ -217,7 +217,7 @@ public class DeviceService {
 
         // 히스토리 기록
         deviceHistoryRecorder.recordMove(device, oldPosition, newPosition,
-                currentMember, "장치 위치 변경");
+                currentMember);
 
         log.info("Device position updated successfully");
         return DeviceDetailResponse.from(device);
@@ -245,7 +245,7 @@ public class DeviceService {
 
         // 히스토리 기록
         deviceHistoryRecorder.recordStatusChange(device, oldStatus, request.status(),
-                currentMember, request.reason());
+                currentMember);
 
         log.info("Device status changed successfully");
         return DeviceDetailResponse.from(device);
@@ -268,7 +268,7 @@ public class DeviceService {
         device.softDelete();
 
         // 히스토리 기록
-        deviceHistoryRecorder.recordDelete(device, currentMember, "장치 삭제");
+        deviceHistoryRecorder.recordDelete(device, currentMember);
 
         log.info("Device soft deleted successfully");
     }

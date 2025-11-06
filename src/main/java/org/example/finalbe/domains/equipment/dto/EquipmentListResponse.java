@@ -11,7 +11,7 @@ import java.math.BigDecimal;
  */
 @Builder
 public record EquipmentListResponse(
-        Long equipmentId,
+        Long id,
         String equipmentName,
         String equipmentCode,
         String equipmentType,
@@ -19,14 +19,17 @@ public record EquipmentListResponse(
         Integer startUnit,
         Integer unitSize,
         String rackName,
+        Long rackId,
+        Long datacenterId,
         String modelName,
         String manufacturer,
+        String ipAddress,
         EquipmentPositionType positionType,
         BigDecimal powerConsumption
 ) {
     public static EquipmentListResponse from(Equipment equipment) {
         return EquipmentListResponse.builder()
-                .equipmentId(equipment.getId())
+                .id(equipment.getId())
                 .equipmentName(equipment.getName())
                 .equipmentCode(equipment.getCode())
                 .equipmentType(equipment.getType() != null ? equipment.getType().name() : null)
@@ -34,8 +37,12 @@ public record EquipmentListResponse(
                 .startUnit(equipment.getStartUnit())
                 .unitSize(equipment.getUnitSize())
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
+                .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
+                .datacenterId(equipment.getRack() != null && equipment.getRack().getDatacenter() != null
+                        ? equipment.getRack().getDatacenter().getId() : null)
                 .modelName(equipment.getModelName())
                 .manufacturer(equipment.getManufacturer())
+                .ipAddress(equipment.getIpAddress())
                 .powerConsumption(equipment.getPowerConsumption())
                 .positionType(equipment.getPositionType())
                 .build();

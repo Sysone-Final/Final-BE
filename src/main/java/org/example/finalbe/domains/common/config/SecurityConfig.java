@@ -53,7 +53,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/datacenters/**").authenticated()
                         .requestMatchers("/api/company-datacenters/**").authenticated()
                         .requestMatchers("/api/equipments/**").authenticated()
-                        .requestMatchers("/api/devices/**").permitAll()
+                        .requestMatchers("/api/devices/**").authenticated()
                         .requestMatchers("/api/device-types/**").authenticated()
                         .requestMatchers("/api/departments/**").authenticated()
                         .requestMatchers("/api/monitoring/**").authenticated()

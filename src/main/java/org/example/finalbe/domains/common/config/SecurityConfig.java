@@ -57,6 +57,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/device-types/**").authenticated()
                         .requestMatchers("/api/departments/**").authenticated()
                         .requestMatchers("/api/monitoring/**").authenticated()
+                        .requestMatchers("/api/members/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

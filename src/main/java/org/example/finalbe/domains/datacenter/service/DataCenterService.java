@@ -186,8 +186,7 @@ public class DataCenterService {
         companyDataCenterRepository.save(mapping);
 
         // 히스토리 기록
-        String ipAddress = getClientIp(httpRequest);
-        dataCenterHistoryRecorder.recordCreate(savedDataCenter, currentMember, ipAddress);
+        dataCenterHistoryRecorder.recordCreate(savedDataCenter, currentMember);
 
         log.info("Data center created successfully with id: {}, automatically mapped to company: {}",
                 savedDataCenter.getId(), currentMember.getCompany().getId());
@@ -253,10 +252,9 @@ public class DataCenterService {
                 manager
         );
 
-        // 히스토리 기록
-        String ipAddress = getClientIp(httpRequest);
+
         String reason = request.description();
-        dataCenterHistoryRecorder.recordUpdate(oldDataCenter, dataCenter, currentMember, reason, ipAddress);
+        dataCenterHistoryRecorder.recordUpdate(oldDataCenter, dataCenter, currentMember, reason);
 
         log.info("Data center updated successfully with id: {}", id);
 
@@ -268,8 +266,7 @@ public class DataCenterService {
      */
     @Transactional
     public void deleteDataCenter(Long id,
-                                 String reason,
-                                 HttpServletRequest httpRequest) {
+                                 String reason) {
         Member currentMember = getCurrentMember();
         log.info("Deleting data center with id: {} by user: {} (role: {})",
                 id, currentMember.getId(), currentMember.getRole());
@@ -284,9 +281,7 @@ public class DataCenterService {
         DataCenter dataCenter = dataCenterRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
-        // 삭제 전에 히스토리 기록
-        String ipAddress = getClientIp(httpRequest);
-        dataCenterHistoryRecorder.recordDelete(dataCenter, currentMember, reason, ipAddress);
+        dataCenterHistoryRecorder.recordDelete(dataCenter, currentMember, reason);
 
         // 소프트 삭제
         dataCenter.softDelete();

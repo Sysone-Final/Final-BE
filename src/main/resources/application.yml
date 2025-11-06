@@ -9,8 +9,8 @@ spring:
     password: ${DB_PASSWORD}
 
     hikari:
-      maximum-pool-size: 20          # 모니터링 데이터 대량 삽입을 위해 증가
-      minimum-idle: 10               # 최소 유휴 연결 증가
+      maximum-pool-size: 20
+      minimum-idle: 10
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
@@ -29,17 +29,15 @@ spring:
         format_sql: true
         use_sql_comments: true
         jdbc:
-          time_zone: Asia/Seoul
-          batch_size: 50              # 배치 INSERT 최적화 (중요!)
-        order_inserts: true            # INSERT 순서 최적화
-        order_updates: true            # UPDATE 순서 최적화
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
     open-in-view: false
 
-  # 스케줄러 설정 추가
   task:
     scheduling:
       pool:
-        size: 5                        # 스케줄러 스레드 풀 크기
+        size: 5
 
 jwt:
   secret: ${JWT_SECRET}
@@ -49,10 +47,8 @@ jwt:
 cookie:
   secure: true
 
-
-# 모니터링 시뮬레이터 설정 (선택사항)
 monitoring:
   simulator:
-    enabled: true                     # 시뮬레이터 활성화 여부
-    interval-seconds: 5               # 데이터 생성 주기 (초)
-    device-count: 9                   # 모니터링할 서버 개수
+    enabled: true
+    interval-seconds: 5
+    device-count: 9

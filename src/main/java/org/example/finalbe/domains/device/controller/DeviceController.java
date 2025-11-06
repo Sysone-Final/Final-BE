@@ -29,9 +29,6 @@ public class DeviceController {
     /**
      * 전산실별 장치 목록 조회
      * GET /api/devices/datacenter/{dataCenterId}
-     *
-     * @param dataCenterId 전산실 ID
-     * @return 장치 목록
      */
     @GetMapping("/datacenter/{dataCenterId}")
     public ResponseEntity<CommonResDto> getDevicesByDataCenter(
@@ -45,9 +42,6 @@ public class DeviceController {
     /**
      * 장치 상세 조회
      * GET /api/devices/{id}
-     *
-     * @param id 장치 ID
-     * @return 장치 상세 정보
      */
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getDeviceById(
@@ -61,14 +55,14 @@ public class DeviceController {
     /**
      * 장치 생성
      * POST /api/devices
-     *
-     * @param request 장치 생성 요청 DTO
-     * @return 생성된 장치 정보
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
-    public ResponseEntity<CommonResDto> createDevice(@Valid @RequestBody DeviceCreateRequest request) {
+    public ResponseEntity<CommonResDto> createDevice(
+            @Valid @RequestBody DeviceCreateRequest request) {
+
         DeviceDetailResponse device = deviceService.createDevice(request);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "장치 생성 완료", device));
     }
@@ -76,10 +70,6 @@ public class DeviceController {
     /**
      * 장치 수정
      * PUT /api/devices/{id}
-     *
-     * @param id 장치 ID
-     * @param request 장치 수정 요청 DTO
-     * @return 수정된 장치 정보
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -88,6 +78,7 @@ public class DeviceController {
             @Valid @RequestBody DeviceUpdateRequest request) {
 
         DeviceDetailResponse device = deviceService.updateDevice(id, request);
+
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장치 수정 완료", device));
     }
@@ -95,16 +86,15 @@ public class DeviceController {
     /**
      * 장치 삭제
      * DELETE /api/devices/{id}
-     *
-     * @param id 장치 ID
-     * @return 삭제 완료 메시지
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CommonResDto> deleteDevice(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id) {
 
+
         deviceService.deleteDevice(id);
+
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장치 삭제 완료", null));
     }
@@ -112,10 +102,6 @@ public class DeviceController {
     /**
      * 장치 위치 변경
      * PUT /api/devices/{id}/position
-     *
-     * @param id 장치 ID
-     * @param request 위치 변경 요청 DTO
-     * @return 위치 변경된 장치 정보
      */
     @PutMapping("/{id}/position")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -124,6 +110,7 @@ public class DeviceController {
             @Valid @RequestBody DevicePositionUpdateRequest request) {
 
         DeviceDetailResponse device = deviceService.updateDevicePosition(id, request);
+
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장치 위치 변경 완료", device));
     }
@@ -131,10 +118,6 @@ public class DeviceController {
     /**
      * 장치 상태 변경
      * PUT /api/devices/{id}/status
-     *
-     * @param id 장치 ID
-     * @param request 상태 변경 요청 DTO
-     * @return 상태 변경된 장치 정보
      */
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -143,6 +126,7 @@ public class DeviceController {
             @Valid @RequestBody DeviceStatusChangeRequest request) {
 
         DeviceDetailResponse device = deviceService.changeDeviceStatus(id, request);
+
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장치 상태 변경 완료", device));
     }

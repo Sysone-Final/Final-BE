@@ -6,7 +6,6 @@ import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
 
-
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +29,6 @@ public record HistoryCreateRequest(
         Map<String, Object> beforeValue,
         Map<String, Object> afterValue,
         String reason,
-        String ipAddress,
         Map<String, Object> metadata
 ) {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -94,19 +92,14 @@ public record HistoryCreateRequest(
         if (action == HistoryAction.STATUS_CHANGE && changedFields != null && !changedFields.isEmpty()) {
             Object before = beforeValue != null ? beforeValue.get("status") : null;
             Object after = afterValue != null ? afterValue.get("status") : null;
+
             if (before != null && after != null) {
                 desc.append(" (").append(before).append(" → ").append(after).append(")");
             }
-        } else if (action == HistoryAction.MOVE && changedFields != null) {
-            Object beforeLoc = beforeValue != null ? beforeValue.get("location") : null;
-            Object afterLoc = afterValue != null ? afterValue.get("location") : null;
-            if (beforeLoc != null && afterLoc != null) {
-                desc.append(" (").append(beforeLoc).append(" → ").append(afterLoc).append(")");
-            }
         }
 
-        if (reason != null && !reason.isEmpty()) {
-            desc.append(" - 사유: ").append(reason);
+        if (reason != null && !reason.trim().isEmpty()) {
+            desc.append(" - ").append(reason);
         }
 
         return desc.toString();

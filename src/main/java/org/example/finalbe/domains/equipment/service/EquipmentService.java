@@ -10,6 +10,7 @@ import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCente
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.dto.*;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.history.service.EquipmentHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
@@ -37,6 +38,7 @@ public class EquipmentService {
     private final RackRepository rackRepository;
     private final MemberRepository memberRepository;
     private final CompanyDataCenterRepository companyDataCenterRepository;
+    private final EquipmentHistoryRecorder equipmentHistoryRecorder;
 
     /**
      * 랙별 장비 목록 조회
@@ -188,6 +190,9 @@ public class EquipmentService {
 
         rack.placeEquipment(savedEquipment, request.startUnit(), request.unitSize());
 
+        // 히스토리 기록
+        equipmentHistoryRecorder.recordCreate(savedEquipment, currentMember);
+
         log.info("Equipment created successfully with id: {}", savedEquipment.getId());
         return EquipmentDetailResponse.from(savedEquipment);
     }
@@ -222,6 +227,9 @@ public class EquipmentService {
             }
         }
 
+        // 수정 전 스냅샷 저장
+        Equipment oldEquipment = cloneEquipment(equipment);
+
         Rack rack = equipment.getRack();
         BigDecimal oldPower = equipment.getPowerConsumption();
         BigDecimal oldWeight = equipment.getWeight();
@@ -245,6 +253,9 @@ public class EquipmentService {
                             .add(newWeight)
             );
         }
+
+        // 히스토리 기록
+        equipmentHistoryRecorder.recordUpdate(oldEquipment, equipment, currentMember, "장비 정보 수정");
 
         log.info("Equipment updated successfully with id: {}", id);
         return EquipmentDetailResponse.from(equipment);
@@ -277,6 +288,9 @@ public class EquipmentService {
 
         equipment.softDelete();
 
+        // 히스토리 기록
+        equipmentHistoryRecorder.recordDelete(equipment, currentMember, "장비 삭제");
+
         log.info("Equipment soft deleted successfully with id: {}", id);
     }
 
@@ -303,11 +317,18 @@ public class EquipmentService {
             throw new EntityNotFoundException("장비", id);
         }
 
+        // 이전 상태 저장
+        String oldStatus = equipment.getStatus() != null ? equipment.getStatus().name() : "UNKNOWN";
+
         equipment.changeStatus(
                 EquipmentStatus.valueOf(request.status()),
                 request.reason(),
                 currentMember.getUserName()
         );
+
+        // 히스토리 기록
+        equipmentHistoryRecorder.recordStatusChange(equipment, oldStatus, request.status(),
+                currentMember, request.reason());
 
         log.info("Equipment status changed successfully");
         return EquipmentDetailResponse.from(equipment);
@@ -359,5 +380,22 @@ public class EquipmentService {
         if (!hasAccess) {
             throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
         }
+    }
+
+    private Equipment cloneEquipment(Equipment equipment) {
+        Equipment cloned = new Equipment();
+        cloned.setId(equipment.getId());
+        cloned.setName(equipment.getName());
+        cloned.setCode(equipment.getCode());
+        cloned.setType(equipment.getType());
+        cloned.setStartUnit(equipment.getStartUnit());
+        cloned.setUnitSize(equipment.getUnitSize());
+        cloned.setStatus(equipment.getStatus());
+        cloned.setIpAddress(equipment.getIpAddress());
+        cloned.setModelName(equipment.getModelName());
+        cloned.setManufacturer(equipment.getManufacturer());
+        cloned.setSerialNumber(equipment.getSerialNumber());
+        cloned.setRack(equipment.getRack());
+        return cloned;
     }
 }

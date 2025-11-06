@@ -84,8 +84,6 @@ public class History extends BaseTimeEntity {
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason; // 변경 사유
 
-    @Column(name = "ip_address", length = 50)
-    private String ipAddress;
 
     @Column(name = "metadata", columnDefinition = "TEXT")
     private String metadata; // 추가 메타데이터 (JSON)

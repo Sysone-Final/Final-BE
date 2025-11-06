@@ -68,7 +68,6 @@ public class HistoryService {
                     .beforeValue(request.beforeValueAsJson())
                     .afterValue(request.afterValueAsJson())
                     .reason(request.reason())
-                    .ipAddress(request.ipAddress())
                     .metadata(request.metadataAsJson())
                     .description(request.generateDescription())
                     .build();

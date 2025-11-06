@@ -21,7 +21,6 @@ public record EquipmentListResponse(
         String rackName,
         String modelName,
         String manufacturer,
-        String ipAddress,
         EquipmentPositionType positionType,
         BigDecimal powerConsumption
 ) {
@@ -37,7 +36,6 @@ public record EquipmentListResponse(
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
                 .modelName(equipment.getModelName())
                 .manufacturer(equipment.getManufacturer())
-                .ipAddress(equipment.getIpAddress())
                 .powerConsumption(equipment.getPowerConsumption())
                 .positionType(equipment.getPositionType())
                 .build();

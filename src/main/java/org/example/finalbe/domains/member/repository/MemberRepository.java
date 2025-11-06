@@ -1,12 +1,12 @@
 package org.example.finalbe.domains.member.repository;
 
-import org.example.finalbe.domains.common.enumdir.UserStatus;
 import org.example.finalbe.domains.member.domain.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -48,4 +48,10 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
      */
     @Query("SELECT m FROM Member m WHERE m.id = :memberId AND m.refreshToken = :refreshToken AND m.status = 'ACTIVE'")
     Optional<Member> findByIdAndRefreshToken(@Param("memberId") Long memberId, @Param("refreshToken") String refreshToken);
+
+    /**
+     * 회사별 활성 회원 목록 조회
+     */
+    @Query("SELECT m FROM Member m WHERE m.company.id = :companyId AND m.status = 'ACTIVE' ORDER BY m.createdAt DESC")
+    List<Member> findActiveByCompanyId(@Param("companyId") Long companyId);
 }

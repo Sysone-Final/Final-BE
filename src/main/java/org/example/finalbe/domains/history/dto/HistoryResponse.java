@@ -31,7 +31,6 @@ public record HistoryResponse(
         List<String> changedFields,
         JsonNode beforeValue,
         JsonNode afterValue,
-        String reason,
         String description
 ) {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -53,7 +52,6 @@ public record HistoryResponse(
                 .changedFields(parseJsonArray(history.getChangedFields()))
                 .beforeValue(parseJsonObject(history.getBeforeValue()))
                 .afterValue(parseJsonObject(history.getAfterValue()))
-                .reason(history.getReason())
                 .description(history.getDescription())
                 .build();
     }

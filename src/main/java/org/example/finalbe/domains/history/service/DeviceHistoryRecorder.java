@@ -50,7 +50,7 @@ public class DeviceHistoryRecorder {
      * Device 수정 히스토리
      */
     public void recordUpdate(Device oldDevice, Device newDevice,
-                             Member member, String reason) {
+                             Member member ) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldDevice);
         Map<String, Object> newSnapshot = buildSnapshot(newDevice);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
@@ -73,7 +73,6 @@ public class DeviceHistoryRecorder {
                 .changedFields(changedFields)
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);
@@ -83,7 +82,7 @@ public class DeviceHistoryRecorder {
      * Device 위치 변경 히스토리
      */
     public void recordMove(Device device, String oldPosition, String newPosition,
-                           Member member, String reason ) {
+                           Member member ) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(device.getDatacenter().getId())
                 .dataCenterName(device.getDatacenter().getName())
@@ -98,7 +97,6 @@ public class DeviceHistoryRecorder {
                 .changedFields(List.of("gridX", "gridY", "gridZ", "rotation"))
                 .beforeValue(Map.of("position", oldPosition))
                 .afterValue(Map.of("position", newPosition))
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);
@@ -108,7 +106,7 @@ public class DeviceHistoryRecorder {
      * Device 상태 변경 히스토리
      */
     public void recordStatusChange(Device device, String oldStatus, String newStatus,
-                                   Member member, String reason ) {
+                                   Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(device.getDatacenter().getId())
                 .dataCenterName(device.getDatacenter().getName())
@@ -123,7 +121,6 @@ public class DeviceHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);
@@ -132,7 +129,7 @@ public class DeviceHistoryRecorder {
     /**
      * Device 삭제 히스토리
      */
-    public void recordDelete(Device device, Member member, String reason ) {
+    public void recordDelete(Device device, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(device.getDatacenter().getId())
                 .dataCenterName(device.getDatacenter().getName())
@@ -146,7 +143,6 @@ public class DeviceHistoryRecorder {
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
                 .beforeValue(buildSnapshot(device))
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);

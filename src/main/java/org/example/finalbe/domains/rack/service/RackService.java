@@ -168,7 +168,7 @@ public class RackService {
         rack.updateInfo(request, currentMember.getUserName());
 
         // 히스토리 기록
-        rackHistoryRecorder.recordUpdate(oldRack, rack, currentMember, "랙 정보 수정");
+        rackHistoryRecorder.recordUpdate(oldRack, rack, currentMember);
 
         log.info("Rack updated successfully for id: {}", id);
         return RackDetailResponse.from(rack);
@@ -203,7 +203,7 @@ public class RackService {
         rack.softDelete();
 
         // 히스토리 기록
-        rackHistoryRecorder.recordDelete(rack, currentMember, "랙 삭제");
+        rackHistoryRecorder.recordDelete(rack, currentMember);
 
         // 전산실의 현재 랙 수 감소
         rack.getDatacenter().decrementRackCount();
@@ -231,11 +231,11 @@ public class RackService {
         // 이전 상태 저장
         String oldStatus = rack.getStatus() != null ? rack.getStatus().name() : "UNKNOWN";
 
-        rack.changeStatus(request.status(), request.reason(), currentMember.getUserName());
+        rack.changeStatus(request.status(), currentMember.getUserName());
 
         // 히스토리 기록
         rackHistoryRecorder.recordStatusChange(rack, oldStatus, request.status().name(),
-                currentMember, request.reason());
+                currentMember);
 
         log.info("Rack status changed successfully for id: {}", id);
         return RackDetailResponse.from(rack);

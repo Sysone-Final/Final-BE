@@ -109,11 +109,9 @@ public class DataCenterController {
     public ResponseEntity<CommonResDto> deleteDataCenter(
             @PathVariable
             @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.")
-            Long id,
-            HttpServletRequest httpRequest,
-            String reason
+            Long id
     ) {
-        dataCenterService.deleteDataCenter(id, reason);
+        dataCenterService.deleteDataCenter(id);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "전산실 삭제 완료", null));
     }

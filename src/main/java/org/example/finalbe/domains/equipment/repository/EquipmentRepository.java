@@ -32,8 +32,8 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:type IS NULL OR :type = '' OR e.type = :type) " +
-            "AND (:status IS NULL OR :status = '' OR e.status = :status) " +
+            "AND (:type IS NULL OR e.type = :type) " +
+            "AND (:status IS NULL OR e.status = :status) " +
             "AND (:datacenterId IS NULL OR dc.id = :datacenterId)",
             countQuery = "SELECT COUNT(DISTINCT e) FROM Equipment e " +
                     "LEFT JOIN e.rack r " +
@@ -43,17 +43,18 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
                     "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                     "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                     "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-                    "AND (:type IS NULL OR :type = '' OR e.type = :type) " +
-                    "AND (:status IS NULL OR :status = '' OR e.status = :status) " +
+                    "AND (:type IS NULL OR e.type = :type) " +
+                    "AND (:status IS NULL OR e.status = :status) " +
                     "AND (:datacenterId IS NULL OR dc.id = :datacenterId)")
     Page<Equipment> searchEquipmentsWithFilters(
             @Param("keyword") String keyword,
-            @Param("type") String type,
-            @Param("status") String status,
+            @Param("type") EquipmentType type,
+            @Param("status") EquipmentStatus status,
             @Param("datacenterId") Long datacenterId,
             @Param("delYn") DelYN delYn,
             Pageable pageable
     );
+
 
     // ========== 기존 메서드들 ==========
     List<Equipment> findByRackIdAndDelYn(Long rackId, DelYN delYn);

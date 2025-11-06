@@ -13,7 +13,6 @@ public record EquipmentUpdateRequest(
         String equipmentName,
         String equipmentCode,
         String equipmentType,
-        String positionType,
         String modelName,
         String manufacturer,
         String serialNumber,
@@ -25,7 +24,17 @@ public record EquipmentUpdateRequest(
         String diskSpec,
         BigDecimal powerConsumption,
         BigDecimal weight,
+        String status,
         LocalDate installationDate,
-        String notes
+        String notes,
+
+        // 모니터링 설정
+        Boolean monitoringEnabled,
+        Integer cpuThresholdWarning,
+        Integer cpuThresholdCritical,
+        Integer memoryThresholdWarning,
+        Integer memoryThresholdCritical,
+        Integer diskThresholdWarning,
+        Integer diskThresholdCritical
 ) {
 }

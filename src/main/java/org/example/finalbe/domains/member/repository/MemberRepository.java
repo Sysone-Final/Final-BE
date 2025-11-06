@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.member.repository;
 
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.member.domain.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -9,9 +10,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Member 데이터 접근 계층
- */
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
@@ -28,6 +26,14 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findActiveById(@Param("id") Long id);
 
     /**
+     * userName과 DelYN으로 회원 조회 (Spring Security 인증용)
+     */
+    @Query("SELECT m FROM Member m " +
+            "LEFT JOIN FETCH m.company " +
+            "WHERE m.userName = :userName AND m.delYn = :delYn")
+    Optional<Member> findByUserNameAndDelYn(@Param("userName") String userName, @Param("delYn") DelYN delYn);
+
+    /**
      * 아이디 중복 체크
      */
     boolean existsByUserName(String userName);
@@ -38,20 +44,20 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     boolean existsByEmail(String email);
 
     /**
-     * Refresh Token으로 활성 회원 조회
-     */
-    @Query("SELECT m FROM Member m WHERE m.refreshToken = :refreshToken AND m.status = 'ACTIVE'")
-    Optional<Member> findByRefreshToken(@Param("refreshToken") String refreshToken);
-
-    /**
-     * 회원 ID와 Refresh Token으로 조회 (이중 검증)
-     */
-    @Query("SELECT m FROM Member m WHERE m.id = :memberId AND m.refreshToken = :refreshToken AND m.status = 'ACTIVE'")
-    Optional<Member> findByIdAndRefreshToken(@Param("memberId") Long memberId, @Param("refreshToken") String refreshToken);
-
-    /**
      * 회사별 활성 회원 목록 조회
      */
     @Query("SELECT m FROM Member m WHERE m.company.id = :companyId AND m.status = 'ACTIVE' ORDER BY m.createdAt DESC")
     List<Member> findActiveByCompanyId(@Param("companyId") Long companyId);
+
+    /**
+     * 회사별 회원 목록 조회 (DelYN 기준)
+     */
+    @Query("SELECT m FROM Member m WHERE m.company.id = :companyId AND m.delYn = :delYn ORDER BY m.createdAt DESC")
+    List<Member> findByCompanyIdAndDelYn(@Param("companyId") Long companyId, @Param("delYn") DelYN delYn);
+
+    /**
+     * 역할별 회원 목록 조회
+     */
+    @Query("SELECT m FROM Member m WHERE m.role = :role AND m.delYn = :delYn ORDER BY m.createdAt DESC")
+    List<Member> findByRoleAndDelYn(@Param("role") org.example.finalbe.domains.common.enumdir.Role role, @Param("delYn") DelYN delYn);
 }

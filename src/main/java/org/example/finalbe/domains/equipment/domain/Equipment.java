@@ -4,12 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.*;
-import org.example.finalbe.domains.equipment.dto.EquipmentUpdateRequest;
 import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 /**
  * 장비 엔티티
@@ -26,114 +24,160 @@ public class Equipment extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "equipment_id")
-    private Long id; // 장비 ID
+    private Long id;
 
     @Column(name = "equipment_name", nullable = false, length = 100)
-    private String name; // 장비명
+    private String name;
 
     @Column(name = "equipment_code", length = 50)
-    private String code; // 장비 코드
+    private String code;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "equipment_type", length = 50)
-    private EquipmentType type; // 장비 타입
+    private EquipmentType type;
 
     @Column(name = "start_unit", nullable = false)
-    private Integer startUnit; // 시작 유닛
+    private Integer startUnit;
 
     @Column(name = "unit_size", nullable = false)
-    private Integer unitSize; // 유닛 크기
+    private Integer unitSize;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "position_type", length = 50)
-    private EquipmentPositionType positionType; // 위치 타입
+    private EquipmentPositionType positionType;
 
     @Column(name = "model_name", length = 100)
-    private String modelName; // 모델명
+    private String modelName;
 
     @Column(name = "manufacturer", length = 100)
-    private String manufacturer; // 제조사
+    private String manufacturer;
 
     @Column(name = "serial_number", length = 100)
-    private String serialNumber; // 시리얼 번호
+    private String serialNumber;
 
     @Column(name = "ip_address", length = 50)
-    private String ipAddress; // IP 주소
+    private String ipAddress;
 
     @Column(name = "mac_address", length = 50)
-    private String macAddress; // MAC 주소
+    private String macAddress;
 
     @Column(name = "os", length = 100)
-    private String os; // 운영체제
+    private String os;
 
-    @Column(name = "cpu_spec", length = 255)
-    private String cpuSpec; // CPU 사양
+    @Column(name = "cpu_spec", length = 200)
+    private String cpuSpec;
 
-    @Column(name = "memory_spec", length = 255)
-    private String memorySpec; // 메모리 사양
+    @Column(name = "memory_spec", length = 200)
+    private String memorySpec;
 
-    @Column(name = "disk_spec", length = 255)
-    private String diskSpec; // 디스크 사양
+    @Column(name = "disk_spec", length = 200)
+    private String diskSpec;
 
     @Column(name = "power_consumption", precision = 10, scale = 2)
-    private BigDecimal powerConsumption; // 전력 소비량
+    private BigDecimal powerConsumption;
 
     @Column(name = "weight", precision = 10, scale = 2)
-    private BigDecimal weight; // 무게
+    private BigDecimal weight;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 50)
-    private EquipmentStatus status; // 장비 상태
+    @Column(name = "status", nullable = false, length = 50)
+    private EquipmentStatus status;
 
     @Column(name = "installation_date")
-    private LocalDate installationDate; // 설치일
+    private LocalDate installationDate;
 
-    @Lob
-    @Column(name = "notes")
-    private String notes; // 비고
+    @Column(name = "notes", length = 1000)
+    private String notes;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt; // 생성일시
+    @Column(name = "manager_id")
+    private Long managerId;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // 수정일시
+    // ========== 모니터링 설정 필드 추가 ==========
+    @Column(name = "monitoring_enabled")
+    private Boolean monitoringEnabled;
 
-    @Column(name = "maneger_id", length = 50)
-    private Long managerId; // 관리자 ID
+    @Column(name = "cpu_threshold_warning")
+    private Integer cpuThresholdWarning;
+
+    @Column(name = "cpu_threshold_critical")
+    private Integer cpuThresholdCritical;
+
+    @Column(name = "memory_threshold_warning")
+    private Integer memoryThresholdWarning;
+
+    @Column(name = "memory_threshold_critical")
+    private Integer memoryThresholdCritical;
+
+    @Column(name = "disk_threshold_warning")
+    private Integer diskThresholdWarning;
+
+    @Column(name = "disk_threshold_critical")
+    private Integer diskThresholdCritical;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "del_yn", nullable = false, length = 1)
+    @Builder.Default
+    private DelYN delYn = DelYN.N;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id", nullable = false)
-    private Rack rack; // 소속 랙
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "del_yn", nullable = false)
-    @Builder.Default
-    private DelYN delYn = DelYN.N; // 삭제 여부
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        if (this.delYn == null) {
-            this.delYn = DelYN.N;
-        }
-        if (this.status == null) {
-            this.status = EquipmentStatus.NORMAL;
-        }
-        if (this.positionType == null) {
-            this.positionType = EquipmentPositionType.FRONT;
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    private Rack rack;
 
     /**
-     * 타임스탬프 업데이트
+     * 장비 정보 수정
      */
-    public void updateTimestamp() {
-        this.updatedAt = LocalDateTime.now();
+    public void updateInfo(
+            String name,
+            String code,
+            EquipmentType type,
+            String modelName,
+            String manufacturer,
+            String serialNumber,
+            String ipAddress,
+            String macAddress,
+            String os,
+            String cpuSpec,
+            String memorySpec,
+            String diskSpec,
+            BigDecimal powerConsumption,
+            BigDecimal weight,
+            EquipmentStatus status,
+            LocalDate installationDate,
+            String notes,
+            Boolean monitoringEnabled,
+            Integer cpuThresholdWarning,
+            Integer cpuThresholdCritical,
+            Integer memoryThresholdWarning,
+            Integer memoryThresholdCritical,
+            Integer diskThresholdWarning,
+            Integer diskThresholdCritical
+    ) {
+        if (name != null) this.name = name;
+        if (code != null) this.code = code;
+        if (type != null) this.type = type;
+        if (modelName != null) this.modelName = modelName;
+        if (manufacturer != null) this.manufacturer = manufacturer;
+        if (serialNumber != null) this.serialNumber = serialNumber;
+        if (ipAddress != null) this.ipAddress = ipAddress;
+        if (macAddress != null) this.macAddress = macAddress;
+        if (os != null) this.os = os;
+        if (cpuSpec != null) this.cpuSpec = cpuSpec;
+        if (memorySpec != null) this.memorySpec = memorySpec;
+        if (diskSpec != null) this.diskSpec = diskSpec;
+        if (powerConsumption != null) this.powerConsumption = powerConsumption;
+        if (weight != null) this.weight = weight;
+        if (status != null) this.status = status;
+        if (installationDate != null) this.installationDate = installationDate;
+        if (notes != null) this.notes = notes;
+        if (monitoringEnabled != null) this.monitoringEnabled = monitoringEnabled;
+        if (cpuThresholdWarning != null) this.cpuThresholdWarning = cpuThresholdWarning;
+        if (cpuThresholdCritical != null) this.cpuThresholdCritical = cpuThresholdCritical;
+        if (memoryThresholdWarning != null) this.memoryThresholdWarning = memoryThresholdWarning;
+        if (memoryThresholdCritical != null) this.memoryThresholdCritical = memoryThresholdCritical;
+        if (diskThresholdWarning != null) this.diskThresholdWarning = diskThresholdWarning;
+        if (diskThresholdCritical != null) this.diskThresholdCritical = diskThresholdCritical;
+
+        this.updateTimestamp();
     }
 
     /**
@@ -141,89 +185,6 @@ public class Equipment extends BaseTimeEntity {
      */
     public void softDelete() {
         this.delYn = DelYN.Y;
-        this.updateTimestamp();
-    }
-
-    /**
-     * 장비 정보 수정
-     */
-    public void updateInfo(EquipmentUpdateRequest request) {
-        if (request.equipmentName() != null && !request.equipmentName().trim().isEmpty()) {
-            this.name = request.equipmentName();
-        }
-        if (request.equipmentCode() != null) {
-            this.code = request.equipmentCode();
-        }
-        if (request.equipmentType() != null) {
-            this.type = EquipmentType.valueOf(request.equipmentType());
-        }
-        if (request.positionType() != null) {
-            this.positionType = EquipmentPositionType.valueOf(request.positionType());
-        }
-        if (request.modelName() != null) {
-            this.modelName = request.modelName();
-        }
-        if (request.manufacturer() != null) {
-            this.manufacturer = request.manufacturer();
-        }
-        if (request.serialNumber() != null) {
-            this.serialNumber = request.serialNumber();
-        }
-        if (request.ipAddress() != null) {
-            this.ipAddress = request.ipAddress();
-        }
-        if (request.macAddress() != null) {
-            this.macAddress = request.macAddress();
-        }
-        if (request.os() != null) {
-            this.os = request.os();
-        }
-        if (request.cpuSpec() != null) {
-            this.cpuSpec = request.cpuSpec();
-        }
-        if (request.memorySpec() != null) {
-            this.memorySpec = request.memorySpec();
-        }
-        if (request.diskSpec() != null) {
-            this.diskSpec = request.diskSpec();
-        }
-        if (request.powerConsumption() != null) {
-            this.powerConsumption = request.powerConsumption();
-        }
-        if (request.weight() != null) {
-            this.weight = request.weight();
-        }
-        if (request.installationDate() != null) {
-            this.installationDate = request.installationDate();
-        }
-        if (request.notes() != null) {
-            this.notes = request.notes();
-        }
-
-        this.updateTimestamp();
-    }
-
-    /**
-     * 장비 상태 변경
-     */
-    public void changeStatus(EquipmentStatus newStatus, String reason, String updatedBy) {
-        String statusChangeLog = String.format(
-                "[%s] 상태 변경: %s → %s (변경자: %s, 사유: %s)",
-                LocalDateTime.now(),
-                this.status != null ? this.status.name() : "UNKNOWN",
-                newStatus.name(),
-                updatedBy,
-                reason != null ? reason : "없음"
-        );
-
-        this.status = newStatus;
-
-        if (this.notes == null || this.notes.trim().isEmpty()) {
-            this.notes = statusChangeLog;
-        } else {
-            this.notes = this.notes + "\n" + statusChangeLog;
-        }
-
         this.updateTimestamp();
     }
 }

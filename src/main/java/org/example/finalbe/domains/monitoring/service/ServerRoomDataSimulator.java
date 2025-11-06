@@ -149,17 +149,7 @@ public class ServerRoomDataSimulator {
             return;
         }
 
-        // 한국 시간을 UTC로 변환해서 저장
         LocalDateTime now = LocalDateTime.now();
-
-        System.out.println("좀 돼라");
-        System.out.println(ZoneId.systemDefault());
-        System.out.println(LocalDateTime.now());
-
-        log.info(now.toString());
-
-
-
 
         try {
             // 1. 장비별 메트릭 생성

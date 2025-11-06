@@ -13,6 +13,15 @@ RUN gradle build --no-daemon -x test
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
+# 타임존 설정 - Asia/Seoul로 고정
+# Set timezone to Asia/Seoul
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone && \
+    apk del tzdata
+
+ENV TZ=Asia/Seoul
+
 # build 스테이지의 build/libs 폴더에서 .jar 파일을 app.jar 라는 이름으로 복사해옵니다.
 # Copy the .jar file from the build stage's build/libs folder and rename it to app.jar.
 COPY --from=build /home/gradle/src/build/libs/*.jar app.jar

@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.rack.service;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.DelYN;
@@ -13,6 +14,7 @@ import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.history.service.RackHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
@@ -43,7 +45,7 @@ public class RackService {
     private final MemberRepository memberRepository;
     private final RackDepartmentRepository rackDepartmentRepository;
     private final CompanyDataCenterRepository cdcRepository;
-
+    private final RackHistoryRecorder rackHistoryRecorder;
     /**
      * 현재 로그인한 사용자 조회
      */
@@ -141,7 +143,7 @@ public class RackService {
      * 랙 생성
      */
     @Transactional
-    public RackDetailResponse createRack(RackCreateRequest request) {
+    public RackDetailResponse createRack(RackCreateRequest request, HttpServletRequest httpRequest) {
         Member currentMember = getCurrentMember();
         log.info("Creating new rack: {} by user: {}", request.rackName(), currentMember.getId());
 
@@ -173,6 +175,10 @@ public class RackService {
         // 랙 생성
         Rack rack = request.toEntity(dataCenter, currentMember.getUserName());
         Rack savedRack = rackRepository.save(rack);
+
+
+        String ipAddress = getClientIp(httpRequest);
+        rackHistoryRecorder.recordRackCreate(savedRack, currentMember, ipAddress);
 
         // 전산실의 현재 랙 수 증가
         dataCenter.incrementRackCount();
@@ -320,5 +326,19 @@ public class RackService {
         return racks.stream()
                 .map(RackListResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        return ip;
     }
 }

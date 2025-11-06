@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.rack.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -117,8 +118,8 @@ public class RackController {
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
-    public ResponseEntity<CommonResDto> createRack(@Valid @RequestBody RackCreateRequest request) {
-        RackDetailResponse rack = rackService.createRack(request);
+    public ResponseEntity<CommonResDto> createRack(@Valid @RequestBody RackCreateRequest request, HttpServletRequest httpRequest) {
+        RackDetailResponse rack = rackService.createRack(request, httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "랙 생성 완료", rack));
     }

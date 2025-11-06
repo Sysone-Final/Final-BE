@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.datacenter.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -66,9 +67,10 @@ public class DataCenterController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> createDataCenter(
-            @Valid @RequestBody DataCenterCreateRequest request
+            @Valid @RequestBody DataCenterCreateRequest request,
+            HttpServletRequest httpRequest
     ) {
-        DataCenterDetailResponse datacenter = dataCenterService.createDataCenter(request);
+        DataCenterDetailResponse datacenter = dataCenterService.createDataCenter(request, httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "전산실 생성 완료", datacenter));
     }
@@ -87,9 +89,10 @@ public class DataCenterController {
             @PathVariable
             @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.")
             Long id,
-            @Valid @RequestBody DataCenterUpdateRequest request
+            @Valid @RequestBody DataCenterUpdateRequest request,
+            HttpServletRequest httpRequest
     ) {
-        DataCenterDetailResponse datacenter = dataCenterService.updateDataCenter(id, request);
+        DataCenterDetailResponse datacenter = dataCenterService.updateDataCenter(id, request, httpRequest);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "전산실 수정 완료", datacenter));
     }
@@ -106,9 +109,11 @@ public class DataCenterController {
     public ResponseEntity<CommonResDto> deleteDataCenter(
             @PathVariable
             @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.")
-            Long id
+            Long id,
+            HttpServletRequest httpRequest,
+            String reason
     ) {
-        dataCenterService.deleteDataCenter(id);
+        dataCenterService.deleteDataCenter(id, reason, httpRequest);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "전산실 삭제 완료", null));
     }

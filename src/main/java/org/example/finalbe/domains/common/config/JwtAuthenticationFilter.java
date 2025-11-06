@@ -68,7 +68,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } else {
                 log.debug("No JWT token found for request: {}", requestURI);
                 // permitAll 경로가 아닌데 토큰이 없으면 401 반환
-                // (이미 shouldSkipFilter에서 permitAll 경로는 필터링됨)
+                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "인증이 필요합니다.");
+                return;
             }
 
             filterChain.doFilter(request, response);
@@ -89,23 +90,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean shouldSkipFilter(String requestURI, String method) {
-        // 인증 API는 항상 스킵
+        // 로그인, 회원가입만 인증 불필요
         if (requestURI.startsWith("/api/auth/")) {
             return true;
         }
 
-        // GET /api/companies 스킵
-        if ("GET".equalsIgnoreCase(method)) {
-            if (requestURI.equals("/api/companies") || requestURI.equals("/api/companies/")) {
-                return true;
-            }
-        }
-
-        // /api/devices/** 모든 메서드 스킵
-        if (requestURI.startsWith("/api/devices")) {
-            return true;
-        }
-
+        // 나머지 모든 API는 인증 필요
         return false;
     }
 

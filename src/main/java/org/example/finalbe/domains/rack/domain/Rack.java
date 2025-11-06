@@ -214,7 +214,7 @@ public class Rack extends BaseTimeEntity {
     /**
      * 랙 상태 변경
      */
-    public void changeStatus(RackStatus newStatus, String reason, String updatedBy) {
+    public void changeStatus(RackStatus newStatus, String updatedBy) {
         RackStatus oldStatus = this.status;
         this.status = newStatus;
 
@@ -222,7 +222,6 @@ public class Rack extends BaseTimeEntity {
                 java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
                 oldStatus,
                 newStatus,
-                reason != null ? reason : "없음",
                 updatedBy);
 
         if (this.notes == null || this.notes.trim().isEmpty()) {

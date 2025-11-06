@@ -52,7 +52,7 @@ public class DataCenterHistoryRecorder {
      * DataCenter 수정 히스토리
      */
     public void recordUpdate(DataCenter oldDataCenter, DataCenter newDataCenter,
-                             Member member, String reason) {
+                             Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldDataCenter);
         Map<String, Object> newSnapshot = buildSnapshot(newDataCenter);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
@@ -75,7 +75,6 @@ public class DataCenterHistoryRecorder {
                 .changedFields(changedFields)
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);
@@ -85,7 +84,7 @@ public class DataCenterHistoryRecorder {
      * DataCenter 상태 변경 히스토리
      */
     public void recordStatusChange(DataCenter dataCenter, String oldStatus, String newStatus,
-                                   Member member, String reason) {
+                                   Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(dataCenter.getId())
                 .dataCenterName(dataCenter.getName())
@@ -100,7 +99,6 @@ public class DataCenterHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);
@@ -109,7 +107,7 @@ public class DataCenterHistoryRecorder {
     /**
      * DataCenter 삭제 히스토리
      */
-    public void recordDelete(DataCenter dataCenter, Member member, String reason) {
+    public void recordDelete(DataCenter dataCenter, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(dataCenter.getId())
                 .dataCenterName(dataCenter.getName())
@@ -123,7 +121,6 @@ public class DataCenterHistoryRecorder {
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
                 .beforeValue(buildSnapshot(dataCenter))
-                .reason(reason)
                 .build();
 
         historyService.recordHistory(request);

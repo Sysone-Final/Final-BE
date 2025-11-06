@@ -253,8 +253,8 @@ public class DataCenterService {
         );
 
 
-        String reason = request.description();
-        dataCenterHistoryRecorder.recordUpdate(oldDataCenter, dataCenter, currentMember, reason);
+
+        dataCenterHistoryRecorder.recordUpdate(oldDataCenter, dataCenter, currentMember);
 
         log.info("Data center updated successfully with id: {}", id);
 
@@ -265,8 +265,7 @@ public class DataCenterService {
      * 전산실 삭제 (Soft Delete) + 히스토리 기록
      */
     @Transactional
-    public void deleteDataCenter(Long id,
-                                 String reason) {
+    public void deleteDataCenter(Long id) {
         Member currentMember = getCurrentMember();
         log.info("Deleting data center with id: {} by user: {} (role: {})",
                 id, currentMember.getId(), currentMember.getRole());
@@ -281,7 +280,7 @@ public class DataCenterService {
         DataCenter dataCenter = dataCenterRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
-        dataCenterHistoryRecorder.recordDelete(dataCenter, currentMember, reason);
+        dataCenterHistoryRecorder.recordDelete(dataCenter, currentMember);
 
         // 소프트 삭제
         dataCenter.softDelete();

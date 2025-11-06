@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  */
 @Builder
 public record EquipmentDetailResponse(
-        Long equipmentId,
+        Long id,
         String equipmentName,
         String equipmentCode,
         String equipmentType,
@@ -37,11 +37,20 @@ public record EquipmentDetailResponse(
         LocalDateTime updatedAt,
         Long managerId,
         Long rackId,
-        String rackName
+        String rackName,
+        Long datacenterId,
+        // 모니터링 설정
+        Boolean monitoringEnabled,
+        Integer cpuThresholdWarning,
+        Integer cpuThresholdCritical,
+        Integer memoryThresholdWarning,
+        Integer memoryThresholdCritical,
+        Integer diskThresholdWarning,
+        Integer diskThresholdCritical
 ) {
     public static EquipmentDetailResponse from(Equipment equipment) {
         return EquipmentDetailResponse.builder()
-                .equipmentId(equipment.getId())
+                .id(equipment.getId())
                 .equipmentName(equipment.getName())
                 .equipmentCode(equipment.getCode())
                 .equipmentType(equipment.getType() != null ? equipment.getType().name() : null)
@@ -67,6 +76,15 @@ public record EquipmentDetailResponse(
                 .managerId(equipment.getManagerId())
                 .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
+                .datacenterId(equipment.getRack() != null && equipment.getRack().getDatacenter() != null
+                        ? equipment.getRack().getDatacenter().getId() : null)
+                .monitoringEnabled(equipment.getMonitoringEnabled())
+                .cpuThresholdWarning(equipment.getCpuThresholdWarning())
+                .cpuThresholdCritical(equipment.getCpuThresholdCritical())
+                .memoryThresholdWarning(equipment.getMemoryThresholdWarning())
+                .memoryThresholdCritical(equipment.getMemoryThresholdCritical())
+                .diskThresholdWarning(equipment.getDiskThresholdWarning())
+                .diskThresholdCritical(equipment.getDiskThresholdCritical())
                 .build();
     }
 }

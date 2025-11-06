@@ -32,7 +32,6 @@ public record HistoryResponse(
         JsonNode beforeValue,
         JsonNode afterValue,
         String reason,
-        String ipAddress,
         String description
 ) {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -55,7 +54,6 @@ public record HistoryResponse(
                 .beforeValue(parseJsonObject(history.getBeforeValue()))
                 .afterValue(parseJsonObject(history.getAfterValue()))
                 .reason(history.getReason())
-                .ipAddress(history.getIpAddress())
                 .description(history.getDescription())
                 .build();
     }

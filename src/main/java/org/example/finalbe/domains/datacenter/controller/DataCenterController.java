@@ -113,7 +113,7 @@ public class DataCenterController {
             HttpServletRequest httpRequest,
             String reason
     ) {
-        dataCenterService.deleteDataCenter(id, reason, httpRequest);
+        dataCenterService.deleteDataCenter(id, reason);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "전산실 삭제 완료", null));
     }

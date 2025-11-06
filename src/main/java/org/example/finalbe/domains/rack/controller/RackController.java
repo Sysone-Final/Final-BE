@@ -118,8 +118,8 @@ public class RackController {
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
-    public ResponseEntity<CommonResDto> createRack(@Valid @RequestBody RackCreateRequest request, HttpServletRequest httpRequest) {
-        RackDetailResponse rack = rackService.createRack(request, httpRequest);
+    public ResponseEntity<CommonResDto> createRack(@Valid @RequestBody RackCreateRequest request) {
+        RackDetailResponse rack = rackService.createRack(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "랙 생성 완료", rack));
     }

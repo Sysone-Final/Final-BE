@@ -7,10 +7,10 @@ import lombok.Builder;
  * 히스토리 조회 시 서버실 필터링용
  */
 @Builder
-public record DataCenterAccessResponse(
-        Long dataCenterId,
-        String dataCenterName,
-        String dataCenterCode,
+public record ServerRoomAccessResponse(
+        Long serverRoomId,
+        String serverRoomName,
+        String serverRoomCode,
         String location
 ) {
 }

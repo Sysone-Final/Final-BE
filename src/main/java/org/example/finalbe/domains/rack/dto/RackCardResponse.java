@@ -13,7 +13,8 @@ import java.math.BigDecimal;
 public record RackCardResponse(
         Long id,
         String rackName,
-        String rackLocation,
+        BigDecimal gridX,
+        BigDecimal gridY,
         RackStatus status,
         BigDecimal usageRate,
         BigDecimal powerUsageRate,
@@ -21,15 +22,14 @@ public record RackCardResponse(
         Integer totalUnits,
         BigDecimal currentPowerUsage,
         BigDecimal maxPowerCapacity,
-        BigDecimal temperature,
-        Long managerId,
-        String department
+        BigDecimal temperature
 ) {
     public static RackCardResponse from(Rack rack) {
         return RackCardResponse.builder()
                 .id(rack.getId())
                 .rackName(rack.getRackName())
-                .rackLocation(rack.getRackLocation())
+                .gridX(rack.getGridX())
+                .gridY(rack.getGridY())
                 .status(rack.getStatus())
                 .usageRate(rack.getUsageRate())
                 .powerUsageRate(rack.getPowerUsageRate())
@@ -38,8 +38,6 @@ public record RackCardResponse(
                 .currentPowerUsage(rack.getCurrentPowerUsage())
                 .maxPowerCapacity(rack.getMaxPowerCapacity())
                 .temperature(null)
-                .managerId(rack.getManagerId())
-                .department(rack.getDepartment())
                 .build();
     }
 }

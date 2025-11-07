@@ -29,8 +29,8 @@ public class DeviceHistoryRecorder {
      */
     public void recordCreate(Device device, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
+                .serverRoomId(device.getServerRoom().getId())
+                .serverRoomName(device.getServerRoom().getName())
                 .entityType(EntityType.DEVICE)
                 .entityId(device.getId())
                 .entityName(device.getDeviceName())
@@ -63,8 +63,8 @@ public class DeviceHistoryRecorder {
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(newDevice.getDatacenter().getId())
-                .dataCenterName(newDevice.getDatacenter().getName())
+                .serverRoomId(newDevice.getServerRoom().getId())
+                .serverRoomName(newDevice.getServerRoom().getName())
                 .entityType(EntityType.DEVICE)
                 .entityId(newDevice.getId())
                 .entityName(newDevice.getDeviceName())
@@ -88,8 +88,8 @@ public class DeviceHistoryRecorder {
      */
     public void recordMove(Device device, String oldPosition, String newPosition, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
+                .serverRoomId(device.getServerRoom().getId())
+                .serverRoomName(device.getServerRoom().getName())
                 .entityType(EntityType.DEVICE)
                 .entityId(device.getId())
                 .entityName(device.getDeviceName())
@@ -117,8 +117,8 @@ public class DeviceHistoryRecorder {
      */
     public void recordStatusChange(Device device, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
+                .serverRoomId(device.getServerRoom().getId())
+                .serverRoomName(device.getServerRoom().getName())
                 .entityType(EntityType.DEVICE)
                 .entityId(device.getId())
                 .entityName(device.getDeviceName())
@@ -130,8 +130,6 @@ public class DeviceHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .metadata(Map.of("statusChange", String.format("%s → %s",
-                        translateStatus(oldStatus), translateStatus(newStatus))))
                 .build();
 
         historyService.recordHistory(request);
@@ -143,8 +141,8 @@ public class DeviceHistoryRecorder {
      */
     public void recordDelete(Device device, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(device.getDatacenter().getId())
-                .dataCenterName(device.getDatacenter().getName())
+                .serverRoomId(device.getServerRoom().getId())
+                .serverRoomName(device.getServerRoom().getName())
                 .entityType(EntityType.DEVICE)
                 .entityId(device.getId())
                 .entityName(device.getDeviceName())
@@ -160,8 +158,9 @@ public class DeviceHistoryRecorder {
         historyService.recordHistory(request);
     }
 
-    // === Private Helper Methods ===
-
+    /**
+     * Device 상태 스냅샷 생성
+     */
     private Map<String, Object> buildSnapshot(Device device) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("deviceName", device.getDeviceName());

@@ -28,12 +28,12 @@ public class RackViewService {
     /**
      * 랙 카드 뷰 조회
      */
-    public List<RackCardResponse> getRackCards(Long dataCenterId) {
-        log.debug("Fetching rack cards for datacenter: {}", dataCenterId);
+    public List<RackCardResponse> getRackCards(Long serverRoomId) {
+        log.debug("Fetching rack cards for serverRoom: {}", serverRoomId);
 
-        List<Rack> racks = rackRepository.findByDatacenterIdAndDelYn(dataCenterId, DelYN.N);
+        List<Rack> racks = rackRepository.findByServerRoomIdAndDelYn(serverRoomId, DelYN.N);
 
-        log.debug("Found {} rack cards for datacenter: {}", racks.size(), dataCenterId);
+        log.debug("Found {} rack cards for serverRoom: {}", racks.size(), serverRoomId);
 
         return racks.stream()
                 .map(RackCardResponse::from)
@@ -43,12 +43,12 @@ public class RackViewService {
     /**
      * 랙 통계 조회
      */
-    public RackStatisticsResponse getRackStatistics(Long dataCenterId) {
-        log.debug("Fetching rack statistics for datacenter: {}", dataCenterId);
+    public RackStatisticsResponse getRackStatistics(Long serverRoomId) {
+        log.debug("Fetching rack statistics for serverRoom: {}", serverRoomId);
 
-        List<Rack> racks = rackRepository.findByDatacenterIdAndDelYn(dataCenterId, DelYN.N);
+        List<Rack> racks = rackRepository.findByServerRoomIdAndDelYn(serverRoomId, DelYN.N);
 
-        log.debug("Calculating statistics for {} racks in datacenter: {}", racks.size(), dataCenterId);
+        log.debug("Calculating statistics for {} racks in serverRoom: {}", racks.size(), serverRoomId);
 
         return RackStatisticsResponse.from(racks);
     }

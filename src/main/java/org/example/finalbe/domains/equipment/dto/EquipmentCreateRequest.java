@@ -44,8 +44,6 @@ public record EquipmentCreateRequest(
         @DecimalMin(value = "0.0", message = "전력 소비량은 0 이상이어야 합니다.")
         BigDecimal powerConsumption,
 
-        @DecimalMin(value = "0.0", message = "무게는 0 이상이어야 합니다.")
-        BigDecimal weight,
 
         String status,
         LocalDate installationDate,
@@ -81,11 +79,9 @@ public record EquipmentCreateRequest(
                 .memorySpec(memorySpec)
                 .diskSpec(diskSpec)
                 .powerConsumption(powerConsumption)
-                .weight(weight)
                 .status(status != null ? EquipmentStatus.valueOf(status) : EquipmentStatus.NORMAL)
                 .installationDate(installationDate)
                 .notes(notes)
-                .managerId(managerId)
                 .rack(rack)
                 .monitoringEnabled(monitoringEnabled != null ? monitoringEnabled : false)
                 .cpuThresholdWarning(cpuThresholdWarning)

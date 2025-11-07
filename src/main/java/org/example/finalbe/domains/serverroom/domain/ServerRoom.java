@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.datacenter.domain;
+package org.example.finalbe.domains.serverroom.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -7,29 +7,30 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
-import org.example.finalbe.domains.common.enumdir.DataCenterStatus;
+import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
 import org.example.finalbe.domains.member.domain.Member;
 
 import java.math.BigDecimal;
 
 /**
- * 전산실(데이터센터) 엔티티
+ * 서버실 엔티티
+ * (기존 전산실/데이터센터)
  */
 @Entity
-@Table(name = "datacenter", indexes = {
-        @Index(name = "idx_datacenter_name", columnList = "name"),
-        @Index(name = "idx_datacenter_code", columnList = "code"),
-        @Index(name = "idx_datacenter_status", columnList = "status")
+@Table(name = "serverroom", indexes = {
+        @Index(name = "idx_serverroom_name", columnList = "name"),
+        @Index(name = "idx_serverroom_code", columnList = "code"),
+        @Index(name = "idx_serverroom_status", columnList = "status")
 })
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Builder
-public class DataCenter extends BaseTimeEntity {
+public class ServerRoom extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "datacenter_id")
+    @Column(name = "serverroom_id")
     private Long id;
 
     @Column(name = "name", nullable = false, length = 100)
@@ -52,7 +53,7 @@ public class DataCenter extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private DataCenterStatus status;
+    private ServerRoomStatus status;
 
     @Lob
     @Column(name = "description", columnDefinition = "TEXT")
@@ -66,8 +67,6 @@ public class DataCenter extends BaseTimeEntity {
 
     @Column(name = "total_cooling_capacity", precision = 10, scale = 2)
     private BigDecimal totalCoolingCapacity;
-
-
 
     @Column(name = "current_rack_count")
     @Builder.Default
@@ -86,7 +85,7 @@ public class DataCenter extends BaseTimeEntity {
     private BigDecimal humidityMax;
 
     /**
-     * 전산실 정보 수정
+     * 서버실 정보 수정
      */
     public void updateInfo(
             String name,
@@ -95,7 +94,7 @@ public class DataCenter extends BaseTimeEntity {
             Integer floor,
             Integer rows,
             Integer columns,
-            DataCenterStatus status,
+            ServerRoomStatus status,
             String description,
             BigDecimal totalArea,
             BigDecimal totalPowerCapacity,
@@ -150,7 +149,6 @@ public class DataCenter extends BaseTimeEntity {
         if (humidityMax != null) {
             this.humidityMax = humidityMax;
         }
-
     }
 
     /**
@@ -168,5 +166,4 @@ public class DataCenter extends BaseTimeEntity {
             this.currentRackCount--;
         }
     }
-
 }

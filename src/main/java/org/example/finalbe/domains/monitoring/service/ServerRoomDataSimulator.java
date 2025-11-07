@@ -21,8 +21,6 @@
 //
 //import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 //import java.time.LocalDateTime;
-//import java.time.ZoneId;
-//import java.time.ZonedDateTime;
 //import java.util.*;
 //import java.util.concurrent.ThreadLocalRandom;
 //
@@ -71,7 +69,7 @@
 //    public void init() {
 //        log.info("🚀 서버실 데이터 시뮬레이터 초기화 시작...");
 //
-//        // DB에서 실제 장비 목록 조회
+//
 //        activeEquipments = equipmentRepository.findAll();
 //        activeRacks = rackRepository.findAll();
 //

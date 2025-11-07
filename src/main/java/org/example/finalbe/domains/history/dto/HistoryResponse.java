@@ -17,8 +17,8 @@ import java.util.List;
 @Builder
 public record HistoryResponse(
         Long id,
-        Long dataCenterId,
-        String dataCenterName,
+        Long serverRoomId,
+        String serverRoomName,
         EntityType entityType,
         Long entityId,
         String entityName,
@@ -38,8 +38,8 @@ public record HistoryResponse(
     public static HistoryResponse from(History history) {
         return HistoryResponse.builder()
                 .id(history.getId())
-                .dataCenterId(history.getDataCenterId())
-                .dataCenterName(history.getDataCenterName())
+                .serverRoomId(history.getServerRoomId())
+                .serverRoomName(history.getServerRoomName())
                 .entityType(history.getEntityType())
                 .entityId(history.getEntityId())
                 .entityName(history.getEntityName())

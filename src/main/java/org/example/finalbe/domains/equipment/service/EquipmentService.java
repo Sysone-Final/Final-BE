@@ -538,4 +538,125 @@ public class EquipmentService {
         return hasChanges;
     }
 
+    /**
+     * 장비 대량 상태 변경
+     *
+     * @param request 대량 상태 변경 요청 (장비 ID 목록 + 변경할 상태)
+     * @return 변경 결과 (성공/실패 개수, 상세 정보)
+     */
+    @Transactional
+    public EquipmentStatusBulkUpdateResponse updateMultipleEquipmentStatus(
+            EquipmentStatusBulkUpdateRequest request) {
+
+        Member currentMember = getCurrentMember();
+        log.info("Bulk updating equipment status by user: {} for {} equipments",
+                currentMember.getId(), request.ids().size());
+
+        // === 권한 확인 ===
+        validateWritePermission(currentMember);
+
+        // === 상태 enum 검증 ===
+        EquipmentStatus newStatus;
+        try {
+            newStatus = EquipmentStatus.valueOf(request.status().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("유효하지 않은 상태 값입니다: " + request.status());
+        }
+
+        // === 결과 추적용 변수 ===
+        List<Long> successIds = new java.util.ArrayList<>();
+        List<EquipmentStatusBulkUpdateResponse.FailedEquipment> failedEquipments =
+                new java.util.ArrayList<>();
+
+        // === 각 장비에 대해 상태 변경 시도 ===
+        for (Long equipmentId : request.ids()) {
+            try {
+                // 1. 장비 존재 여부 확인
+                Equipment equipment = equipmentRepository.findById(equipmentId)
+                        .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
+
+                // 2. 삭제된 장비 확인
+                if (equipment.getDelYn() == DelYN.Y) {
+                    failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
+                            .equipmentId(equipmentId)
+                            .equipmentName(equipment.getName())
+                            .reason("삭제된 장비입니다.")
+                            .build());
+                    continue;
+                }
+
+                // 3. 접근 권한 확인
+                if (currentMember.getRole() != Role.ADMIN) {
+                    Long datacenterId = equipment.getRack().getDatacenter().getId();
+                    Long companyId = currentMember.getCompany().getId();
+
+                    boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+                            companyId, datacenterId);
+
+                    if (!hasAccess) {
+                        failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
+                                .equipmentId(equipmentId)
+                                .equipmentName(equipment.getName())
+                                .reason("접근 권한이 없습니다.")
+                                .build());
+                        continue;
+                    }
+                }
+
+                // 4. 이미 동일한 상태인 경우 스킵
+                if (equipment.getStatus() == newStatus) {
+                    failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
+                            .equipmentId(equipmentId)
+                            .equipmentName(equipment.getName())
+                            .reason("이미 " + newStatus.name() + " 상태입니다.")
+                            .build());
+                    continue;
+                }
+
+                // 5. 상태 변경 전 저장 (히스토리 기록용)
+                EquipmentStatus oldStatus = equipment.getStatus();
+
+                // 6. 상태 변경
+                equipment.updateStatus(newStatus);
+
+                // 7. 히스토리 기록
+                equipmentHistoryRecorder.recordStatusChange(
+                        equipment,
+                        oldStatus.name(),
+                        newStatus.name(),
+                        currentMember
+                );
+
+                // 8. 성공 목록에 추가
+                successIds.add(equipmentId);
+
+                log.info("Equipment {} status changed: {} → {}",
+                        equipmentId, oldStatus, newStatus);
+
+            } catch (Exception e) {
+                // 예상치 못한 오류 처리
+                log.error("Failed to update equipment {} status: {}", equipmentId, e.getMessage());
+                failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
+                        .equipmentId(equipmentId)
+                        .equipmentName("알 수 없음")
+                        .reason("오류: " + e.getMessage())
+                        .build());
+            }
+        }
+
+        // === 결과 반환 ===
+        EquipmentStatusBulkUpdateResponse response = EquipmentStatusBulkUpdateResponse.builder()
+                .totalRequested(request.ids().size())
+                .successCount(successIds.size())
+                .failureCount(failedEquipments.size())
+                .successIds(successIds)
+                .failedEquipments(failedEquipments)
+                .build();
+
+        log.info("Bulk status update completed: {} success, {} failed",
+                response.successCount(), response.failureCount());
+
+        return response;
+    }
+
 }

@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.equipment.controller;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.common.dto.CommonResDto;
@@ -112,136 +113,27 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 생성
-     * POST /api/equipments
+     * 장비 생성 - @RequestBody로 변경
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> createEquipment(
-            @RequestParam String equipmentName,
-            @RequestParam(required = false) String equipmentCode,
-            @RequestParam(required = false) String equipmentType,
-            @RequestParam Integer startUnit,
-            @RequestParam Integer unitSize,
-            @RequestParam(required = false) String positionType,
-            @RequestParam(required = false) String modelName,
-            @RequestParam(required = false) String manufacturer,
-            @RequestParam(required = false) String serialNumber,
-            @RequestParam(required = false) String ipAddress,
-            @RequestParam(required = false) String macAddress,
-            @RequestParam(required = false) String os,
-            @RequestParam(required = false) String cpuSpec,
-            @RequestParam(required = false) String memorySpec,
-            @RequestParam(required = false) String diskSpec,
-            @RequestParam(required = false) BigDecimal powerConsumption,
-            @RequestParam(required = false) BigDecimal weight,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) LocalDate installationDate,
-            @RequestParam(required = false) String notes,
-            @RequestParam Long rackId,
-            @RequestParam(required = false) Boolean monitoringEnabled,
-            @RequestParam(required = false) Integer cpuThresholdWarning,
-            @RequestParam(required = false) Integer cpuThresholdCritical,
-            @RequestParam(required = false) Integer memoryThresholdWarning,
-            @RequestParam(required = false) Integer memoryThresholdCritical,
-            @RequestParam(required = false) Integer diskThresholdWarning,
-            @RequestParam(required = false) Integer diskThresholdCritical) {
-
-        EquipmentCreateRequest request = EquipmentCreateRequest.builder()
-                .equipmentName(equipmentName)
-                .equipmentCode(equipmentCode)
-                .equipmentType(equipmentType)
-                .startUnit(startUnit)
-                .unitSize(unitSize)
-                .positionType(positionType)
-                .modelName(modelName)
-                .manufacturer(manufacturer)
-                .serialNumber(serialNumber)
-                .ipAddress(ipAddress)
-                .macAddress(macAddress)
-                .os(os)
-                .cpuSpec(cpuSpec)
-                .memorySpec(memorySpec)
-                .diskSpec(diskSpec)
-                .powerConsumption(powerConsumption)
-                .weight(weight)
-                .status(status)
-                .installationDate(installationDate)
-                .notes(notes)
-                .rackId(rackId)
-                .monitoringEnabled(monitoringEnabled)
-                .cpuThresholdWarning(cpuThresholdWarning)
-                .cpuThresholdCritical(cpuThresholdCritical)
-                .memoryThresholdWarning(memoryThresholdWarning)
-                .memoryThresholdCritical(memoryThresholdCritical)
-                .diskThresholdWarning(diskThresholdWarning)
-                .diskThresholdCritical(diskThresholdCritical)
-                .build();
+            @RequestBody @Valid EquipmentCreateRequest request) {
 
         EquipmentDetailResponse equipment = equipmentService.createEquipment(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "장비 생성 완료", equipment));
     }
 
+
     /**
-     * 장비 수정
-     * PUT /api/equipments/{id}
+     * 장비 수정 - @RequestBody로 변경
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> updateEquipment(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장비 ID입니다.") Long id,
-            @RequestParam(required = false) String equipmentName,
-            @RequestParam(required = false) String equipmentCode,
-            @RequestParam(required = false) String equipmentType,
-            @RequestParam(required = false) String modelName,
-            @RequestParam(required = false) String manufacturer,
-            @RequestParam(required = false) String serialNumber,
-            @RequestParam(required = false) String ipAddress,
-            @RequestParam(required = false) String macAddress,
-            @RequestParam(required = false) String os,
-            @RequestParam(required = false) String cpuSpec,
-            @RequestParam(required = false) String memorySpec,
-            @RequestParam(required = false) String diskSpec,
-            @RequestParam(required = false) BigDecimal powerConsumption,
-            @RequestParam(required = false) BigDecimal weight,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) LocalDate installationDate,
-            @RequestParam(required = false) String notes,
-            @RequestParam(required = false) Boolean monitoringEnabled,
-            @RequestParam(required = false) Integer cpuThresholdWarning,
-            @RequestParam(required = false) Integer cpuThresholdCritical,
-            @RequestParam(required = false) Integer memoryThresholdWarning,
-            @RequestParam(required = false) Integer memoryThresholdCritical,
-            @RequestParam(required = false) Integer diskThresholdWarning,
-            @RequestParam(required = false) Integer diskThresholdCritical) {
-
-        EquipmentUpdateRequest request = EquipmentUpdateRequest.builder()
-                .equipmentName(equipmentName)
-                .equipmentCode(equipmentCode)
-                .equipmentType(equipmentType)
-                .modelName(modelName)
-                .manufacturer(manufacturer)
-                .serialNumber(serialNumber)
-                .ipAddress(ipAddress)
-                .macAddress(macAddress)
-                .os(os)
-                .cpuSpec(cpuSpec)
-                .memorySpec(memorySpec)
-                .diskSpec(diskSpec)
-                .powerConsumption(powerConsumption)
-                .weight(weight)
-                .status(status)
-                .installationDate(installationDate)
-                .notes(notes)
-                .monitoringEnabled(monitoringEnabled)
-                .cpuThresholdWarning(cpuThresholdWarning)
-                .cpuThresholdCritical(cpuThresholdCritical)
-                .memoryThresholdWarning(memoryThresholdWarning)
-                .memoryThresholdCritical(memoryThresholdCritical)
-                .diskThresholdWarning(diskThresholdWarning)
-                .diskThresholdCritical(diskThresholdCritical)
-                .build();
+            @RequestBody @Valid EquipmentUpdateRequest request) {
 
         EquipmentDetailResponse equipment = equipmentService.updateEquipment(id, request);
         return ResponseEntity.ok(
@@ -280,5 +172,29 @@ public class EquipmentController {
         equipmentService.deleteMultipleEquipments(ids);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장비 대량 삭제 완료", null));
+    }
+
+    /**
+     * 🆕 장비 대량 상태 변경
+     * PUT /api/equipments/status
+     * Body: {"ids": [1, 2, 3], "status": "MAINTENANCE"}
+     */
+    @PutMapping("/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    public ResponseEntity<CommonResDto> updateMultipleEquipmentStatus(
+            @RequestBody EquipmentStatusBulkUpdateRequest request) {
+
+        if (request.ids() == null || request.ids().isEmpty()) {
+            throw new IllegalArgumentException("장비 ID 목록이 비어있습니다.");
+        }
+        if (request.status() == null || request.status().trim().isEmpty()) {
+            throw new IllegalArgumentException("변경할 상태를 입력해주세요.");
+        }
+
+        EquipmentStatusBulkUpdateResponse response =
+                equipmentService.updateMultipleEquipmentStatus(request);
+
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장비 상태 일괄 변경 완료", response));
     }
 }

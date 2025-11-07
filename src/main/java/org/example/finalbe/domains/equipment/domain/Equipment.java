@@ -187,4 +187,11 @@ public class Equipment extends BaseTimeEntity {
         this.delYn = DelYN.Y;
         this.updateTimestamp();
     }
+
+    /**
+     * 장비 상태 변경
+     */
+    public void updateStatus(EquipmentStatus newStatus) {
+        this.status = newStatus;
+    }
 }

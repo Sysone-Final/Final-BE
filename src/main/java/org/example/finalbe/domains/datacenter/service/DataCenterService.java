@@ -176,7 +176,6 @@ public class DataCenterService {
         CompanyDataCenter mapping = CompanyDataCenter.builder()
                 .company(currentMember.getCompany())
                 .dataCenter(savedDataCenter)
-                .description("전산실 생성 시 자동 매핑")
                 .grantedBy(currentMember.getUserName())
                 .build();
         companyDataCenterRepository.save(mapping);

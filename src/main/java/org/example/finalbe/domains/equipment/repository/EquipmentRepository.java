@@ -119,4 +119,19 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     );
 
     Boolean existsByRackIdAndDelYn(Long rackId, DelYN delYn);
+
+    /**
+     * 활성 장비 전체 조회 (delYn = 'N')
+     */
+    @Query("SELECT e FROM Equipment e WHERE e.delYn = 'N'")
+    List<Equipment> findAllActive();
+
+    /**
+     * ID로 장비 조회 (Rack, ServerRoom까지 fetch join)
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "WHERE e.id = :id")
+    Optional<Equipment> findByIdWithRackAndServerRoom(@Param("id") Long id);
 }

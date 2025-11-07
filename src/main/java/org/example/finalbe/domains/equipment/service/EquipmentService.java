@@ -343,7 +343,7 @@ public class EquipmentService {
      * 장비 삭제 (단건)
      */
     @Transactional
-    public void deleteEquipment(Long id ) {
+    public void deleteEquipment(Long id) {
         Member currentMember = getCurrentMember();
         log.info("Deleting equipment with id: {} by user: {}", id, currentMember.getId());
 
@@ -354,18 +354,31 @@ public class EquipmentService {
         validateDeletePermission(currentMember);
         validateEquipmentAccess(currentMember, id);
 
-        Equipment equipment = equipmentRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("장비", id));
 
+        Equipment equipment = equipmentRepository.findByIdWithRackAndServerRoom(id)
+                .orElseThrow(() -> new EntityNotFoundException("장비", id));
 
         if (equipment.getDelYn() == DelYN.Y) {
             throw new EntityNotFoundException("장비", id);
         }
 
+
         Rack rack = equipment.getRack();
-        rack.removeEquipment(equipment);
+        if (rack != null) {
+            // 유닛 해제
+            rack.releaseUnits(equipment.getUnitSize());
+
+            // 전력 사용량 차감
+            if (equipment.getPowerConsumption() != null) {
+                rack.subtractPowerUsage(equipment.getPowerConsumption());
+            }
+
+            // ⚠️ 중요: rack, startUnit은 유지 (삭제된 장비의 위치 정보 보존)
+        }
+
 
         equipment.softDelete();
+
 
         equipmentHistoryRecorder.recordDelete(equipment, currentMember);
 

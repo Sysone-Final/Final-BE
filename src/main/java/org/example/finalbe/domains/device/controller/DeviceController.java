@@ -98,9 +98,9 @@ public class DeviceController {
 
     /**
      * 장치 상태 변경
-     * PATCH /api/devices/{id}/status
+     * PUT /api/devices/{id}/status
      */
-    @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> changeDeviceStatus(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
@@ -113,9 +113,9 @@ public class DeviceController {
 
     /**
      * 장치 위치 변경
-     * PATCH /api/devices/{id}/position
+     * PUT /api/devices/{id}/position
      */
-    @PatchMapping("/{id}/position")
+    @PutMapping("/{id}/position")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> updateDevicePosition(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,

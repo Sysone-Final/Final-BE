@@ -7,7 +7,7 @@ import org.example.finalbe.domains.common.enumdir.DoorDirection;
 import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.common.enumdir.RackType;
 import org.example.finalbe.domains.common.enumdir.ZoneDirection;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.rack.dto.RackUpdateRequest;
 
@@ -118,7 +118,7 @@ public class Rack extends BaseTimeEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "datacenter_id", nullable = false)
-    private DataCenter datacenter; // 소속 전산실
+    private ServerRoom datacenter; // 소속 전산실
 
     /**
      * 엔티티 생성 시 기본값 설정

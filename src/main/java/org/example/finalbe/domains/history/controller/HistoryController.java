@@ -277,11 +277,11 @@ public class HistoryController {
      *
      * @return 접근 가능한 서버실 목록
      */
-    @GetMapping("/my-datacenters")
+    @GetMapping("/my-serverRooms")
     public ResponseEntity<CommonResDto> getMyAccessibleDataCenters() {
         log.info("Fetching accessible datacenters for current user");
 
-        List<DataCenterAccessResponse> datacenters = historyService.getMyAccessibleDataCenters();
+        List<ServerRoomAccessResponse> datacenters = historyService.getMyAccessibleDataCenters();
 
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "접근 가능한 서버실 목록 조회 성공", datacenters));

@@ -8,9 +8,9 @@ import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.device.domain.Device;
 import org.example.finalbe.domains.device.domain.DeviceType;
 import org.example.finalbe.domains.device.dto.*;
@@ -41,10 +41,10 @@ public class DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceTypeRepository deviceTypeRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final RackRepository rackRepository;
     private final MemberRepository memberRepository;
-    private final CompanyDataCenterRepository companyDataCenterRepository;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
     private final DeviceHistoryRecorder deviceHistoryRecorder;
 
     /**
@@ -92,11 +92,11 @@ public class DeviceService {
         DeviceType deviceType = deviceTypeRepository.findById(request.deviceTypeId())
                 .orElseThrow(() -> new EntityNotFoundException("장치 타입", request.deviceTypeId()));
 
-        DataCenter datacenter = dataCenterRepository.findActiveById(request.datacenterId())
+        ServerRoom datacenter = serverRoomRepository.findActiveById(request.datacenterId())
                 .orElseThrow(() -> new EntityNotFoundException("전산실", request.datacenterId()));
 
         if (currentMember.getRole() != Role.ADMIN) {
-            boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+            boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
                     currentMember.getCompany().getId(), request.datacenterId());
 
             if (!hasAccess) {
@@ -313,7 +313,7 @@ public class DeviceService {
         Long datacenterId = device.getDatacenter().getId();
         Long companyId = member.getCompany().getId();
 
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
                 companyId, datacenterId);
 
         if (!hasAccess) {

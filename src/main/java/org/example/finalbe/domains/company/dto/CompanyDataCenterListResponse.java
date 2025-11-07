@@ -1,7 +1,7 @@
 package org.example.finalbe.domains.company.dto;
 
 import lombok.Builder;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 import java.time.LocalDateTime;
 
@@ -21,8 +21,8 @@ public record CompanyDataCenterListResponse(
     /**
      * DataCenter와 매핑 시간으로 DTO 생성
      */
-    public static CompanyDataCenterListResponse from(DataCenter dataCenter, LocalDateTime grantedAt) {
-        if (dataCenter == null) {
+    public static CompanyDataCenterListResponse from(ServerRoom serverRoom, LocalDateTime grantedAt) {
+        if (serverRoom == null) {
             throw new IllegalArgumentException("DataCenter 엔티티가 null입니다.");
         }
         if (grantedAt == null) {
@@ -30,10 +30,10 @@ public record CompanyDataCenterListResponse(
         }
 
         return CompanyDataCenterListResponse.builder()
-                .dataCenterId(dataCenter.getId())
-                .dataCenterCode(dataCenter.getCode())
-                .dataCenterName(dataCenter.getName())
-                .location(dataCenter.getLocation())
+                .dataCenterId(serverRoom.getId())
+                .dataCenterCode(serverRoom.getCode())
+                .dataCenterName(serverRoom.getName())
+                .location(serverRoom.getLocation())
                 .grantedAt(grantedAt)
                 .build();
     }

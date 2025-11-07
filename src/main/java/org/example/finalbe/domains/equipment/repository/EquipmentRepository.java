@@ -89,7 +89,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     @Query("SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.datacenter dc " +
-            "LEFT JOIN CompanyDataCenter cdc ON cdc.dataCenter.id = dc.id " +
+            "LEFT JOIN CompanyServerRoom cdc ON cdc.dataCenter.id = dc.id " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +

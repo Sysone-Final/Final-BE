@@ -8,9 +8,9 @@ import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.BusinessException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.history.service.RackHistoryRecorder;
@@ -39,11 +39,11 @@ import java.util.stream.Collectors;
 public class RackService {
 
     private final RackRepository rackRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final EquipmentRepository equipmentRepository;
     private final MemberRepository memberRepository;
     private final RackDepartmentRepository rackDepartmentRepository;
-    private final CompanyDataCenterRepository cdcRepository;
+    private final CompanyServerRoomRepository cdcRepository;
     private final RackHistoryRecorder rackHistoryRecorder;
 
     /**
@@ -101,7 +101,7 @@ public class RackService {
         validateWritePermission(currentMember);
 
         // 전산실 조회 및 접근 권한 확인
-        DataCenter dataCenter = dataCenterRepository.findActiveById(request.datacenterId())
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(request.datacenterId())
                 .orElseThrow(() -> new EntityNotFoundException("전산실", request.datacenterId()));
 
         if (currentMember.getRole() != Role.ADMIN) {
@@ -112,20 +112,20 @@ public class RackService {
         }
 
         // 랙 이름 중복 체크 (같은 전산실 내)
-        if (rackRepository.existsByDatacenterIdAndRackNameAndDelYn(
+        if (rackRepository.existsByServerRoomIdAndRackNameAndDelYn(
                 request.datacenterId(), request.rackName(), DelYN.N)) {
             throw new DuplicateException("랙 이름", request.rackName());
         }
 
         // 랙 생성
-        Rack rack = request.toEntity(dataCenter, currentMember.getUserName());
+        Rack rack = request.toEntity(serverRoom, currentMember.getUserName());
         Rack savedRack = rackRepository.save(rack);
 
         // 히스토리 기록
         rackHistoryRecorder.recordCreate(savedRack, currentMember);
 
         // 전산실의 현재 랙 수 증가
-        dataCenter.incrementRackCount();
+        serverRoom.incrementRackCount();
 
         log.info("Rack created successfully with id: {}", savedRack.getId());
         return RackDetailResponse.from(savedRack);
@@ -150,7 +150,7 @@ public class RackService {
 
         // 랙 이름 중복 체크 (변경하는 경우)
         if (request.rackName() != null && !request.rackName().equals(rack.getRackName())) {
-            if (rackRepository.existsByDatacenterIdAndRackNameAndDelYn(
+            if (rackRepository.existsByServerRoomIdAndRackNameAndDelYn(
                     rack.getDatacenter().getId(), request.rackName(), DelYN.N)) {
                 throw new DuplicateException("랙 이름", request.rackName());
             }

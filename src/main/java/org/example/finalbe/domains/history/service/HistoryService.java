@@ -7,8 +7,8 @@ import org.example.finalbe.domains.common.enumdir.HistoryAction;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.department.domain.MemberDepartment;
 import org.example.finalbe.domains.department.repository.MemberDepartmentRepository;
 import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 public class HistoryService {
 
     private final HistoryRepository historyRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final MemberRepository memberRepository;
 
     // 부서 기준 접근 제어용 Repository
@@ -124,7 +124,7 @@ public class HistoryService {
         Member currentMember = getCurrentMember();
         validateDataCenterAccess(currentMember, dataCenterId);
 
-        DataCenter dataCenter = dataCenterRepository.findById(dataCenterId)
+        ServerRoom serverRoom = serverRoomRepository.findById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
 
         // 기본 기간 설정 (없으면 최근 30일)
@@ -184,7 +184,7 @@ public class HistoryService {
 
         return HistoryStatisticsResponse.builder()
                 .dataCenterId(dataCenterId)
-                .dataCenterName(dataCenter.getName())
+                .dataCenterName(serverRoom.getName())
                 .startDate(startDate)
                 .endDate(endDate)
                 .totalCount(totalCount)
@@ -298,8 +298,8 @@ public class HistoryService {
     public List<Long> getAccessibleDataCenterIds(Member member) {
         if (member.getRole() == Role.ADMIN) {
             // ADMIN은 모든 서버실 접근 가능
-            return dataCenterRepository.findAll().stream()
-                    .map(DataCenter::getId)
+            return serverRoomRepository.findAll().stream()
+                    .map(ServerRoom::getId)
                     .collect(Collectors.toList());
         }
 
@@ -338,7 +338,7 @@ public class HistoryService {
      *
      * @return 접근 가능한 서버실 목록 (DTO)
      */
-    public List<DataCenterAccessResponse> getMyAccessibleDataCenters() {
+    public List<ServerRoomAccessResponse> getMyAccessibleDataCenters() {
         Member currentMember = getCurrentMember();
         List<Long> accessibleDataCenterIds = getAccessibleDataCenterIds(currentMember);
 
@@ -347,8 +347,8 @@ public class HistoryService {
             return List.of();
         }
 
-        return dataCenterRepository.findAllById(accessibleDataCenterIds).stream()
-                .map(dc -> DataCenterAccessResponse.builder()
+        return serverRoomRepository.findAllById(accessibleDataCenterIds).stream()
+                .map(dc -> ServerRoomAccessResponse.builder()
                         .dataCenterId(dc.getId())
                         .dataCenterName(dc.getName())
                         .dataCenterCode(dc.getCode())

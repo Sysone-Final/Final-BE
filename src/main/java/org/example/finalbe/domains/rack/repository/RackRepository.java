@@ -24,12 +24,12 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     /**
      * 전산실별 활성 랙 목록 조회
      */
-    List<Rack> findByDatacenterIdAndDelYn(Long datacenterId, DelYN delYn);
+    List<Rack> findByserverRoomIdAndDelYn(Long serverRoomId, DelYN delYn);
 
     /**
      * 랙 이름 중복 체크 (전산실별)
      */
-    boolean existsByDatacenterIdAndRackNameAndDelYn(Long datacenterId, String rackName, DelYN delYn);
+    boolean existsByServerRoomIdAndRackNameAndDelYn(Long serverRoomId, String rackName, DelYN delYn);
 
     /**
      * 상태별 활성 랙 목록 조회
@@ -77,7 +77,7 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     @Query("""
         SELECT r FROM Rack r
         JOIN r.datacenter dc
-        JOIN CompanyDataCenter cdc ON cdc.dataCenter.id = dc.id
+        JOIN CompanyDataCenter cdc ON cdc.serverRoom.id = dc.id
         WHERE cdc.company.id = :companyId
         AND (r.rackName LIKE %:keyword% 
             OR r.groupNumber LIKE %:keyword% 

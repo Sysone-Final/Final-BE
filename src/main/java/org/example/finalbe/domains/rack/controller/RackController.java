@@ -30,7 +30,7 @@ public class RackController {
 
     /**
      * 전산실별 랙 목록 조회
-     * GET /api/racks/datacenter/{dataCenterId}
+     * GET /api/racks/serverroom/{dataCenterId}
      *
      * @param dataCenterId 전산실 ID
      * @param status 랙 상태 필터 (선택)

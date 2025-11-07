@@ -68,10 +68,10 @@ public class ServerRoomService {
     }
 
     /**
-     * CompanyDataCenter 매핑 테이블로 접근 권한 확인
+     * CompanyServerRoom 매핑 테이블로 접근 권한 확인
      */
-    private void validateDataCenterAccess(Member member, Long dataCenterId) {
-        if (dataCenterId == null) {
+    private void validateServerRoomAccess(Member member, Long serverRoomId) {
+        if (serverRoomId == null) {
             throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
         }
 
@@ -79,10 +79,10 @@ public class ServerRoomService {
             return; // ADMIN은 모든 전산실 접근 가능
         }
 
-        // CompanyDataCenter 매핑 테이블에서 접근 권한 확인
-        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
+        // CompanyServerRoom 매핑 테이블에서 접근 권한 확인
+        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
                 member.getCompany().getId(),
-                dataCenterId
+                serverRoomId
         );
 
         if (!hasAccess) {
@@ -91,9 +91,9 @@ public class ServerRoomService {
     }
 
     /**
-     * CompanyDataCenter 매핑 테이블로 접근 가능한 전산실 목록 조회
+     * CompanyServerRoom 매핑 테이블로 접근 가능한 서버실 목록 조회
      */
-    public List<ServerRoomListResponse> getAccessibleDataCenters() {
+    public List<ServerRoomListResponse> getAccessibleServerRooms() {
         Member currentMember = getCurrentMember();
         log.info("Fetching accessible data centers for user: {} (role: {}, company: {})",
                 currentMember.getId(), currentMember.getRole(), currentMember.getCompany().getId());
@@ -105,7 +105,7 @@ public class ServerRoomService {
             serverRooms = serverRoomRepository.findByDelYn(DelYN.N);
             log.info("Admin user - returning all {} data centers", serverRooms.size());
         } else {
-            // 일반 사용자: CompanyDataCenter 매핑을 통해 접근 가능한 전산실만 조회
+            // 일반 사용자: CompanyServerRoom 매핑을 통해 접근 가능한 서버실만 조회
             List<CompanyServerRoom> mappings = companyServerRoomRepository
                     .findByCompanyId(currentMember.getCompany().getId());
 
@@ -122,9 +122,9 @@ public class ServerRoomService {
     }
 
     /**
-     * 전산실 상세 조회
+     * 서버실 상세 조회
      */
-    public ServerRoomDetailResponse getDataCenterById(Long id) {
+    public ServerRoomDetailResponse getServerRoomById(Long id) {
         Member currentMember = getCurrentMember();
         log.info("Fetching data center by id: {} for user: {} (role: {})",
                 id, currentMember.getId(), currentMember.getRole());
@@ -133,8 +133,8 @@ public class ServerRoomService {
             throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
         }
 
-        // CompanyDataCenter 매핑으로 접근 권한 확인
-        validateDataCenterAccess(currentMember, id);
+        // CompanyServerRoom 매핑으로 접근 권한 확인
+        validateServerRoomAccess(currentMember, id);
 
         ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
@@ -143,10 +143,10 @@ public class ServerRoomService {
     }
 
     /**
-     * 전산실 생성 + CompanyDataCenter 매핑 자동 생성 + 히스토리 기록
+     * 서버실 생성 + CompanyServerRoom 매핑 자동 생성 + 히스토리 기록
      */
     @Transactional
-    public ServerRoomDetailResponse createDataCenter(ServerRoomCreateRequest request,
+    public ServerRoomDetailResponse createServerRoom(ServerRoomCreateRequest request,
                                                      HttpServletRequest httpRequest) {
         Member currentMember = getCurrentMember();
         log.info("Creating data center with code: {} by user: {} (role: {}, company: {})",
@@ -172,7 +172,7 @@ public class ServerRoomService {
         ServerRoom serverRoom = request.toEntity();
         ServerRoom savedServerRoom = serverRoomRepository.save(serverRoom);
 
-        // CompanyDataCenter 매핑 자동 생성
+        // CompanyServerRoom 매핑 자동 생성
         CompanyServerRoom mapping = CompanyServerRoom.builder()
                 .company(currentMember.getCompany())
                 .serverRoom(savedServerRoom)
@@ -190,10 +190,10 @@ public class ServerRoomService {
     }
 
     /**
-     * 전산실 정보 수정 + 히스토리 기록
+     * 서버실 정보 수정 + 히스토리 기록
      */
     @Transactional
-    public ServerRoomDetailResponse updateDataCenter(Long id,
+    public ServerRoomDetailResponse updateServerRoom(Long id,
                                                      ServerRoomUpdateRequest request) {
         Member currentMember = getCurrentMember();
         log.info("Updating data center with id: {} by user: {} (role: {})",
@@ -204,13 +204,13 @@ public class ServerRoomService {
         }
 
         validateWritePermission(currentMember);
-        validateDataCenterAccess(currentMember, id);
+        validateServerRoomAccess(currentMember, id);
 
         ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
         // 변경 전 복사
-        ServerRoom oldServerRoom = copyDataCenter(serverRoom);
+        ServerRoom oldServerRoom = copyServerRoom(serverRoom);
 
         if (request.code() != null
                 && !request.code().trim().isEmpty()
@@ -247,10 +247,10 @@ public class ServerRoomService {
     }
 
     /**
-     * 전산실 삭제 (Soft Delete) + 히스토리 기록
+     * 서버실 삭제 (Soft Delete) + 히스토리 기록
      */
     @Transactional
-    public void deleteDataCenter(Long id) {
+    public void deleteServerRoom(Long id) {
         Member currentMember = getCurrentMember();
         log.info("Deleting data center with id: {} by user: {} (role: {})",
                 id, currentMember.getId(), currentMember.getRole());
@@ -260,7 +260,7 @@ public class ServerRoomService {
         }
 
         validateWritePermission(currentMember);
-        validateDataCenterAccess(currentMember, id);
+        validateServerRoomAccess(currentMember, id);
 
         ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
@@ -274,9 +274,9 @@ public class ServerRoomService {
     }
 
     /**
-     * CompanyDataCenter 기반 전산실 이름 검색
+     * CompanyServerRoom 기반 서버실 이름 검색
      */
-    public List<ServerRoomListResponse> searchDataCentersByName(String name) {
+    public List<ServerRoomListResponse> searchServerRoomsByName(String name) {
         Member currentMember = getCurrentMember();
         log.info("Searching data centers by name: {} for user: {} (role: {})",
                 name, currentMember.getId(), currentMember.getRole());
@@ -311,9 +311,9 @@ public class ServerRoomService {
 
 
     /**
-     * DataCenter Deep Copy (변경 전 상태 저장용)
+     * ServerRoom Deep Copy (변경 전 상태 저장용)
      */
-    private ServerRoom copyDataCenter(ServerRoom original) {
+    private ServerRoom copyServerRoom(ServerRoom original) {
         return ServerRoom.builder()
                 .id(original.getId())
                 .name(original.getName())

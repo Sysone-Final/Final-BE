@@ -28,7 +28,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     Optional<Device> findActiveById(@Param("id") Long id);
 
     /**
-     * 전산실별 장치 조회 (위치순 정렬)
+     * 서버실별 장치 조회 (위치순 정렬)
      */
     @Query("SELECT d FROM Device d " +
             "WHERE d.serverRoom.id = :serverRoomId " +

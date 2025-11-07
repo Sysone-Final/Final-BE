@@ -30,8 +30,8 @@ public class EquipmentHistoryRecorder {
      */
     public void recordCreate(Equipment equipment, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerroom().getId())
-                .serverRoomName(equipment.getRack().getServerroom().getName())
+                .serverRoomId(equipment.getRack().getServerRoom().getId())
+                .serverRoomName(equipment.getRack().getServerRoom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -68,8 +68,8 @@ public class EquipmentHistoryRecorder {
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(newEquipment.getRack().getServerroom().getId())
-                .serverRoomName(newEquipment.getRack().getServerroom().getName())
+                .serverRoomId(newEquipment.getRack().getServerRoom().getId())
+                .serverRoomName(newEquipment.getRack().getServerRoom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(newEquipment.getId())
                 .entityName(newEquipment.getName())
@@ -95,16 +95,10 @@ public class EquipmentHistoryRecorder {
     /**
      * Equipment 이동 히스토리
      */
-    public void recordMove(Equipment equipment, Integer oldStartUnit, Integer oldUnitSize,
-                           Integer newStartUnit, Integer newUnitSize, Member member) {
-        String oldLocation = String.format("Unit %d-%d (%d U)", oldStartUnit,
-                oldStartUnit + oldUnitSize - 1, oldUnitSize);
-        String newLocation = String.format("Unit %d-%d (%d U)", newStartUnit,
-                newStartUnit + newUnitSize - 1, newUnitSize);
-
+    public void recordMove(Equipment equipment, String oldLocation, String newLocation, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerroom().getId())
-                .serverRoomName(equipment.getRack().getServerroom().getName())
+                .serverRoomId(equipment.getRack().getServerRoom().getId())
+                .serverRoomName(equipment.getRack().getServerRoom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -113,7 +107,7 @@ public class EquipmentHistoryRecorder {
                 .changedBy(member.getId())
                 .changedByName(member.getName())
                 .changedByRole(member.getRole().name())
-                .changedFields(List.of("startUnit", "unitSize"))
+                .changedFields(List.of("startUnit"))
                 .beforeValue(Map.of("location", oldLocation))
                 .afterValue(Map.of("location", newLocation))
                 .metadata(Map.of(
@@ -127,14 +121,13 @@ public class EquipmentHistoryRecorder {
         historyService.recordHistory(request);
         log.info("Equipment move history recorded: {} -> {}", oldLocation, newLocation);
     }
-
     /**
      * Equipment 상태 변경 히스토리
      */
     public void recordStatusChange(Equipment equipment, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerroom().getId())
-                .serverRoomName(equipment.getRack().getServerroom().getName())
+                .serverRoomId(equipment.getRack().getServerRoom().getId())
+                .serverRoomName(equipment.getRack().getServerRoom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -161,8 +154,8 @@ public class EquipmentHistoryRecorder {
      */
     public void recordDelete(Equipment equipment, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerroom().getId())
-                .serverRoomName(equipment.getRack().getServerroom().getName())
+                .serverRoomId(equipment.getRack().getServerRoom().getId())
+                .serverRoomName(equipment.getRack().getServerRoom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())

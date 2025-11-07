@@ -156,7 +156,7 @@ public class HistoryController {
 
         log.info("Fetching statistics for server room: {}", serverRoomId);
 
-        HistoryStatisticsResponse statistics = historyService.getHistoryStatistics(
+        HistoryStatisticsResponse statistics = historyService.getStatistics(
                 serverRoomId, startDate, endDate);
 
         return ResponseEntity.ok(

@@ -23,7 +23,6 @@ public record EquipmentUpdateRequest(
         String memorySpec,
         String diskSpec,
         BigDecimal powerConsumption,
-        BigDecimal weight,
         String status,
         LocalDate installationDate,
         String notes,

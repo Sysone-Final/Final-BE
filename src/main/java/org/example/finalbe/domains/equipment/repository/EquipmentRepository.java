@@ -15,7 +15,6 @@ import java.util.Optional;
 
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
-
     /**
      * ID로 활성 장비 조회 (delYn = N)
      */
@@ -23,7 +22,10 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "LEFT JOIN FETCH e.rack r " +
             "WHERE e.id = :id AND e.delYn = 'N'")
     Optional<Equipment> findActiveById(@Param("id") Long id);
-    // ========== 페이지네이션 조회 (전체 필터) ==========
+
+    /**
+     * 페이지네이션 조회 (전체 필터 + 서버실 필터 포함)
+     */
     @Query(value = "SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverroom sr " +
@@ -33,25 +35,42 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "AND (:type IS NULL OR e.type = :type) " +
-            "AND (:status IS NULL OR e.status = :status)",
+            "AND (:status IS NULL OR e.status = :status) " +
+            "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId)",
             countQuery = "SELECT COUNT(DISTINCT e) FROM Equipment e " +
                     "LEFT JOIN e.rack r " +
+                    "LEFT JOIN r.serverroom sr " +
                     "WHERE e.delYn = :delYn " +
                     "AND (:keyword IS NULL OR :keyword = '' OR " +
                     "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                     "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                     "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
                     "AND (:type IS NULL OR e.type = :type) " +
-                    "AND (:status IS NULL OR e.status = :status)")
-    Page<Equipment> findAllWithFilters(
+                    "AND (:status IS NULL OR e.status = :status) " +
+                    "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId)")
+    Page<Equipment> searchEquipmentsWithFilters(
             @Param("keyword") String keyword,
             @Param("type") EquipmentType type,
             @Param("status") EquipmentStatus status,
+            @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn,
             Pageable pageable
     );
 
-    // ========== 서버실별 조회 ==========
+    /**
+     * 랙별 장비 조회
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "WHERE r.id = :rackId AND e.delYn = :delYn")
+    List<Equipment> findByRackIdAndDelYn(
+            @Param("rackId") Long rackId,
+            @Param("delYn") DelYN delYn
+    );
+
+    /**
+     * 서버실별 조회
+     */
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverroom sr " +
@@ -61,7 +80,14 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    // ========== 검색 (키워드) ==========
+    /**
+     * 장비 코드 중복 체크
+     */
+    boolean existsByCodeAndDelYn(String code, DelYN delYn);
+
+    /**
+     * 검색 (키워드)
+     */
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -73,7 +99,9 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    // ========== 검색 (키워드 + 회사) - 수정됨 ==========
+    /**
+     * 검색 (키워드 + 회사)
+     */
     @Query("SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverroom sr " +
@@ -89,5 +117,5 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-
+    Boolean existsByRackIdAndDelYn(Long rackId, DelYN delYn);
 }

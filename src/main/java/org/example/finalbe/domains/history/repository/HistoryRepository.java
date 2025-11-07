@@ -26,14 +26,14 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 서버실별 히스토리 조회 (페이징)
      * 예: 특정 서버실의 모든 변경 이력
      */
-    Page<History> findByDataCenterIdOrderByChangedAtDesc(Long dataCenterId, Pageable pageable);
+    Page<History> findByServerRoomIdOrderByChangedAtDesc(Long serverRoomId, Pageable pageable);
 
     /**
      * 서버실 + 기간별 히스토리 조회
      * 예: 특정 서버실의 이번 주 변경 이력
      */
-    Page<History> findByDataCenterIdAndChangedAtBetweenOrderByChangedAtDesc(
-            Long dataCenterId,
+    Page<History> findByServerRoomIdAndChangedAtBetweenOrderByChangedAtDesc(
+            Long serverRoomId,
             LocalDateTime startDate,
             LocalDateTime endDate,
             Pageable pageable
@@ -43,8 +43,8 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 특정 엔티티의 히스토리 조회 (서버실 ID 포함)
      * 예: 특정 서버실의 특정 랙의 변경 이력
      */
-    Page<History> findByDataCenterIdAndEntityTypeAndEntityIdOrderByChangedAtDesc(
-            Long dataCenterId,
+    Page<History> findByServerRoomIdAndEntityTypeAndEntityIdOrderByChangedAtDesc(
+            Long serverRoomId,
             EntityType entityType,
             Long entityId,
             Pageable pageable
@@ -65,8 +65,8 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 서버실 + 엔티티 타입별 히스토리 조회
      * 예: 특정 서버실의 모든 랙 변경 이력
      */
-    Page<History> findByDataCenterIdAndEntityTypeOrderByChangedAtDesc(
-            Long dataCenterId,
+    Page<History> findByServerRoomIdAndEntityTypeOrderByChangedAtDesc(
+            Long serverRoomId,
             EntityType entityType,
             Pageable pageable
     );
@@ -75,8 +75,8 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 서버실 + 작업 타입별 히스토리 조회
      * 예: 특정 서버실의 모든 삭제(DELETE) 이력
      */
-    Page<History> findByDataCenterIdAndActionOrderByChangedAtDesc(
-            Long dataCenterId,
+    Page<History> findByServerRoomIdAndActionOrderByChangedAtDesc(
+            Long serverRoomId,
             HistoryAction action,
             Pageable pageable
     );
@@ -92,7 +92,7 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * - 서버실 1번의 홍길동(userId=5)의 이번 주 작업 조회
      */
     @Query("SELECT h FROM History h WHERE " +
-            "(:dataCenterId IS NULL OR h.dataCenterId = :dataCenterId) AND " +
+            "(:serverRoomId IS NULL OR h.serverRoomId = :serverRoomId) AND " +
             "(:entityType IS NULL OR h.entityType = :entityType) AND " +
             "(:action IS NULL OR h.action = :action) AND " +
             "(:changedBy IS NULL OR h.changedBy = :changedBy) AND " +
@@ -100,7 +100,7 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
             "(:endDate IS NULL OR h.changedAt <= :endDate) " +
             "ORDER BY h.changedAt DESC")
     Page<History> searchHistory(
-            @Param("dataCenterId") Long dataCenterId,
+            @Param("serverRoomId") Long serverRoomId,
             @Param("entityType") EntityType entityType,
             @Param("action") HistoryAction action,
             @Param("changedBy") Long changedBy,
@@ -116,11 +116,11 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 예: 이번 주 CREATE: 50건, UPDATE: 120건, DELETE: 10건
      */
     @Query("SELECT h.action, COUNT(h) FROM History h " +
-            "WHERE h.dataCenterId = :dataCenterId " +
+            "WHERE h.serverRoomId = :serverRoomId " +
             "AND h.changedAt BETWEEN :startDate AND :endDate " +
             "GROUP BY h.action")
     List<Object[]> countByActionAndDateRange(
-            @Param("dataCenterId") Long dataCenterId,
+            @Param("serverRoomId") Long serverRoomId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
@@ -130,11 +130,11 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 예: 이번 주 RACK: 30건, EQUIPMENT: 80건, DEVICE: 40건
      */
     @Query("SELECT h.entityType, COUNT(h) FROM History h " +
-            "WHERE h.dataCenterId = :dataCenterId " +
+            "WHERE h.serverRoomId = :serverRoomId " +
             "AND h.changedAt BETWEEN :startDate AND :endDate " +
             "GROUP BY h.entityType")
     List<Object[]> countByEntityTypeAndDateRange(
-            @Param("dataCenterId") Long dataCenterId,
+            @Param("serverRoomId") Long serverRoomId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
@@ -146,12 +146,12 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 반환: [EntityType, Long entityId, String entityName, Long changeCount]
      */
     @Query("SELECT h.entityType, h.entityId, h.entityName, COUNT(h) as cnt FROM History h " +
-            "WHERE h.dataCenterId = :dataCenterId " +
+            "WHERE h.serverRoomId = :serverRoomId " +
             "AND h.changedAt BETWEEN :startDate AND :endDate " +
             "GROUP BY h.entityType, h.entityId, h.entityName " +
             "ORDER BY cnt DESC")
     List<Object[]> findTopActiveEntities(
-            @Param("dataCenterId") Long dataCenterId,
+            @Param("serverRoomId") Long serverRoomId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             Pageable pageable
@@ -164,12 +164,12 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 반환: [Long userId, String userName, Long changeCount]
      */
     @Query("SELECT h.changedBy, h.changedByName, COUNT(h) as cnt FROM History h " +
-            "WHERE h.dataCenterId = :dataCenterId " +
+            "WHERE h.serverRoomId = :serverRoomId " +
             "AND h.changedAt BETWEEN :startDate AND :endDate " +
             "GROUP BY h.changedBy, h.changedByName " +
             "ORDER BY cnt DESC")
     List<Object[]> findTopActiveUsers(
-            @Param("dataCenterId") Long dataCenterId,
+            @Param("serverRoomId") Long serverRoomId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             Pageable pageable
@@ -187,8 +187,8 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
      * 서버실 + 사용자별 히스토리 조회
      * 예: 서버실 1번에서 홍길동의 작업 이력
      */
-    Page<History> findByDataCenterIdAndChangedByOrderByChangedAtDesc(
-            Long dataCenterId,
+    Page<History> findByServerRoomIdAndChangedByOrderByChangedAtDesc(
+            Long serverRoomId,
             Long changedBy,
             Pageable pageable
     );

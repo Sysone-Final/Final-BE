@@ -66,7 +66,7 @@ public class RackController {
      * 랙 검색
      * GET /api/racks/search
      *
-     * @param keyword 검색 키워드 (랙 이름, 그룹 번호, 위치)
+     * @param keyword 검색 키워드 (랙 이름)
      * @param serverRoomId 서버실 ID (선택)
      * @return 검색된 랙 목록
      */
@@ -77,36 +77,6 @@ public class RackController {
 
         List<RackListResponse> racks = rackService.searchRacks(keyword, serverRoomId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 검색 완료", racks));
-    }
-
-    /**
-     * 담당자별 랙 목록 조회
-     * GET /api/racks/manager/{managerId}
-     *
-     * @param managerId 담당자 ID
-     * @return 담당자별 랙 목록
-     */
-    @GetMapping("/manager/{managerId}")
-    public ResponseEntity<CommonResDto> getRacksByManager(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 담당자 ID입니다.") Long managerId) {
-
-        List<RackListResponse> racks = rackService.getRacksByManager(managerId);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "담당자별 랙 목록 조회 완료", racks));
-    }
-
-    /**
-     * 부서별 랙 목록 조회
-     * GET /api/racks/department/{departmentId}
-     *
-     * @param departmentId 부서 ID
-     * @return 부서별 랙 목록
-     */
-    @GetMapping("/department/{departmentId}")
-    public ResponseEntity<CommonResDto> getRacksByDepartment(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 부서 ID입니다.") Long departmentId) {
-
-        List<RackListResponse> racks = rackService.getRacksByDepartment(departmentId);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "부서별 랙 목록 조회 완료", racks));
     }
 
     /**
@@ -156,5 +126,23 @@ public class RackController {
 
         rackService.deleteRack(id);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 삭제 완료", null));
+    }
+
+    /**
+     * 랙 상태 변경
+     * PATCH /api/racks/{id}/status
+     *
+     * @param id 랙 ID
+     * @param request 상태 변경 요청 DTO
+     * @return 변경된 랙 정보
+     */
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    public ResponseEntity<CommonResDto> changeRackStatus(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id,
+            @Valid @RequestBody RackStatusChangeRequest request) {
+
+        RackDetailResponse rack = rackService.changeRackStatus(id, request);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 상태 변경 완료", rack));
     }
 }

@@ -23,8 +23,8 @@ import java.util.Map;
 @Builder
 public record HistoryDetailResponse(
         Long id,
-        Long dataCenterId,
-        String dataCenterName,
+        Long serverRoomId,
+        String serverRoomName,
         EntityType entityType,
         String entityTypeName,
         Long entityId,
@@ -61,8 +61,8 @@ public record HistoryDetailResponse(
 
         return HistoryDetailResponse.builder()
                 .id(history.getId())
-                .dataCenterId(history.getDataCenterId())
-                .dataCenterName(history.getDataCenterName())
+                .serverRoomId(history.getServerRoomId())
+                .serverRoomName(history.getServerRoomName())
                 .entityType(history.getEntityType())
                 .entityTypeName(translateEntityType(history.getEntityType()))
                 .entityId(history.getEntityId())
@@ -215,7 +215,7 @@ public record HistoryDetailResponse(
      */
     private static String translateEntityType(EntityType type) {
         switch (type) {
-            case DATACENTER:
+            case SERVERROOM:
                 return "전산실";
             case RACK:
                 return "랙";

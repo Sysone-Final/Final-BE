@@ -6,7 +6,7 @@ import org.example.finalbe.domains.companyserverroom.domain.CompanyServerRoom;
 import java.time.LocalDateTime;
 
 /**
- * 회사-전산실 매핑 응답 DTO
+ * 회사-서버실 매핑 응답 DTO
  */
 @Builder
 public record CompanyServerRoomResponse(

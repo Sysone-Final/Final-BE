@@ -106,7 +106,7 @@ public class RackElevationController {
      * GET /api/racks/{id}/utilization
      *
      * @param id 랙 ID
-     * @return 랙 사용률 정보 (유닛, 전력, 중량 사용률)
+     * @return 랙 사용률 정보 (유닛, 전력 사용률)
      */
     @GetMapping("/{id}/utilization")
     public ResponseEntity<CommonResDto> getRackUtilization(

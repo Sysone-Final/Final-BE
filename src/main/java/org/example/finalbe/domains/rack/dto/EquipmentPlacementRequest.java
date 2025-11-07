@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 public record EquipmentPlacementRequest(
         Integer startUnit,
         Integer unitSize,
-        BigDecimal powerConsumption,
-        BigDecimal weight
+        BigDecimal powerConsumption
 ) {
 }

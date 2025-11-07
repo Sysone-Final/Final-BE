@@ -12,7 +12,6 @@ import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 /**
  * 회사-서버실 매핑 엔티티
- * (기존 회사-전산실 매핑)
  */
 @Entity
 @Table(name = "company_serverroom",

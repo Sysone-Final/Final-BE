@@ -72,7 +72,7 @@ public record RackCreateRequest(
                 .status(this.status != null ? this.status : RackStatus.ACTIVE)
                 .rackType(this.rackType != null ? this.rackType : RackType.STANDARD)
                 .notes(this.notes)
-                .serverroom(serverRoom)
+                .serverRoom(serverRoom)
                 .build();
     }
 }

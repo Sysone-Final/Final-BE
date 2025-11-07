@@ -100,7 +100,7 @@ public class CompanyServerRoomController {
 
     /**
      * 회사-서버실 매핑 삭제 (단건)
-     * DELETE /api/company-serverrooms/company/{companyId}/serverroom/{serverRoomId}
+     * DELETE /r
      *
      * @param companyId 회사 ID
      * @param serverRoomId 서버실 ID

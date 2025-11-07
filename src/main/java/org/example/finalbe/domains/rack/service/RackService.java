@@ -308,7 +308,7 @@ public class RackService {
                 .rackType(rack.getRackType())
                 .doorDirection(rack.getDoorDirection())
                 .zoneDirection(rack.getZoneDirection())
-                .serverroom(rack.getServerRoom())
+                .serverRoom(rack.getServerRoom())
                 .build();
     }
 }

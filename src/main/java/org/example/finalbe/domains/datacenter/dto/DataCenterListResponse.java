@@ -18,11 +18,8 @@ public record DataCenterListResponse(
         String location,
         Integer floor,
         DataCenterStatus status,
-        Integer maxRackCount,
         Integer currentRackCount,
-        Integer availableRackCount,
-        BigDecimal totalArea,
-        String managerName
+        BigDecimal totalArea
 ) {
     /**
      * Entity → DTO 변환
@@ -35,11 +32,8 @@ public record DataCenterListResponse(
                 .location(dataCenter.getLocation())
                 .floor(dataCenter.getFloor())
                 .status(dataCenter.getStatus())
-                .maxRackCount(dataCenter.getMaxRackCount())
                 .currentRackCount(dataCenter.getCurrentRackCount())
-                .availableRackCount(dataCenter.getAvailableRackCount())
                 .totalArea(dataCenter.getTotalArea())
-                .managerName(dataCenter.getManager() != null ? dataCenter.getManager().getName() : null)
                 .build();
     }
 }

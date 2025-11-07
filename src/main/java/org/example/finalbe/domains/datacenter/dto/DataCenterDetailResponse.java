@@ -25,15 +25,11 @@ public record DataCenterDetailResponse(
         BigDecimal totalArea,
         BigDecimal totalPowerCapacity,
         BigDecimal totalCoolingCapacity,
-        Integer maxRackCount,
         Integer currentRackCount,
-        Integer availableRackCount,
         BigDecimal temperatureMin,
         BigDecimal temperatureMax,
         BigDecimal humidityMin,
         BigDecimal humidityMax,
-        Long managerId,
-        String managerName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -54,15 +50,11 @@ public record DataCenterDetailResponse(
                 .totalArea(dataCenter.getTotalArea())
                 .totalPowerCapacity(dataCenter.getTotalPowerCapacity())
                 .totalCoolingCapacity(dataCenter.getTotalCoolingCapacity())
-                .maxRackCount(dataCenter.getMaxRackCount())
                 .currentRackCount(dataCenter.getCurrentRackCount())
-                .availableRackCount(dataCenter.getAvailableRackCount())
                 .temperatureMin(dataCenter.getTemperatureMin())
                 .temperatureMax(dataCenter.getTemperatureMax())
                 .humidityMin(dataCenter.getHumidityMin())
                 .humidityMax(dataCenter.getHumidityMax())
-                .managerId(dataCenter.getManager() != null ? dataCenter.getManager().getId() : null)
-                .managerName(dataCenter.getManager() != null ? dataCenter.getManager().getName() : null)
                 .createdAt(dataCenter.getCreatedAt())
                 .updatedAt(dataCenter.getUpdatedAt())
                 .build();

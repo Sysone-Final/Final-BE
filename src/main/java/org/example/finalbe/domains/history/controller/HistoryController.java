@@ -1,13 +1,12 @@
 package org.example.finalbe.domains.history.controller;
 
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.dto.CommonResDto;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
-import org.example.finalbe.domains.history.dto.HistoryResponse;
-import org.example.finalbe.domains.history.dto.HistorySearchRequest;
-import org.example.finalbe.domains.history.dto.HistoryStatisticsResponse;
+import org.example.finalbe.domains.history.dto.*;
 
 import org.example.finalbe.domains.history.service.HistoryService;
 import org.springframework.data.domain.Page;
@@ -17,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 히스토리 컨트롤러
@@ -201,5 +201,89 @@ public class HistoryController {
 
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "내 히스토리 조회 성공", history));
+    }
+
+    /**
+     * 히스토리 상세 조회 (변경 내역 포함)
+     * GET /api/history/{id}
+     *
+     * 사용 예시:
+     * GET /api/history/123
+     *
+     * 응답:
+     * {
+     *   "id": 123,
+     *   "entityName": "랙 A-01",
+     *   "action": "UPDATE",
+     *   "actionName": "수정",
+     *   "changedByName": "홍길동",
+     *   "changedAt": "2025-11-06T10:30:00",
+     *   "changeDetails": [
+     *     {
+     *       "fieldLabel": "랙 위치",
+     *       "oldValue": "5",
+     *       "newValue": "10",
+     *       "changeDescription": "랙 위치: 5 → 10"
+     *     },
+     *     {
+     *       "fieldLabel": "랙 이름",
+     *       "oldValue": "랙-A",
+     *       "newValue": "랙-A-01",
+     *       "changeDescription": "랙 이름: 랙-A → 랙-A-01"
+     *     }
+     *   ]
+     * }
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<CommonResDto> getHistoryDetail(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 히스토리 ID입니다.") Long id) {
+
+        HistoryDetailResponse history = historyService.getHistoryDetail(id);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "히스토리 상세 조회 완료", history));
+    }
+
+    /**
+     * 엔티티별 히스토리 목록 조회
+     * GET /api/history/entity?entityType=RACK&entityId=123
+     *
+     * 특정 엔티티(예: 특정 랙)의 모든 히스토리를 조회
+     */
+    @GetMapping("/entity/details")
+    public ResponseEntity<CommonResDto> getHistoryByEntity(
+            @RequestParam EntityType entityType,
+            @RequestParam Long entityId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Page<HistoryDetailResponse> histories = historyService.getHistoryByEntity(
+                entityType, entityId, page, size);
+
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "엔티티 히스토리 조회 완료", histories));
+    }
+
+    /**
+     * 내가 접근 가능한 서버실 목록 조회
+     * GET /api/history/my-datacenters
+     *
+     * 사용 목적:
+     * - 프론트엔드에서 히스토리 조회 시 서버실 선택 드롭다운에 사용
+     * - 사용자가 소속된 부서가 담당하는 랙이 있는 서버실만 표시
+     *
+     * 사용 예시:
+     * 1. 사용자가 히스토리 화면에 진입
+     * 2. 이 API로 접근 가능한 서버실 목록 조회
+     * 3. 드롭다운에서 서버실 선택
+     * 4. 선택한 서버실의 히스토리 조회
+     *
+     * @return 접근 가능한 서버실 목록
+     */
+    @GetMapping("/my-datacenters")
+    public ResponseEntity<CommonResDto> getMyAccessibleDataCenters() {
+        log.info("Fetching accessible datacenters for current user");
+
+        List<DataCenterAccessResponse> datacenters = historyService.getMyAccessibleDataCenters();
+
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "접근 가능한 서버실 목록 조회 성공", datacenters));
     }
 }

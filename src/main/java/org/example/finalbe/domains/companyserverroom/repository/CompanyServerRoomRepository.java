@@ -10,43 +10,44 @@ import java.util.Optional;
 
 /**
  * CompanyServerRoom 데이터 접근 계층
+ * (회사-서버실 매핑)
  */
 public interface CompanyServerRoomRepository extends JpaRepository<CompanyServerRoom, Long> {
 
     /**
-     * 회사별 전산실 매핑 목록 조회
+     * 회사별 서버실 매핑 목록 조회
      */
     @Query("""
-    SELECT cdc FROM CompanyServerRoom cdc
-    JOIN FETCH cdc.company c
-    JOIN FETCH cdc.serverRoom dc
-    WHERE cdc.company.id = :companyId 
-    AND cdc.delYn = 'N'
+    SELECT csr FROM CompanyServerRoom csr
+    JOIN FETCH csr.company c
+    JOIN FETCH csr.serverRoom sr
+    WHERE csr.company.id = :companyId 
+    AND csr.delYn = 'N'
     """)
     List<CompanyServerRoom> findByCompanyId(@Param("companyId") Long companyId);
 
     /**
-     * 전산실별 회사 매핑 목록 조회
+     * 서버실별 회사 매핑 목록 조회
      */
     @Query("""
-    SELECT cdc FROM CompanyServerRoom cdc
-    JOIN FETCH cdc.company c
-    JOIN FETCH cdc.serverRoom dc
-    WHERE cdc.serverRoom.id = :serverRoomId 
-    AND cdc.delYn = 'N'
+    SELECT csr FROM CompanyServerRoom csr
+    JOIN FETCH csr.company c
+    JOIN FETCH csr.serverRoom sr
+    WHERE csr.serverRoom.id = :serverRoomId 
+    AND csr.delYn = 'N'
     """)
     List<CompanyServerRoom> findByServerRoomId(@Param("serverRoomId") Long serverRoomId);
 
     /**
-     * 특정 회사-전산실 매핑 조회
+     * 특정 회사-서버실 매핑 조회
      */
     @Query("""
-    SELECT cdc FROM CompanyServerRoom cdc
-    JOIN FETCH cdc.company c
-    JOIN FETCH cdc.serverRoom dc
-    WHERE cdc.company.id = :companyId 
-    AND cdc.serverRoom.id = :serverRoomId 
-    AND cdc.delYn = 'N'
+    SELECT csr FROM CompanyServerRoom csr
+    JOIN FETCH csr.company c
+    JOIN FETCH csr.serverRoom sr
+    WHERE csr.company.id = :companyId 
+    AND csr.serverRoom.id = :serverRoomId 
+    AND csr.delYn = 'N'
     """)
     Optional<CompanyServerRoom> findByCompanyIdAndServerRoomId(
             @Param("companyId") Long companyId,
@@ -57,11 +58,11 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
      * 매핑 존재 여부 확인
      */
     @Query("""
-    SELECT CASE WHEN COUNT(cdc) > 0 THEN true ELSE false END 
-    FROM CompanyServerRoom cdc 
-    WHERE cdc.company.id = :companyId 
-    AND cdc.serverRoom.id = :dataCenterId 
-    AND cdc.delYn = 'N'
+    SELECT CASE WHEN COUNT(csr) > 0 THEN true ELSE false END 
+    FROM CompanyServerRoom csr 
+    WHERE csr.company.id = :companyId 
+    AND csr.serverRoom.id = :serverRoomId 
+    AND csr.delYn = 'N'
     """)
     boolean existsByCompanyIdAndServerRoomId(
             @Param("companyId") Long companyId,

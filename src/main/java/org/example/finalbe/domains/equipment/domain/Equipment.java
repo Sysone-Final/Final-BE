@@ -76,8 +76,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "power_consumption", precision = 10, scale = 2)
     private BigDecimal powerConsumption;
 
-    @Column(name = "weight", precision = 10, scale = 2)
-    private BigDecimal weight;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
@@ -89,8 +87,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "notes", length = 1000)
     private String notes;
 
-    @Column(name = "manager_id")
-    private Long managerId;
 
     // ========== 모니터링 설정 필드 추가 ==========
     @Column(name = "monitoring_enabled")
@@ -140,7 +136,6 @@ public class Equipment extends BaseTimeEntity {
             String memorySpec,
             String diskSpec,
             BigDecimal powerConsumption,
-            BigDecimal weight,
             EquipmentStatus status,
             LocalDate installationDate,
             String notes,
@@ -165,7 +160,6 @@ public class Equipment extends BaseTimeEntity {
         if (memorySpec != null) this.memorySpec = memorySpec;
         if (diskSpec != null) this.diskSpec = diskSpec;
         if (powerConsumption != null) this.powerConsumption = powerConsumption;
-        if (weight != null) this.weight = weight;
         if (status != null) this.status = status;
         if (installationDate != null) this.installationDate = installationDate;
         if (notes != null) this.notes = notes;

@@ -26,17 +26,9 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     /**
      * 서버실별 랙 목록 조회
      */
-    @Query("SELECT r FROM Rack r WHERE r.serverroom.id = :serverRoomId AND r.delYn = :delYn ORDER BY r.rackName")
+    @Query("SELECT r FROM Rack r WHERE r.serverRoom.id = :serverRoomId AND r.delYn = :delYn ORDER BY r.rackName")
     List<Rack> findByServerRoomIdAndDelYn(
             @Param("serverRoomId") Long serverRoomId,
-            @Param("delYn") DelYN delYn);
-
-    /**
-     * 담당자별 랙 목록 조회
-     */
-    @Query("SELECT r FROM Rack r WHERE r.managerId = :managerId AND r.delYn = :delYn ORDER BY r.rackName")
-    List<Rack> findByManagerIdAndDelYn(
-            @Param("managerId") Long managerId,
             @Param("delYn") DelYN delYn);
 
     /**
@@ -52,10 +44,8 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
      */
     @Query("""
         SELECT r FROM Rack r
-        WHERE r.serverroom.id = :serverRoomId
-        AND (r.rackName LIKE %:keyword% 
-            OR r.groupNumber LIKE %:keyword% 
-            OR r.rackLocation LIKE %:keyword%)
+        WHERE r.serverRoom.id = :serverRoomId
+        AND r.rackName LIKE %:keyword%
         AND r.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
         ORDER BY r.rackName
     """)
@@ -68,12 +58,10 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
      */
     @Query("""
         SELECT r FROM Rack r
-        JOIN r.serverroom sr
+        JOIN r.serverRoom sr
         JOIN CompanyServerRoom csr ON csr.serverRoom.id = sr.id
         WHERE csr.company.id = :companyId
-        AND (r.rackName LIKE %:keyword% 
-            OR r.groupNumber LIKE %:keyword% 
-            OR r.rackLocation LIKE %:keyword%)
+        AND r.rackName LIKE %:keyword%
         AND r.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
         ORDER BY r.rackName
     """)
@@ -82,7 +70,19 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
             @Param("companyId") Long companyId);
 
     /**
+     * 전체 키워드 검색
+     */
+    @Query("""
+        SELECT r FROM Rack r
+        WHERE r.rackName LIKE %:keyword%
+        AND r.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+        ORDER BY r.rackName
+    """)
+    List<Rack> searchByKeyword(@Param("keyword") String keyword);
+
+    /**
      * 랙 이름 존재 여부 확인 (서버실별)
      */
-    boolean existsByRackNameAndServerroomIdAndDelYn(String rackName, Long serverRoomId, DelYN delYn);
+    boolean existsByRackNameAndServerRoomIdAndDelYn(String rackName, Long serverRoomId, DelYN delYn);
+
 }

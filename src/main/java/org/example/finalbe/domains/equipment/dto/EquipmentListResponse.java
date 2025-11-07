@@ -38,8 +38,8 @@ public record EquipmentListResponse(
                 .unitSize(equipment.getUnitSize())
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
                 .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
-                .serverRoomId(equipment.getRack() != null && equipment.getRack().getServerroom() != null
-                        ? equipment.getRack().getServerroom().getId() : null)
+                .serverRoomId(equipment.getRack() != null && equipment.getRack().getServerRoom() != null
+                        ? equipment.getRack().getServerRoom().getId() : null)
                 .modelName(equipment.getModelName())
                 .manufacturer(equipment.getManufacturer())
                 .ipAddress(equipment.getIpAddress())

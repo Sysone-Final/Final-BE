@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Rack 히스토리 기록 전담 클래스 (개선 버전)
+ * Rack 히스토리 기록 전담 클래스
  */
 @Component
 @Slf4j
@@ -29,8 +29,8 @@ public class RackHistoryRecorder {
      */
     public void recordCreate(Rack rack, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(rack.getServerroom().getId())
-                .serverRoomName(rack.getServerroom().getName())
+                .serverRoomId(rack.getServerRoom().getId())
+                .serverRoomName(rack.getServerRoom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(rack.getId())
                 .entityName(rack.getRackName())
@@ -63,8 +63,8 @@ public class RackHistoryRecorder {
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(newRack.getServerroom().getId())
-                .serverRoomName(newRack.getServerroom().getName())
+                .serverRoomId(newRack.getServerRoom().getId())
+                .serverRoomName(newRack.getServerRoom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(newRack.getId())
                 .entityName(newRack.getRackName())
@@ -88,8 +88,8 @@ public class RackHistoryRecorder {
      */
     public void recordStatusChange(Rack rack, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(rack.getServerroom().getId())
-                .serverRoomName(rack.getServerroom().getName())
+                .serverRoomId(rack.getServerRoom().getId())
+                .serverRoomName(rack.getServerRoom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(rack.getId())
                 .entityName(rack.getRackName())
@@ -112,8 +112,8 @@ public class RackHistoryRecorder {
      */
     public void recordDelete(Rack rack, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(rack.getServerroom().getId())
-                .serverRoomName(rack.getServerroom().getName())
+                .serverRoomId(rack.getServerRoom().getId())
+                .serverRoomName(rack.getServerRoom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(rack.getId())
                 .entityName(rack.getRackName())
@@ -135,8 +135,8 @@ public class RackHistoryRecorder {
     private Map<String, Object> buildSnapshot(Rack rack) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("rackName", rack.getRackName());
-        snapshot.put("groupNumber", rack.getGroupNumber());
-        snapshot.put("rackLocation", rack.getRackLocation());
+        snapshot.put("gridX", rack.getGridX());
+        snapshot.put("gridY", rack.getGridY());
         snapshot.put("totalUnits", rack.getTotalUnits());
         snapshot.put("usedUnits", rack.getUsedUnits());
         snapshot.put("availableUnits", rack.getAvailableUnits());
@@ -146,8 +146,10 @@ public class RackHistoryRecorder {
         snapshot.put("zoneDirection", rack.getZoneDirection() != null ? rack.getZoneDirection().name() : null);
         snapshot.put("maxPowerCapacity", rack.getMaxPowerCapacity());
         snapshot.put("currentPowerUsage", rack.getCurrentPowerUsage());
-        snapshot.put("maxWeightCapacity", rack.getMaxWeightCapacity());
-        snapshot.put("currentWeight", rack.getCurrentWeight());
+        snapshot.put("measuredPower", rack.getMeasuredPower());
+        snapshot.put("manufacturer", rack.getManufacturer());
+        snapshot.put("serialNumber", rack.getSerialNumber());
+        snapshot.put("notes", rack.getNotes());
         return snapshot;
     }
 
@@ -200,8 +202,8 @@ public class RackHistoryRecorder {
     private String getFieldLabel(String field) {
         return switch (field) {
             case "rackName" -> "랙 이름";
-            case "groupNumber" -> "그룹 번호";
-            case "rackLocation" -> "랙 위치";
+            case "gridX" -> "X 좌표";
+            case "gridY" -> "Y 좌표";
             case "totalUnits" -> "총 유닛 수";
             case "usedUnits" -> "사용 유닛 수";
             case "availableUnits" -> "가용 유닛 수";
@@ -211,8 +213,10 @@ public class RackHistoryRecorder {
             case "zoneDirection" -> "존 방향";
             case "maxPowerCapacity" -> "최대 전력 용량";
             case "currentPowerUsage" -> "현재 전력 사용량";
-            case "maxWeightCapacity" -> "최대 무게 용량";
-            case "currentWeight" -> "현재 무게";
+            case "measuredPower" -> "실측 전력";
+            case "manufacturer" -> "제조사";
+            case "serialNumber" -> "시리얼 번호";
+            case "notes" -> "비고";
             default -> field;
         };
     }
@@ -223,10 +227,13 @@ public class RackHistoryRecorder {
         }
 
         return switch (field) {
-            case "maxPowerCapacity", "currentPowerUsage" -> value + " kW";
-            case "maxWeightCapacity", "currentWeight" -> value + " kg";
+            case "maxPowerCapacity", "currentPowerUsage", "measuredPower" -> value + " W";
             case "totalUnits", "usedUnits", "availableUnits" -> value + " U";
+            case "gridX", "gridY" -> value.toString();
             case "status" -> translateStatus(value.toString());
+            case "rackType" -> translateRackType(value.toString());
+            case "doorDirection" -> translateDoorDirection(value.toString());
+            case "zoneDirection" -> translateZoneDirection(value.toString());
             default -> value.toString();
         };
     }
@@ -238,6 +245,34 @@ public class RackHistoryRecorder {
             case "MAINTENANCE" -> "점검중";
             case "RESERVED" -> "예약됨";
             default -> status;
+        };
+    }
+
+    private String translateRackType(String rackType) {
+        return switch (rackType) {
+            case "STANDARD" -> "표준";
+            case "NETWORK" -> "네트워크";
+            case "SERVER" -> "서버";
+            default -> rackType;
+        };
+    }
+
+    private String translateDoorDirection(String doorDirection) {
+        return switch (doorDirection) {
+            case "FRONT" -> "전면";
+            case "REAR" -> "후면";
+            case "BOTH" -> "양면";
+            default -> doorDirection;
+        };
+    }
+
+    private String translateZoneDirection(String zoneDirection) {
+        return switch (zoneDirection) {
+            case "NORTH" -> "북";
+            case "SOUTH" -> "남";
+            case "EAST" -> "동";
+            case "WEST" -> "서";
+            default -> zoneDirection;
         };
     }
 }

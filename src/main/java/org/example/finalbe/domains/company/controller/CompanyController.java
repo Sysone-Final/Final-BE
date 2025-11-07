@@ -135,20 +135,20 @@ public class CompanyController {
     }
 
     /**
-     * 회사의 전산실 목록 조회
-     * GET /api/companies/{id}/datacenters
+     * 회사의 서버실 목록 조회
+     * GET /api/companies/{id}/serverrooms
      *
      * @param id 회사 ID
-     * @return 전산실 목록
+     * @return 서버실 목록
      */
-    @GetMapping("/{id}/datacenters")
-    public ResponseEntity<CommonResDto> getCompanyDataCenters(
+    @GetMapping("/{id}/serverrooms")
+    public ResponseEntity<CommonResDto> getCompanyServerRooms(
             @PathVariable
             @Min(value = 1, message = "유효하지 않은 회사 ID입니다.")
             Long id
     ) {
-        List<CompanyDataCenterListResponse> datacenters = companyService.getCompanyDataCenters(id);
+        List<CompanyServerRoomListResponse> serverRooms = companyService.getCompanyServerRooms(id);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "회사 전산실 목록 조회 완료", datacenters));
+                new CommonResDto(HttpStatus.OK, "회사 서버실 목록 조회 완료", serverRooms));
     }
 }

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  */
 @Builder
 public record HistorySearchRequest(
-        Long dataCenterId,      // 필수: 서버실 ID
+        Long serverRoomId,      // 필수: 서버실 ID
         EntityType entityType,  // 선택: 엔티티 타입 필터
         Long entityId,          // 선택: 특정 엔티티 ID
         HistoryAction action,   // 선택: 작업 타입 필터
@@ -38,9 +38,9 @@ public record HistorySearchRequest(
     /**
      * 기본 생성자 (서버실 ID만 필수)
      */
-    public static HistorySearchRequest ofDataCenter(Long dataCenterId) {
+    public static HistorySearchRequest ofServerRoom(Long serverRoomId) {
         return HistorySearchRequest.builder()
-                .dataCenterId(dataCenterId)
+                .serverRoomId(serverRoomId)
                 .page(0)
                 .size(20)
                 .build();
@@ -49,9 +49,9 @@ public record HistorySearchRequest(
     /**
      * 특정 엔티티 히스토리 조회용
      */
-    public static HistorySearchRequest ofEntity(Long dataCenterId, EntityType entityType, Long entityId) {
+    public static HistorySearchRequest ofEntity(Long serverRoomId, EntityType entityType, Long entityId) {
         return HistorySearchRequest.builder()
-                .dataCenterId(dataCenterId)
+                .serverRoomId(serverRoomId)
                 .entityType(entityType)
                 .entityId(entityId)
                 .page(0)

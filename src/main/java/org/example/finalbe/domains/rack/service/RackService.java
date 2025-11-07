@@ -11,7 +11,6 @@ import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
-import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.history.service.RackHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
@@ -42,17 +41,16 @@ public class RackService {
     private final ServerRoomRepository serverRoomRepository;
     private final EquipmentRepository equipmentRepository;
     private final MemberRepository memberRepository;
-    private final RackDepartmentRepository rackDepartmentRepository;
-    private final CompanyServerRoomRepository cdcRepository;
+    private final CompanyServerRoomRepository csrRepository;
     private final RackHistoryRecorder rackHistoryRecorder;
 
     /**
      * 랙 목록 조회
      */
-    public List<RackListResponse> getRacksByDataCenter(
-            Long dataCenterId, String status, String sortBy) {
+    public List<RackListResponse> getRacksByServerRoom(
+            Long serverRoomId, String status, String sortBy) {
 
-        List<Rack> racks = rackRepository.findByDatacenterIdAndDelYn(dataCenterId, DelYN.N);
+        List<Rack> racks = rackRepository.findByServerRoomIdAndDelYn(serverRoomId, DelYN.N);
 
         // 필터링
         if (status != null) {
@@ -100,32 +98,29 @@ public class RackService {
         // 쓰기 권한 확인
         validateWritePermission(currentMember);
 
-        // 전산실 조회 및 접근 권한 확인
-        ServerRoom serverRoom = serverRoomRepository.findActiveById(request.datacenterId())
-                .orElseThrow(() -> new EntityNotFoundException("전산실", request.datacenterId()));
+        // 서버실 조회 및 접근 권한 확인
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(request.serverRoomId())
+                .orElseThrow(() -> new EntityNotFoundException("서버실", request.serverRoomId()));
 
         if (currentMember.getRole() != Role.ADMIN) {
-            if (!cdcRepository.existsByCompanyIdAndDataCenterId(
-                    currentMember.getCompany().getId(), request.datacenterId())) {
-                throw new AccessDeniedException("해당 전산실에 대한 접근 권한이 없습니다.");
+            if (!csrRepository.existsByCompanyIdAndServerRoomId(
+                    currentMember.getCompany().getId(), request.serverRoomId())) {
+                throw new AccessDeniedException("해당 서버실에 대한 접근 권한이 없습니다.");
             }
         }
 
-        // 랙 이름 중복 체크 (같은 전산실 내)
-        if (rackRepository.existsByServerRoomIdAndRackNameAndDelYn(
-                request.datacenterId(), request.rackName(), DelYN.N)) {
+        // 랙 이름 중복 체크 (같은 서버실 내)
+        if (rackRepository.existsByRackNameAndServerRoomIdAndDelYn(
+                request.rackName(), request.serverRoomId(), DelYN.N)) {
             throw new DuplicateException("랙 이름", request.rackName());
         }
 
         // 랙 생성
-        Rack rack = request.toEntity(serverRoom, currentMember.getUserName());
+        Rack rack = request.toEntity(serverRoom);
         Rack savedRack = rackRepository.save(rack);
 
         // 히스토리 기록
         rackHistoryRecorder.recordCreate(savedRack, currentMember);
-
-        // 전산실의 현재 랙 수 증가
-        serverRoom.incrementRackCount();
 
         log.info("Rack created successfully with id: {}", savedRack.getId());
         return RackDetailResponse.from(savedRack);
@@ -150,8 +145,8 @@ public class RackService {
 
         // 랙 이름 중복 체크 (변경하는 경우)
         if (request.rackName() != null && !request.rackName().equals(rack.getRackName())) {
-            if (rackRepository.existsByServerRoomIdAndRackNameAndDelYn(
-                    rack.getDatacenter().getId(), request.rackName(), DelYN.N)) {
+            if (rackRepository.existsByRackNameAndServerRoomIdAndDelYn(
+                    request.rackName(), rack.getServerRoom().getId(), DelYN.N)) {
                 throw new DuplicateException("랙 이름", request.rackName());
             }
         }
@@ -160,7 +155,7 @@ public class RackService {
         Rack oldRack = cloneRack(rack);
 
         // 랙 정보 업데이트
-        rack.updateInfo(request, currentMember.getUserName());
+        rack.updateInfo(request);
 
         // 히스토리 기록
         rackHistoryRecorder.recordUpdate(oldRack, rack, currentMember);
@@ -195,13 +190,10 @@ public class RackService {
         }
 
         // 소프트 삭제
-        rack.softDelete();
+        rack.setDelYn(DelYN.Y);
 
         // 히스토리 기록
         rackHistoryRecorder.recordDelete(rack, currentMember);
-
-        // 전산실의 현재 랙 수 감소
-        rack.getDatacenter().decrementRackCount();
 
         log.info("Rack deleted successfully for id: {}", id);
     }
@@ -226,11 +218,10 @@ public class RackService {
         // 이전 상태 저장
         String oldStatus = rack.getStatus() != null ? rack.getStatus().name() : "UNKNOWN";
 
-        rack.changeStatus(request.status(), currentMember.getUserName());
+        rack.setStatus(request.status());
 
         // 히스토리 기록
-        rackHistoryRecorder.recordStatusChange(rack, oldStatus, request.status().name(),
-                currentMember);
+        rackHistoryRecorder.recordStatusChange(rack, oldStatus, request.status().name(), currentMember);
 
         log.info("Rack status changed successfully for id: {}", id);
         return RackDetailResponse.from(rack);
@@ -239,48 +230,22 @@ public class RackService {
     /**
      * 랙 검색
      */
-    public List<RackListResponse> searchRacks(String keyword, Long dataCenterId) {
+    public List<RackListResponse> searchRacks(String keyword, Long serverRoomId) {
         Member currentMember = getCurrentMember();
         log.debug("Searching racks with keyword: {}", keyword);
 
         List<Rack> racks;
 
-        if (dataCenterId != null) {
-            // 특정 전산실 내 검색
-            racks = rackRepository.searchByKeywordInDataCenter(keyword, dataCenterId);
+        if (serverRoomId != null) {
+            // 특정 서버실 내 검색
+            racks = rackRepository.searchByKeywordInServerRoom(keyword, serverRoomId);
         } else if (currentMember.getRole() == Role.ADMIN) {
             // ADMIN은 전체 검색
             racks = rackRepository.searchByKeyword(keyword);
         } else {
-            // OPERATOR, VIEWER는 접근 가능한 전산실 내 검색
+            // OPERATOR, VIEWER는 접근 가능한 서버실 내 검색
             racks = rackRepository.searchByKeywordForCompany(keyword, currentMember.getCompany().getId());
         }
-
-        return racks.stream()
-                .map(RackListResponse::from)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 담당자별 랙 목록 조회
-     */
-    public List<RackListResponse> getRacksByManager(Long managerId) {
-        log.debug("Fetching racks by manager: {}", managerId);
-
-        List<Rack> racks = rackRepository.findByManagerIdAndDelYn(managerId, DelYN.N);
-
-        return racks.stream()
-                .map(RackListResponse::from)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 부서별 랙 목록 조회
-     */
-    public List<RackListResponse> getRacksByDepartment(Long departmentId) {
-        log.debug("Fetching racks by department ID: {}", departmentId);
-
-        List<Rack> racks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
 
         return racks.stream()
                 .map(RackListResponse::from)
@@ -322,10 +287,10 @@ public class RackService {
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
-        // 회사의 전산실 접근 권한 확인
-        if (!cdcRepository.existsByCompanyIdAndDataCenterId(
+        // 회사의 서버실 접근 권한 확인
+        if (!csrRepository.existsByCompanyIdAndServerRoomId(
                 member.getCompany().getId(),
-                rack.getDatacenter().getId())) {
+                rack.getServerRoom().getId())) {
             throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
         }
     }
@@ -334,8 +299,8 @@ public class RackService {
         return Rack.builder()
                 .id(rack.getId())
                 .rackName(rack.getRackName())
-                .groupNumber(rack.getGroupNumber())
-                .rackLocation(rack.getRackLocation())
+                .gridX(rack.getGridX())
+                .gridY(rack.getGridY())
                 .totalUnits(rack.getTotalUnits())
                 .usedUnits(rack.getUsedUnits())
                 .availableUnits(rack.getAvailableUnits())
@@ -343,8 +308,7 @@ public class RackService {
                 .rackType(rack.getRackType())
                 .doorDirection(rack.getDoorDirection())
                 .zoneDirection(rack.getZoneDirection())
-                .datacenter(rack.getDatacenter())
-                .managerId(rack.getManagerId())
+                .serverroom(rack.getServerRoom())
                 .build();
     }
 }

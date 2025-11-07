@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * DataCenter 데이터 접근 계층
+ * ServerRoom 데이터 접근 계층
  */
 public interface ServerRoomRepository extends JpaRepository<ServerRoom, Long> {
 

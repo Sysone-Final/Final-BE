@@ -32,7 +32,7 @@ public class EquipmentController {
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
-     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&datacenterId=
+     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=
      */
     @GetMapping
     public ResponseEntity<CommonResDto> getEquipments(
@@ -41,10 +41,10 @@ public class EquipmentController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) EquipmentType type,
             @RequestParam(required = false) EquipmentStatus status,
-            @RequestParam(required = false) Long datacenterId) {
+            @RequestParam(required = false) Long serverRoomId) {
 
         EquipmentPageResponse response = equipmentService.getEquipmentsWithFilters(
-                page, size, keyword, type, status, datacenterId);
+                page, size, keyword, type, status, serverRoomId);
 
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", response));
@@ -81,17 +81,17 @@ public class EquipmentController {
     }
 
     /**
-     * 전산실별 장비 목록 조회
-     * GET /api/equipments/datacenter/{datacenterId}
+     * 서버실별 장비 목록 조회
+     * GET /api/equipments/serverroom/{serverRoomId}
      */
-    @GetMapping("/datacenter/{datacenterId}")
-    public ResponseEntity<CommonResDto> getEquipmentByDatacenter(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long datacenterId,
+    @GetMapping("/serverroom/{serverRoomId}")
+    public ResponseEntity<CommonResDto> getEquipmentByServerRoom(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type) {
 
-        List<EquipmentListResponse> equipments = equipmentService.getEquipmentsByDatacenter(
-                datacenterId, status, type);
+        List<EquipmentListResponse> equipments = equipmentService.getEquipmentsByServerRoom(
+                serverRoomId, status, type);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", equipments));
     }

@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 회사-전산실 매핑 서비스
+ * 회사-서버실 매핑 서비스
  * 매핑 생성, 조회, 삭제 기능 제공
  */
 @Slf4j
@@ -65,7 +65,7 @@ public class CompanyServerRoomService {
     }
 
     /**
-     * 회사-전산실 매핑 생성
+     * 회사-서버실 매핑 생성
      */
     @Transactional
     public List<CompanyServerRoomResponse> createCompanyServerRoomMappings(
@@ -79,7 +79,7 @@ public class CompanyServerRoomService {
             throw new IllegalArgumentException("회사 ID를 입력해주세요.");
         }
         if (request.serverRoomIds() == null || request.serverRoomIds().isEmpty()) {
-            throw new IllegalArgumentException("전산실을 하나 이상 선택해주세요.");
+            throw new IllegalArgumentException("서버실을 하나 이상 선택해주세요.");
         }
 
         // 중복 제거
@@ -92,15 +92,15 @@ public class CompanyServerRoomService {
         Company company = companyRepository.findActiveById(request.companyId())
                 .orElseThrow(() -> new EntityNotFoundException("회사", request.companyId()));
 
-        // 전산실 존재 여부 검증
+        // 서버실 존재 여부 검증
         List<ServerRoom> serverRooms = new ArrayList<>();
         for (Long serverRoomId : uniqueServerRoomIds) {
             if (serverRoomId == null) {
-                throw new IllegalArgumentException("전산실 ID는 null일 수 없습니다.");
+                throw new IllegalArgumentException("서버실 ID는 null일 수 없습니다.");
             }
 
             ServerRoom serverRoom = serverRoomRepository.findActiveById(serverRoomId)
-                    .orElseThrow(() -> new EntityNotFoundException("전산실", serverRoomId));
+                    .orElseThrow(() -> new EntityNotFoundException("서버실", serverRoomId));
             serverRooms.add(serverRoom);
         }
 
@@ -118,7 +118,7 @@ public class CompanyServerRoomService {
                     .map(String::valueOf)
                     .collect(Collectors.joining(", "));
             throw new DuplicateException(
-                    String.format("이미 매핑된 전산실이 있습니다. 전산실 ID: %s", duplicateIdsStr));
+                    String.format("이미 매핑된 서버실이 있습니다. 서버실 ID: %s", duplicateIdsStr));
         }
 
         // 매핑 생성
@@ -152,7 +152,7 @@ public class CompanyServerRoomService {
     }
 
     /**
-     * 회사의 전산실 매핑 목록 조회
+     * 회사의 서버실 매핑 목록 조회
      */
     public List<CompanyServerRoomResponse> getCompanyServerRoomsByCompanyId(Long companyId) {
         log.info("Fetching company-serverRoom mappings for company: {}", companyId);
@@ -175,17 +175,17 @@ public class CompanyServerRoomService {
     }
 
     /**
-     * 전산실의 회사 매핑 목록 조회
+     * 서버실의 회사 매핑 목록 조회
      */
     public List<CompanyServerRoomResponse> getCompanyServerRoomsByServerRoomId(Long serverRoomId) {
         log.info("Fetching company-serverRoom mappings for serverRoom: {}", serverRoomId);
 
         if (serverRoomId == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+            throw new IllegalArgumentException("서버실 ID를 입력해주세요.");
         }
 
         serverRoomRepository.findActiveById(serverRoomId)
-                .orElseThrow(() -> new EntityNotFoundException("전산실", serverRoomId));
+                .orElseThrow(() -> new EntityNotFoundException("서버실", serverRoomId));
 
         List<CompanyServerRoomResponse> mappings = companyServerRoomRepository
                 .findByServerRoomId(serverRoomId)
@@ -198,7 +198,7 @@ public class CompanyServerRoomService {
     }
 
     /**
-     * 회사-전산실 매핑 삭제
+     * 회사-서버실 매핑 삭제
      */
     @Transactional
     public void deleteCompanyServerRoomMapping(Long companyId, Long serverRoomId) {
@@ -209,13 +209,13 @@ public class CompanyServerRoomService {
             throw new IllegalArgumentException("회사 ID를 입력해주세요.");
         }
         if (serverRoomId == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+            throw new IllegalArgumentException("서버실 ID를 입력해주세요.");
         }
 
         CompanyServerRoom companyServerRoom = companyServerRoomRepository
                 .findByCompanyIdAndServerRoomId(companyId, serverRoomId)
                 .orElseThrow(() -> new EntityNotFoundException(
-                        String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, serverRoomId)));
+                        String.format("회사(ID: %d)와 서버실(ID: %d)의 매핑", companyId, serverRoomId)));
 
         companyServerRoom.softDelete();
 
@@ -223,7 +223,7 @@ public class CompanyServerRoomService {
     }
 
     /**
-     * 특정 회사의 여러 전산실 매핑 일괄 삭제
+     * 특정 회사의 여러 서버실 매핑 일괄 삭제
      */
     @Transactional
     public int deleteCompanyServerRoomsByCompany(Long companyId, List<Long> serverRoomIds) {
@@ -234,12 +234,12 @@ public class CompanyServerRoomService {
             throw new IllegalArgumentException("회사 ID를 입력해주세요.");
         }
         if (serverRoomIds == null || serverRoomIds.isEmpty()) {
-            throw new IllegalArgumentException("삭제할 전산실을 하나 이상 선택해주세요.");
+            throw new IllegalArgumentException("삭제할 서버실을 하나 이상 선택해주세요.");
         }
 
         for (Long serverRoomId : serverRoomIds) {
             if (serverRoomId == null) {
-                throw new IllegalArgumentException("전산실 ID는 null일 수 없습니다.");
+                throw new IllegalArgumentException("서버실 ID는 null일 수 없습니다.");
             }
         }
 
@@ -251,7 +251,7 @@ public class CompanyServerRoomService {
             CompanyServerRoom mapping = companyServerRoomRepository
                     .findByCompanyIdAndServerRoomId(companyId, serverRoomId)
                     .orElseThrow(() -> new EntityNotFoundException(
-                            String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, serverRoomId)));
+                            String.format("회사(ID: %d)와 서버실(ID: %d)의 매핑", companyId, serverRoomId)));
             mappingsToDelete.add(mapping);
         }
 
@@ -264,18 +264,18 @@ public class CompanyServerRoomService {
     }
 
     /**
-     * 특정 전산실의 모든 회사 매핑 삭제
+     * 특정 서버실의 모든 회사 매핑 삭제
      */
     @Transactional
     public int deleteAllCompaniesByServerRoom(Long serverRoomId) {
         log.info("Deleting all company mappings for serverRoom: {}", serverRoomId);
 
         if (serverRoomId == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+            throw new IllegalArgumentException("서버실 ID를 입력해주세요.");
         }
 
         serverRoomRepository.findActiveById(serverRoomId)
-                .orElseThrow(() -> new EntityNotFoundException("전산실", serverRoomId));
+                .orElseThrow(() -> new EntityNotFoundException("서버실", serverRoomId));
 
         List<CompanyServerRoom> mappingsToDelete = companyServerRoomRepository
                 .findByServerRoomId(serverRoomId);
@@ -294,13 +294,13 @@ public class CompanyServerRoomService {
     }
 
     /**
-     * 특정 전산실의 특정 회사들 매핑 일괄 삭제
+     * 특정 서버실의 특정 회사들 매핑 일괄 삭제
      */
     @Transactional
     public int deleteCompaniesByServerRoom(Long serverRoomId, List<Long> companyIds) {
 
         if (serverRoomId == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+            throw new IllegalArgumentException("서버실 ID를 입력해주세요.");
         }
         if (companyIds == null || companyIds.isEmpty()) {
             throw new IllegalArgumentException("삭제할 회사를 하나 이상 선택해주세요.");
@@ -313,14 +313,14 @@ public class CompanyServerRoomService {
         }
 
         serverRoomRepository.findActiveById(serverRoomId)
-                .orElseThrow(() -> new EntityNotFoundException("전산실", serverRoomId));
+                .orElseThrow(() -> new EntityNotFoundException("서버실", serverRoomId));
 
         List<CompanyServerRoom> mappingsToDelete = new ArrayList<>();
         for (Long companyId : companyIds) {
             CompanyServerRoom mapping = companyServerRoomRepository
                     .findByCompanyIdAndServerRoomId(companyId, serverRoomId)
                     .orElseThrow(() -> new EntityNotFoundException(
-                            String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, serverRoomId)));
+                            String.format("회사(ID: %d)와 서버실(ID: %d)의 매핑", companyId, serverRoomId)));
             mappingsToDelete.add(mapping);
         }
 

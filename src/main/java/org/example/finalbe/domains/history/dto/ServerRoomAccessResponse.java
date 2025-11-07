@@ -8,9 +8,9 @@ import lombok.Builder;
  */
 @Builder
 public record ServerRoomAccessResponse(
-        Long dataCenterId,
-        String dataCenterName,
-        String dataCenterCode,
+        Long serverRoomId,
+        String serverRoomName,
+        String serverRoomCode,
         String location
 ) {
 }

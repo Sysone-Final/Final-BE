@@ -31,7 +31,7 @@ public class RackViewService {
     public List<RackCardResponse> getRackCards(Long serverRoomId) {
         log.debug("Fetching rack cards for serverRoom: {}", serverRoomId);
 
-        List<Rack> racks = rackRepository.findByserverRoomIdAndDelYn(serverRoomId, DelYN.N);
+        List<Rack> racks = rackRepository.findByServerRoomIdAndDelYn(serverRoomId, DelYN.N);
 
         log.debug("Found {} rack cards for serverRoom: {}", racks.size(), serverRoomId);
 
@@ -46,7 +46,7 @@ public class RackViewService {
     public RackStatisticsResponse getRackStatistics(Long serverRoomId) {
         log.debug("Fetching rack statistics for serverRoom: {}", serverRoomId);
 
-        List<Rack> racks = rackRepository.findByserverRoomIdAndDelYn(serverRoomId, DelYN.N);
+        List<Rack> racks = rackRepository.findByServerRoomIdAndDelYn(serverRoomId, DelYN.N);
 
         log.debug("Calculating statistics for {} racks in serverRoom: {}", racks.size(), serverRoomId);
 

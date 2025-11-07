@@ -46,18 +46,18 @@ public class EquipmentService {
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
-     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&datacenterId=
+     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=
      */
     public EquipmentPageResponse getEquipmentsWithFilters(
-            int page, int size, String keyword, EquipmentType type, EquipmentStatus status, Long datacenterId) {
+            int page, int size, String keyword, EquipmentType type, EquipmentStatus status, Long serverRoomId) {
 
-        log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, datacenterId: {}",
-                page, size, keyword, type, status, datacenterId);
+        log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, serverRoomId: {}",
+                page, size, keyword, type, status, serverRoomId);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
         Page<Equipment> equipmentPage = equipmentRepository.searchEquipmentsWithFilters(
-                keyword, type, status, datacenterId, DelYN.N, pageable);
+                keyword, type, status, serverRoomId, DelYN.N, pageable);
 
         Page<EquipmentListResponse> responsePage = equipmentPage.map(EquipmentListResponse::from);
 
@@ -116,18 +116,18 @@ public class EquipmentService {
     }
 
     /**
-     * 전산실별 장비 목록 조회 (기존 유지)
+     * 서버실별 장비 목록 조회 (기존 유지)
      */
-    public List<EquipmentListResponse> getEquipmentsByDatacenter(
-            Long datacenterId, String status, String type) {
+    public List<EquipmentListResponse> getEquipmentsByServerRoom(
+            Long serverRoomId, String status, String type) {
 
-        log.info("Fetching equipments for datacenter: {}", datacenterId);
+        log.info("Fetching equipments for serverroom: {}", serverRoomId);
 
-        if (datacenterId == null || datacenterId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 전산실 ID입니다.");
+        if (serverRoomId == null || serverRoomId <= 0) {
+            throw new IllegalArgumentException("유효하지 않은 서버실 ID입니다.");
         }
 
-        List<Equipment> equipments = equipmentRepository.findByDatacenterIdAndDelYn(datacenterId, DelYN.N);
+        List<Equipment> equipments = equipmentRepository.findByServerRoomIdAndDelYn(serverRoomId, DelYN.N);
 
         return equipments.stream()
                 .filter(eq -> status == null || eq.getStatus().name().equals(status))
@@ -192,11 +192,11 @@ public class EquipmentService {
                 .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
 
         if (currentMember.getRole() != Role.ADMIN) {
-            Long datacenterId = rack.getDatacenter().getId();
+            Long serverRoomId = rack.getServerRoom().getId();
             Long companyId = currentMember.getCompany().getId();
 
-            boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
-                    companyId, datacenterId);
+            boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                    companyId, serverRoomId);
 
             if (!hasAccess) {
                 throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
@@ -220,9 +220,6 @@ public class EquipmentService {
         return EquipmentDetailResponse.from(savedEquipment);
     }
 
-    /**
-     * 장비 수정 (개선 버전 - 상태/위치 변경 감지)
-     */
     @Transactional
     public EquipmentDetailResponse updateEquipment(Long id, EquipmentUpdateRequest request) {
         Member currentMember = getCurrentMember();
@@ -279,12 +276,11 @@ public class EquipmentService {
             newLocation = String.format("Rack: %s, StartUnit: %d, UnitSize: %d",
                     equipment.getRack().getRackName(),
                     request.startUnit(),
-                    equipment.getUnitSize());  // ✅ 기존 unitSize 사용
+                    equipment.getUnitSize());
         }
 
         Rack rack = equipment.getRack();
         BigDecimal oldPower = equipment.getPowerConsumption();
-        BigDecimal oldWeight = equipment.getWeight();
 
         // === 장비 정보 업데이트 ===
         equipment.updateInfo(
@@ -301,7 +297,6 @@ public class EquipmentService {
                 request.memorySpec(),
                 request.diskSpec(),
                 request.powerConsumption(),
-                request.weight(),
                 request.status() != null ? EquipmentStatus.valueOf(request.status()) : null,
                 request.installationDate(),
                 request.notes(),
@@ -314,22 +309,14 @@ public class EquipmentService {
                 request.diskThresholdCritical()
         );
 
-        // === 랙 전력/무게 재계산 ===
+        // === 랙 전력 재계산 ===
         BigDecimal newPower = equipment.getPowerConsumption();
-        BigDecimal newWeight = equipment.getWeight();
 
         if (oldPower != null && newPower != null && !oldPower.equals(newPower)) {
             rack.setCurrentPowerUsage(
                     rack.getCurrentPowerUsage()
                             .subtract(oldPower)
                             .add(newPower)
-            );
-        }
-        if (oldWeight != null && newWeight != null && !oldWeight.equals(newWeight)) {
-            rack.setCurrentWeight(
-                    rack.getCurrentWeight()
-                            .subtract(oldWeight)
-                            .add(newWeight)
             );
         }
 
@@ -458,11 +445,11 @@ public class EquipmentService {
             throw new EntityNotFoundException("장비", equipmentId);
         }
 
-        Long datacenterId = equipment.getRack().getDatacenter().getId();
+        Long serverRoomId = equipment.getRack().getServerRoomId();
         Long companyId = member.getCompany().getId();
 
-        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
-                companyId, datacenterId);
+        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                companyId, serverRoomId);
 
         if (!hasAccess) {
             throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
@@ -488,11 +475,9 @@ public class EquipmentService {
                 .memorySpec(equipment.getMemorySpec())
                 .diskSpec(equipment.getDiskSpec())
                 .powerConsumption(equipment.getPowerConsumption())
-                .weight(equipment.getWeight())
                 .status(equipment.getStatus())
                 .installationDate(equipment.getInstallationDate())
                 .notes(equipment.getNotes())
-                .managerId(equipment.getManagerId())
                 .rack(equipment.getRack())
                 .monitoringEnabled(equipment.getMonitoringEnabled())
                 .cpuThresholdWarning(equipment.getCpuThresholdWarning())
@@ -587,11 +572,11 @@ public class EquipmentService {
 
                 // 3. 접근 권한 확인
                 if (currentMember.getRole() != Role.ADMIN) {
-                    Long datacenterId = equipment.getRack().getDatacenter().getId();
+                    Long serverRoomId = equipment.getRack().getServerRoomId();
                     Long companyId = currentMember.getCompany().getId();
 
-                    boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
-                            companyId, datacenterId);
+                    boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                            companyId, serverRoomId);
 
                     if (!hasAccess) {
                         failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()

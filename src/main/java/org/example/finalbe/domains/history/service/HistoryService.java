@@ -20,6 +20,7 @@ import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -284,5 +285,58 @@ public class HistoryService {
         if (!hasAccess) {
             throw new AccessDeniedException("해당 전산실의 히스토리 조회 권한이 없습니다.");
         }
+    }
+
+    /**
+     * 히스토리 상세 조회
+     * 변경 내역을 상세하게 파싱하여 반환
+     */
+    public HistoryDetailResponse getHistoryDetail(Long id) {
+        log.info("Fetching history detail for id: {}", id);
+
+        History history = historyRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("히스토리", id));
+
+        return HistoryDetailResponse.from(history);
+    }
+
+    /**
+     * 엔티티별 히스토리 목록 조회 (페이징)
+     * 특정 엔티티(예: 특정 랙)의 모든 히스토리 조회
+     */
+    public Page<HistoryDetailResponse> getHistoryByEntity(
+            EntityType entityType,
+            Long entityId,
+            int page,
+            int size) {
+
+        log.info("Fetching history for entity: {} id: {}", entityType, entityId);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("changedAt").descending());
+
+        // 엔티티의 dataCenterId를 먼저 조회해야 할 수도 있음
+        // 여기서는 단순화를 위해 entityType과 entityId만으로 조회
+        Page<History> histories = historyRepository.findByEntityTypeAndEntityIdOrderByChangedAtDesc(
+                entityType, entityId, pageable);
+
+        return histories.map(HistoryDetailResponse::from);
+    }
+
+    /**
+     * 서버실별 최근 히스토리 조회 (상세 정보 포함)
+     */
+    public Page<HistoryDetailResponse> getRecentHistoriesWithDetails(
+            Long dataCenterId,
+            int page,
+            int size) {
+
+        log.info("Fetching recent histories with details for datacenter: {}", dataCenterId);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("changedAt").descending());
+
+        Page<History> histories = historyRepository.findByDataCenterIdOrderByChangedAtDesc(
+                dataCenterId, pageable);
+
+        return histories.map(HistoryDetailResponse::from);
     }
 }

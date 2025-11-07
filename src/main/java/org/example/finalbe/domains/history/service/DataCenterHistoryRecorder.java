@@ -6,8 +6,6 @@ import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.history.dto.HistoryCreateRequest;
-
-
 import org.example.finalbe.domains.member.domain.Member;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DataCenter 히스토리 기록 전담 클래스
+ * DataCenter 히스토리 기록 전담 클래스 (개선 버전)
  */
 @Component
 @Slf4j
@@ -49,17 +47,20 @@ public class DataCenterHistoryRecorder {
     }
 
     /**
-     * DataCenter 수정 히스토리
+     * DataCenter 수정 히스토리 (상세 변경 내역 포함)
      */
-    public void recordUpdate(DataCenter oldDataCenter, DataCenter newDataCenter,
-                             Member member) {
+    public void recordUpdate(DataCenter oldDataCenter, DataCenter newDataCenter, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldDataCenter);
         Map<String, Object> newSnapshot = buildSnapshot(newDataCenter);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
 
         if (changedFields.isEmpty()) {
+            log.info("No changes detected for datacenter id: {}", newDataCenter.getId());
             return;
         }
+
+        // 변경 내역 상세 정보 구성
+        Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(newDataCenter.getId())
@@ -75,16 +76,17 @@ public class DataCenterHistoryRecorder {
                 .changedFields(changedFields)
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
+                .metadata(Map.of("changeDetails", changeDetails))
                 .build();
 
         historyService.recordHistory(request);
+        log.info("DataCenter update history recorded: {} fields changed", changedFields.size());
     }
 
     /**
      * DataCenter 상태 변경 히스토리
      */
-    public void recordStatusChange(DataCenter dataCenter, String oldStatus, String newStatus,
-                                   Member member) {
+    public void recordStatusChange(DataCenter dataCenter, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(dataCenter.getId())
                 .dataCenterName(dataCenter.getName())
@@ -99,9 +101,12 @@ public class DataCenterHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
+                .metadata(Map.of("statusChange", String.format("%s → %s",
+                        translateStatus(oldStatus), translateStatus(newStatus))))
                 .build();
 
         historyService.recordHistory(request);
+        log.info("DataCenter status change history recorded: {} -> {}", oldStatus, newStatus);
     }
 
     /**
@@ -167,5 +172,84 @@ public class DataCenterHistoryRecorder {
         }
 
         return changedFields;
+    }
+
+    /**
+     * 변경 내역 상세 정보 구성
+     */
+    private Map<String, Object> buildChangeDetails(
+            Map<String, Object> oldSnapshot,
+            Map<String, Object> newSnapshot,
+            List<String> changedFields) {
+
+        Map<String, Object> changeDetails = new HashMap<>();
+
+        for (String field : changedFields) {
+            Object oldValue = oldSnapshot.get(field);
+            Object newValue = newSnapshot.get(field);
+
+            String fieldLabel = getFieldLabel(field);
+            String oldValueStr = formatValue(field, oldValue);
+            String newValueStr = formatValue(field, newValue);
+
+            changeDetails.put(field, Map.of(
+                    "fieldLabel", fieldLabel,
+                    "oldValue", oldValueStr,
+                    "newValue", newValueStr,
+                    "changeDescription", String.format("%s: %s → %s", fieldLabel, oldValueStr, newValueStr)
+            ));
+        }
+
+        return changeDetails;
+    }
+
+    private String getFieldLabel(String field) {
+        return switch (field) {
+            case "name" -> "전산실 이름";
+            case "code" -> "전산실 코드";
+            case "location" -> "위치";
+            case "floor" -> "층";
+            case "rows" -> "행 수";
+            case "columns" -> "열 수";
+            case "status" -> "상태";
+            case "description" -> "설명";
+            case "totalArea" -> "총 면적";
+            case "totalPowerCapacity" -> "총 전력 용량";
+            case "totalCoolingCapacity" -> "총 냉각 용량";
+            case "maxRackCount" -> "최대 랙 수";
+            case "currentRackCount" -> "현재 랙 수";
+            case "temperatureMin" -> "최저 온도";
+            case "temperatureMax" -> "최고 온도";
+            case "humidityMin" -> "최저 습도";
+            case "humidityMax" -> "최고 습도";
+            case "managerName" -> "담당자";
+            default -> field;
+        };
+    }
+
+    private String formatValue(String field, Object value) {
+        if (value == null) {
+            return "(없음)";
+        }
+
+        return switch (field) {
+            case "totalArea" -> value + " ㎡";
+            case "totalPowerCapacity" -> value + " kW";
+            case "totalCoolingCapacity" -> value + " RT";
+            case "temperatureMin", "temperatureMax" -> value + " ℃";
+            case "humidityMin", "humidityMax" -> value + " %";
+            case "status" -> translateStatus(value.toString());
+            default -> value.toString();
+        };
+    }
+
+    private String translateStatus(String status) {
+        return switch (status) {
+            case "ACTIVE" -> "활성";
+            case "INACTIVE" -> "비활성";
+            case "MAINTENANCE" -> "점검중";
+            case "CONSTRUCTION" -> "공사중";
+            default -> status;
+        };
     }
 }

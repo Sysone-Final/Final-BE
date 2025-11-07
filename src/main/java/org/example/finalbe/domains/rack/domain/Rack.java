@@ -7,9 +7,9 @@ import org.example.finalbe.domains.common.enumdir.DoorDirection;
 import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.common.enumdir.RackType;
 import org.example.finalbe.domains.common.enumdir.ZoneDirection;
-import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.rack.dto.RackUpdateRequest;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -86,8 +86,8 @@ public class Rack extends BaseTimeEntity {
 
     // 서버실(전산실)과의 관계 (N:1)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "serverroom_id", nullable = false)
-    private ServerRoom serverroom; // 서버실(전산실)
+    @JoinColumn(name = "serverRoom_id", nullable = false)
+    private ServerRoom serverRoom; // 서버실(전산실)
 
     /**
      * 랙 정보 수정
@@ -234,21 +234,21 @@ public class Rack extends BaseTimeEntity {
      * 서버룸 조회
      */
     public ServerRoom getServerRoom() {
-        return this.serverroom;
+        return this.serverRoom;
     }
 
     /**
      * 서버룸 ID 조회
      */
     public Long getServerRoomId() {
-        return this.serverroom != null ? this.serverroom.getId() : null;
+        return this.serverRoom != null ? this.serverRoom.getId() : null;
     }
 
     /**
      * 서버룸 이름 조회
      */
     public String getServerRoomName() {
-        return this.serverroom != null ? this.serverroom.getName() : null;
+        return this.serverRoom != null ? this.serverRoom.getName() : null;
     }
 
     /**
@@ -258,6 +258,6 @@ public class Rack extends BaseTimeEntity {
         if (newServerRoom == null) {
             throw new IllegalArgumentException("서버룸은 필수입니다.");
         }
-        this.serverroom = newServerRoom;
+        this.serverRoom = newServerRoom;
     }
 }

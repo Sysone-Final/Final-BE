@@ -28,7 +28,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
      */
     @Query(value = "SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "LEFT JOIN FETCH r.serverroom sr " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
             "WHERE e.delYn = :delYn " +
             "AND (:keyword IS NULL OR :keyword = '' OR " +
             "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -39,7 +39,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId)",
             countQuery = "SELECT COUNT(DISTINCT e) FROM Equipment e " +
                     "LEFT JOIN e.rack r " +
-                    "LEFT JOIN r.serverroom sr " +
+                    "LEFT JOIN r.serverRoom sr " +
                     "WHERE e.delYn = :delYn " +
                     "AND (:keyword IS NULL OR :keyword = '' OR " +
                     "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -73,8 +73,9 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
      */
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "LEFT JOIN FETCH r.serverroom sr " +
-            "WHERE sr.id = :serverRoomId AND e.delYn = :delYn")
+            "LEFT JOIN FETCH r.serverRoom sr " +  // ← 카멜케이스로 수정!
+            "WHERE sr.id = :serverRoomId " +
+            "AND e.delYn = :delYn")
     List<Equipment> findByServerRoomIdAndDelYn(
             @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn
@@ -104,7 +105,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
      */
     @Query("SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "LEFT JOIN FETCH r.serverroom sr " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
             "LEFT JOIN CompanyServerRoom csr ON csr.serverRoom.id = sr.id " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

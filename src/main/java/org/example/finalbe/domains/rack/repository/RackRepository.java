@@ -83,6 +83,15 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     /**
      * 랙 이름 존재 여부 확인 (서버실별)
      */
-    boolean existsByRackNameAndServerRoomIdAndDelYn(String rackName, Long serverRoomId, DelYN delYn);
+    @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END " +
+            "FROM Rack r " +
+            "WHERE r.rackName = :rackName " +
+            "AND r.serverRoom.id = :serverRoomId " +
+            "AND r.delYn = :delYn")
+    boolean existsByRackNameAndServerRoomIdAndDelYn(
+            @Param("rackName") String rackName,
+            @Param("serverRoomId") Long serverRoomId,
+            @Param("delYn") DelYN delYn
+    );
 
 }

@@ -1,11 +1,17 @@
 package org.example.finalbe.domains.history.dto;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Builder;
+import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
 import org.example.finalbe.domains.history.domain.History;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,6 +19,7 @@ import java.util.Map;
  * 히스토리 상세 조회 응답 DTO
  * 변경된 필드들의 상세 정보를 포함하여 프론트엔드에서 표시
  */
+@Slf4j
 @Builder
 public record HistoryDetailResponse(
         Long id,
@@ -33,14 +40,24 @@ public record HistoryDetailResponse(
         Map<String, Object> beforeValue,
         Map<String, Object> afterValue,
         Map<String, Object> metadata,
-        List<ChangeDetail> changeDetails  // 상세 변경 내역 리스트
+        List<ChangeDetail> changeDetails
 ) {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     /**
      * Entity → DTO 변환
      */
     public static HistoryDetailResponse from(History history) {
+        // JSON String → Java Object 변환
+        List<String> changedFields = parseChangedFields(history.getChangedFields());
+        Map<String, Object> beforeValue = parseJsonToMap(history.getBeforeValue());
+        Map<String, Object> afterValue = parseJsonToMap(history.getAfterValue());
+        Map<String, Object> metadata = parseJsonToMap(history.getMetadata());
+
         // metadata에서 changeDetails 추출
-        List<ChangeDetail> changeDetails = extractChangeDetails(history);
+        List<ChangeDetail> changeDetails = extractChangeDetails(
+                metadata, changedFields, beforeValue, afterValue
+        );
 
         return HistoryDetailResponse.builder()
                 .id(history.getId())
@@ -57,26 +74,91 @@ public record HistoryDetailResponse(
                 .changedByName(history.getChangedByName())
                 .changedByRole(history.getChangedByRole())
                 .changedAt(history.getChangedAt())
-                .changedFields(history.getChangedFields())
-                .beforeValue(history.getBeforeValue())
-                .afterValue(history.getAfterValue())
-                .metadata(history.getMetadata())
+                .changedFields(changedFields)
+                .beforeValue(beforeValue)
+                .afterValue(afterValue)
+                .metadata(metadata)
                 .changeDetails(changeDetails)
                 .build();
+    }
+
+    /**
+     * JSON String → List<String> 변환
+     */
+    private static List<String> parseChangedFields(Object changedFieldsObj) {
+        if (changedFieldsObj == null) {
+            return new ArrayList<>();
+        }
+
+        // 이미 List라면 그대로 반환
+        if (changedFieldsObj instanceof List) {
+            return (List<String>) changedFieldsObj;
+        }
+
+        // String이라면 파싱
+        if (changedFieldsObj instanceof String) {
+            String jsonStr = (String) changedFieldsObj;
+            if (jsonStr.isEmpty()) {
+                return new ArrayList<>();
+            }
+            try {
+                return objectMapper.readValue(jsonStr, new TypeReference<List<String>>() {});
+            } catch (JsonProcessingException e) {
+                log.error("Failed to parse changedFields: {}", jsonStr, e);
+                return new ArrayList<>();
+            }
+        }
+
+        return new ArrayList<>();
+    }
+
+    /**
+     * JSON String → Map<String, Object> 변환
+     */
+    private static Map<String, Object> parseJsonToMap(Object jsonObj) {
+        if (jsonObj == null) {
+            return new HashMap<>();
+        }
+
+        // 이미 Map이라면 그대로 반환
+        if (jsonObj instanceof Map) {
+            return (Map<String, Object>) jsonObj;
+        }
+
+        // String이라면 파싱
+        if (jsonObj instanceof String) {
+            String jsonStr = (String) jsonObj;
+            if (jsonStr.isEmpty()) {
+                return new HashMap<>();
+            }
+            try {
+                return objectMapper.readValue(jsonStr, new TypeReference<Map<String, Object>>() {});
+            } catch (JsonProcessingException e) {
+                log.error("Failed to parse JSON to Map: {}", jsonStr, e);
+                return new HashMap<>();
+            }
+        }
+
+        return new HashMap<>();
     }
 
     /**
      * metadata에서 changeDetails 추출 및 파싱
      */
     @SuppressWarnings("unchecked")
-    private static List<ChangeDetail> extractChangeDetails(History history) {
-        if (history.getMetadata() == null || !history.getMetadata().containsKey("changeDetails")) {
+    private static List<ChangeDetail> extractChangeDetails(
+            Map<String, Object> metadata,
+            List<String> changedFields,
+            Map<String, Object> beforeValue,
+            Map<String, Object> afterValue
+    ) {
+        if (metadata == null || !metadata.containsKey("changeDetails")) {
             // changeDetails가 없으면 beforeValue/afterValue에서 직접 생성
-            return buildChangeDetailsFromSnapshots(history);
+            return buildChangeDetailsFromSnapshots(changedFields, beforeValue, afterValue);
         }
 
         try {
-            Map<String, Object> changeDetailsMap = (Map<String, Object>) history.getMetadata().get("changeDetails");
+            Map<String, Object> changeDetailsMap = (Map<String, Object>) metadata.get("changeDetails");
             return changeDetailsMap.entrySet().stream()
                     .map(entry -> {
                         Map<String, Object> detail = (Map<String, Object>) entry.getValue();
@@ -91,25 +173,28 @@ public record HistoryDetailResponse(
                     .toList();
         } catch (Exception e) {
             // 파싱 실패 시 기본 방식으로 생성
-            return buildChangeDetailsFromSnapshots(history);
+            log.error("Failed to parse changeDetails from metadata", e);
+            return buildChangeDetailsFromSnapshots(changedFields, beforeValue, afterValue);
         }
     }
 
     /**
      * beforeValue/afterValue에서 changeDetails 구성
      */
-    private static List<ChangeDetail> buildChangeDetailsFromSnapshots(History history) {
-        if (history.getChangedFields() == null || history.getChangedFields().isEmpty()) {
+    private static List<ChangeDetail> buildChangeDetailsFromSnapshots(
+            List<String> changedFields,
+            Map<String, Object> beforeValue,
+            Map<String, Object> afterValue
+    ) {
+        if (changedFields == null || changedFields.isEmpty()) {
             return List.of();
         }
 
-        return history.getChangedFields().stream()
+        return changedFields.stream()
                 .filter(field -> !field.equals("ALL"))
                 .map(field -> {
-                    Object oldValue = history.getBeforeValue() != null ?
-                            history.getBeforeValue().get(field) : null;
-                    Object newValue = history.getAfterValue() != null ?
-                            history.getAfterValue().get(field) : null;
+                    Object oldValue = beforeValue != null ? beforeValue.get(field) : null;
+                    Object newValue = afterValue != null ? afterValue.get(field) : null;
 
                     String oldValueStr = oldValue != null ? oldValue.toString() : "(없음)";
                     String newValueStr = newValue != null ? newValue.toString() : "(없음)";
@@ -129,29 +214,42 @@ public record HistoryDetailResponse(
      * 엔티티 타입 한글 변환
      */
     private static String translateEntityType(EntityType type) {
-        return switch (type) {
-            case DATACENTER -> "전산실";
-            case RACK -> "랙";
-            case EQUIPMENT -> "장비";
-            case DEVICE -> "장치";
-            case MEMBER -> "회원";
-            case COMPANY -> "회사";
-            default -> type.name();
-        };
+        switch (type) {
+            case DATACENTER:
+                return "전산실";
+            case RACK:
+                return "랙";
+            case EQUIPMENT:
+                return "장비";
+            case DEVICE:
+                return "장치";
+            case MEMBER:
+                return "회원";
+            case COMPANY:
+                return "회사";
+            default:
+                return type.name();
+        }
     }
 
     /**
      * 액션 한글 변환
      */
     private static String translateAction(HistoryAction action) {
-        return switch (action) {
-            case CREATE -> "생성";
-            case UPDATE -> "수정";
-            case DELETE -> "삭제";
-            case STATUS_CHANGE -> "상태 변경";
-            case MOVE -> "이동";
-            default -> action.name();
-        };
+        switch (action) {
+            case CREATE:
+                return "생성";
+            case UPDATE:
+                return "수정";
+            case DELETE:
+                return "삭제";
+            case STATUS_CHANGE:
+                return "상태 변경";
+            case MOVE:
+                return "이동";
+            default:
+                return action.name();
+        }
     }
 
     /**
@@ -159,11 +257,11 @@ public record HistoryDetailResponse(
      */
     @Builder
     public record ChangeDetail(
-            String field,           // 필드명 (예: "rackLocation")
-            String fieldLabel,      // 필드 한글명 (예: "랙 위치")
-            String oldValue,        // 이전 값 (예: "5")
-            String newValue,        // 새 값 (예: "10")
-            String changeDescription // 변경 설명 (예: "랙 위치: 5 → 10")
+            String field,
+            String fieldLabel,
+            String oldValue,
+            String newValue,
+            String changeDescription
     ) {
     }
 }

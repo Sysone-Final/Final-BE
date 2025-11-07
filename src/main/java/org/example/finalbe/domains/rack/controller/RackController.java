@@ -29,21 +29,21 @@ public class RackController {
     private final RackService rackService;
 
     /**
-     * 전산실별 랙 목록 조회
-     * GET /api/racks/serverroom/{dataCenterId}
+     * 서버실별 랙 목록 조회
+     * GET /api/racks/serverroom/{serverRoomId}
      *
-     * @param dataCenterId 전산실 ID
+     * @param serverRoomId 서버실 ID
      * @param status 랙 상태 필터 (선택)
      * @param sortBy 정렬 기준 (기본값: name)
      * @return 랙 목록
      */
-    @GetMapping("/datacenter/{dataCenterId}")
-    public ResponseEntity<CommonResDto> getRacksByDataCenter(
-            @PathVariable Long dataCenterId,
+    @GetMapping("/serverroom/{serverRoomId}")
+    public ResponseEntity<CommonResDto> getRacksByServerRoom(
+            @PathVariable Long serverRoomId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false, defaultValue = "name") String sortBy) {
 
-        List<RackListResponse> racks = rackService.getRacksByDataCenter(dataCenterId, status, sortBy);
+        List<RackListResponse> racks = rackService.getRacksByServerRoom(serverRoomId, status, sortBy);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 목록 조회 완료", racks));
     }
 
@@ -67,15 +67,15 @@ public class RackController {
      * GET /api/racks/search
      *
      * @param keyword 검색 키워드 (랙 이름, 그룹 번호, 위치)
-     * @param dataCenterId 전산실 ID (선택)
+     * @param serverRoomId 서버실 ID (선택)
      * @return 검색된 랙 목록
      */
     @GetMapping("/search")
     public ResponseEntity<CommonResDto> searchRacks(
             @RequestParam @NotBlank(message = "검색 키워드를 입력해주세요.") String keyword,
-            @RequestParam(required = false) Long dataCenterId) {
+            @RequestParam(required = false) Long serverRoomId) {
 
-        List<RackListResponse> racks = rackService.searchRacks(keyword, dataCenterId);
+        List<RackListResponse> racks = rackService.searchRacks(keyword, serverRoomId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 검색 완료", racks));
     }
 
@@ -156,23 +156,5 @@ public class RackController {
 
         rackService.deleteRack(id);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 삭제 완료", null));
-    }
-
-    /**
-     * 랙 상태 변경
-     * PUT /api/racks/{id}/status
-     *
-     * @param id 랙 ID
-     * @param request 상태 변경 요청 DTO
-     * @return 수정된 랙 정보
-     */
-    @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
-    public ResponseEntity<CommonResDto> changeRackStatus(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id,
-            @Valid @RequestBody RackStatusChangeRequest request) {
-
-        RackDetailResponse rack = rackService.changeRackStatus(id, request);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 상태 변경 완료", rack));
     }
 }

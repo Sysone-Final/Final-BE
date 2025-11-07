@@ -74,8 +74,8 @@ public class Device extends BaseTimeEntity {
     private Long managerId; // 관리자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "datacenter_id", nullable = false)
-    private ServerRoom datacenter; // 소속 전산실
+    @JoinColumn(name = "serverroom_id", nullable = false)
+    private ServerRoom serverRoom; // 소속 서버실
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id")

@@ -28,7 +28,7 @@ public class RackExcelController {
 
     /**
      * 랙 목록 Excel 내보내기
-     * GET /api/racks/datacenter/{dataCenterId}/export
+     * GET /api/racks/serverroom/{dataCenterId}/export
      *
      * @param dataCenterId 전산실 ID
      * @return Excel 파일 (바이너리)

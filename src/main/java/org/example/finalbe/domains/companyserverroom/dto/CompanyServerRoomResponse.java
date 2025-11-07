@@ -16,7 +16,7 @@ public record CompanyServerRoomResponse(
         String code,
         String companyName,
         Long serverRoomId,
-        String dataCenterName,
+        String serverRoomName,
         String description,
         String grantedBy,
         LocalDateTime createdAt
@@ -32,7 +32,7 @@ public record CompanyServerRoomResponse(
                 .code(companyServerRoom.getServerRoom().getCode())
                 .companyName(companyServerRoom.getCompany().getName())
                 .serverRoomId(companyServerRoom.getServerRoom().getId())
-                .dataCenterName(companyServerRoom.getServerRoom().getName())
+                .serverRoomName(companyServerRoom.getServerRoom().getName())
                 .description(companyServerRoom.getDescription())
                 .grantedBy(companyServerRoom.getGrantedBy())
                 .createdAt(companyServerRoom.getCreatedAt())

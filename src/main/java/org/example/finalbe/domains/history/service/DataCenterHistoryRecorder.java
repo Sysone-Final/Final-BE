@@ -146,14 +146,11 @@ public class DataCenterHistoryRecorder {
         snapshot.put("totalArea", dataCenter.getTotalArea());
         snapshot.put("totalPowerCapacity", dataCenter.getTotalPowerCapacity());
         snapshot.put("totalCoolingCapacity", dataCenter.getTotalCoolingCapacity());
-        snapshot.put("maxRackCount", dataCenter.getMaxRackCount());
         snapshot.put("currentRackCount", dataCenter.getCurrentRackCount());
         snapshot.put("temperatureMin", dataCenter.getTemperatureMin());
         snapshot.put("temperatureMax", dataCenter.getTemperatureMax());
         snapshot.put("humidityMin", dataCenter.getHumidityMin());
         snapshot.put("humidityMax", dataCenter.getHumidityMax());
-        snapshot.put("managerId", dataCenter.getManager() != null ? dataCenter.getManager().getId() : null);
-        snapshot.put("managerName", dataCenter.getManager() != null ? dataCenter.getManager().getName() : null);
         return snapshot;
     }
 

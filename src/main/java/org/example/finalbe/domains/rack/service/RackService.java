@@ -111,11 +111,6 @@ public class RackService {
             }
         }
 
-        // 전산실 최대 랙 수 확인
-        if (dataCenter.getCurrentRackCount() >= dataCenter.getMaxRackCount()) {
-            throw new BusinessException("전산실의 최대 랙 수를 초과했습니다.");
-        }
-
         // 랙 이름 중복 체크 (같은 전산실 내)
         if (rackRepository.existsByDatacenterIdAndRackNameAndDelYn(
                 request.datacenterId(), request.rackName(), DelYN.N)) {

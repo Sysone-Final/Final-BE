@@ -67,8 +67,7 @@ public class DataCenter extends BaseTimeEntity {
     @Column(name = "total_cooling_capacity", precision = 10, scale = 2)
     private BigDecimal totalCoolingCapacity;
 
-    @Column(name = "max_rack_count")
-    private Integer maxRackCount;
+
 
     @Column(name = "current_rack_count")
     @Builder.Default
@@ -86,12 +85,6 @@ public class DataCenter extends BaseTimeEntity {
     @Column(name = "humidity_max", precision = 5, scale = 2)
     private BigDecimal humidityMax;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id")
-    private Member manager;
-
-    // ★ company 필드 제거 - CompanyDataCenter 매핑 테이블로 관계 관리
-
     /**
      * 전산실 정보 수정
      */
@@ -107,12 +100,10 @@ public class DataCenter extends BaseTimeEntity {
             BigDecimal totalArea,
             BigDecimal totalPowerCapacity,
             BigDecimal totalCoolingCapacity,
-            Integer maxRackCount,
             BigDecimal temperatureMin,
             BigDecimal temperatureMax,
             BigDecimal humidityMin,
-            BigDecimal humidityMax,
-            Member manager
+            BigDecimal humidityMax
     ) {
         if (name != null && !name.trim().isEmpty()) {
             this.name = name;
@@ -147,9 +138,6 @@ public class DataCenter extends BaseTimeEntity {
         if (totalCoolingCapacity != null) {
             this.totalCoolingCapacity = totalCoolingCapacity;
         }
-        if (maxRackCount != null) {
-            this.maxRackCount = maxRackCount;
-        }
         if (temperatureMin != null) {
             this.temperatureMin = temperatureMin;
         }
@@ -162,9 +150,7 @@ public class DataCenter extends BaseTimeEntity {
         if (humidityMax != null) {
             this.humidityMax = humidityMax;
         }
-        if (manager != null) {
-            this.manager = manager;
-        }
+
     }
 
     /**
@@ -183,10 +169,4 @@ public class DataCenter extends BaseTimeEntity {
         }
     }
 
-    /**
-     * 사용 가능한 랙 개수 계산
-     */
-    public int getAvailableRackCount() {
-        return this.maxRackCount - this.currentRackCount;
-    }
 }

@@ -4,19 +4,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
+import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.department.domain.MemberDepartment;
+import org.example.finalbe.domains.department.repository.MemberDepartmentRepository;
+import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
 import org.example.finalbe.domains.history.domain.History;
 import org.example.finalbe.domains.history.dto.*;
-
-
 import org.example.finalbe.domains.history.repository.HistoryRepository;
-import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
+import org.example.finalbe.domains.rack.domain.Rack;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,14 +28,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * 히스토리 서비스
  * 변경 이력 조회 및 통계 제공
+ *
+ * 접근 제어: 부서 기준
+ * - 사용자가 소속된 부서가 담당하는 랙이 있는 서버실만 접근 가능
  */
 @Service
 @Slf4j
@@ -44,8 +46,11 @@ public class HistoryService {
 
     private final HistoryRepository historyRepository;
     private final DataCenterRepository dataCenterRepository;
-    private final CompanyDataCenterRepository companyDataCenterRepository;
     private final MemberRepository memberRepository;
+
+    // 부서 기준 접근 제어용 Repository
+    private final RackDepartmentRepository rackDepartmentRepository;
+    private final MemberDepartmentRepository memberDepartmentRepository;
 
     /**
      * 히스토리 기록 (내부 사용)
@@ -69,65 +74,45 @@ public class HistoryService {
                     .beforeValue(request.beforeValueAsJson())
                     .afterValue(request.afterValueAsJson())
                     .metadata(request.metadataAsJson())
-                    .description(request.generateDescription())
                     .build();
 
             historyRepository.save(history);
-            log.info("History recorded: {} - {} - {}",
-                    request.action(), request.entityType(), request.entityName());
+            log.debug("History recorded: {} {} by {}",
+                    request.action(), request.entityType(), request.changedByName());
+
         } catch (Exception e) {
             log.error("Failed to record history: {}", e.getMessage(), e);
-            // 히스토리 기록 실패가 비즈니스 로직에 영향을 주지 않도록 예외를 던지지 않음
+            // 히스토리 기록 실패는 메인 트랜잭션을 롤백하지 않음 (선택사항)
         }
     }
 
     /**
-     * 히스토리 검색
+     * 복합 검색
      */
     public Page<HistoryResponse> searchHistory(HistorySearchRequest request) {
         Member currentMember = getCurrentMember();
+        log.info("Searching history for datacenter: {}", request.dataCenterId());
+
+        // 서버실 접근 권한 확인 (부서 기준)
         validateDataCenterAccess(currentMember, request.dataCenterId());
 
-        Pageable pageable = PageRequest.of(request.page(), request.size());
+        Pageable pageable = PageRequest.of(
+                request.page() != null ? request.page() : 0,
+                request.size() != null ? request.size() : 20
+        );
+
         Page<History> historyPage;
 
-        // 특정 엔티티의 히스토리 조회
-        if (request.entityId() != null && request.entityType() != null) {
-            historyPage = historyRepository.findByDataCenterIdAndEntityTypeAndEntityIdOrderByChangedAtDesc(
-                    request.dataCenterId(),
-                    request.entityType(),
-                    request.entityId(),
-                    pageable
-            );
-        }
-        // 복합 검색
-        else if (request.entityType() != null || request.action() != null ||
-                request.changedBy() != null || request.startDate() != null || request.endDate() != null) {
-            historyPage = historyRepository.searchHistory(
-                    request.dataCenterId(),
-                    request.entityType(),
-                    request.action(),
-                    request.changedBy(),
-                    request.startDate(),
-                    request.endDate(),
-                    pageable
-            );
-        }
-        // 서버실 전체 히스토리
-        else if (request.startDate() != null && request.endDate() != null) {
-            historyPage = historyRepository.findByDataCenterIdAndChangedAtBetweenOrderByChangedAtDesc(
-                    request.dataCenterId(),
-                    request.startDate(),
-                    request.endDate(),
-                    pageable
-            );
-        }
-        else {
-            historyPage = historyRepository.findByDataCenterIdOrderByChangedAtDesc(
-                    request.dataCenterId(),
-                    pageable
-            );
-        }
+        // 복합 조건 검색 사용
+        historyPage = historyRepository.searchHistory(
+                request.dataCenterId(),
+                request.entityType(),
+                request.action(),
+                request.changedBy(),
+                request.startDate(),
+                request.endDate(),
+                pageable
+        );
 
         return historyPage.map(HistoryResponse::from);
     }
@@ -246,47 +231,6 @@ public class HistoryService {
         return historyPage.map(HistoryResponse::from);
     }
 
-    // === Private Helper Methods ===
-
-    private Member getCurrentMember() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AccessDeniedException("인증이 필요합니다.");
-        }
-
-        String userId = authentication.getName();
-        if (userId == null || userId.trim().isEmpty()) {
-            throw new IllegalStateException("사용자 ID를 찾을 수 없습니다.");
-        }
-
-        try {
-            return memberRepository.findById(Long.parseLong(userId))
-                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
-        }
-    }
-
-    private void validateDataCenterAccess(Member member, Long dataCenterId) {
-        if (dataCenterId == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
-        }
-
-        if (member.getRole() == Role.ADMIN) {
-            return; // ADMIN은 모든 전산실 히스토리 조회 가능
-        }
-
-        // 회사의 전산실 접근 권한 확인
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
-                member.getCompany().getId(),
-                dataCenterId
-        );
-
-        if (!hasAccess) {
-            throw new AccessDeniedException("해당 전산실의 히스토리 조회 권한이 없습니다.");
-        }
-    }
-
     /**
      * 히스토리 상세 조회
      * 변경 내역을 상세하게 파싱하여 반환
@@ -314,8 +258,6 @@ public class HistoryService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("changedAt").descending());
 
-        // 엔티티의 dataCenterId를 먼저 조회해야 할 수도 있음
-        // 여기서는 단순화를 위해 entityType과 entityId만으로 조회
         Page<History> histories = historyRepository.findByEntityTypeAndEntityIdOrderByChangedAtDesc(
                 entityType, entityId, pageable);
 
@@ -332,11 +274,161 @@ public class HistoryService {
 
         log.info("Fetching recent histories with details for datacenter: {}", dataCenterId);
 
+        Member currentMember = getCurrentMember();
+        validateDataCenterAccess(currentMember, dataCenterId);
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("changedAt").descending());
 
         Page<History> histories = historyRepository.findByDataCenterIdOrderByChangedAtDesc(
                 dataCenterId, pageable);
 
         return histories.map(HistoryDetailResponse::from);
+    }
+
+    /**
+     * 사용자가 접근 가능한 모든 서버실 ID 조회
+     *
+     * 접근 제어 로직:
+     * - ADMIN: 모든 서버실 접근 가능
+     * - 일반 사용자: 자신의 부서가 담당하는 랙이 있는 서버실만 접근 가능
+     *
+     * @param member 사용자
+     * @return 접근 가능한 서버실 ID 목록
+     */
+    public List<Long> getAccessibleDataCenterIds(Member member) {
+        if (member.getRole() == Role.ADMIN) {
+            // ADMIN은 모든 서버실 접근 가능
+            return dataCenterRepository.findAll().stream()
+                    .map(DataCenter::getId)
+                    .collect(Collectors.toList());
+        }
+
+        // 사용자의 주 부서 조회
+        Optional<MemberDepartment> memberDepartmentOpt = memberDepartmentRepository
+                .findByMemberIdAndIsPrimary(member.getId(), true);
+
+        if (memberDepartmentOpt.isEmpty()) {
+            log.warn("User {} has no primary department assigned", member.getId());
+            return List.of(); // 부서 없으면 접근 가능한 서버실 없음
+        }
+
+        Long departmentId = memberDepartmentOpt.get().getDepartment().getId();
+        log.debug("User {} belongs to department {}", member.getId(), departmentId);
+
+        // 부서가 담당하는 랙들이 속한 서버실 ID 수집 (중복 제거)
+        List<Rack> departmentRacks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
+
+        List<Long> dataCenterIds = departmentRacks.stream()
+                .map(rack -> rack.getDatacenter().getId())
+                .distinct()
+                .collect(Collectors.toList());
+
+        log.info("User {} can access {} datacenters through department {}",
+                member.getId(), dataCenterIds.size(), departmentId);
+
+        return dataCenterIds;
+    }
+
+    /**
+     * 사용자의 접근 가능한 서버실 목록 조회 (API용)
+     *
+     * 사용 목적:
+     * - 프론트엔드에서 히스토리 조회 시 서버실 선택 드롭다운에 사용
+     * - 사용자가 소속된 부서가 담당하는 랙이 있는 서버실만 표시
+     *
+     * @return 접근 가능한 서버실 목록 (DTO)
+     */
+    public List<DataCenterAccessResponse> getMyAccessibleDataCenters() {
+        Member currentMember = getCurrentMember();
+        List<Long> accessibleDataCenterIds = getAccessibleDataCenterIds(currentMember);
+
+        if (accessibleDataCenterIds.isEmpty()) {
+            log.warn("User {} has no accessible datacenters", currentMember.getId());
+            return List.of();
+        }
+
+        return dataCenterRepository.findAllById(accessibleDataCenterIds).stream()
+                .map(dc -> DataCenterAccessResponse.builder()
+                        .dataCenterId(dc.getId())
+                        .dataCenterName(dc.getName())
+                        .dataCenterCode(dc.getCode())
+                        .location(dc.getLocation())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    // ========== Private Helper Methods ==========
+
+    /**
+     * 현재 로그인한 사용자 조회
+     */
+    private Member getCurrentMember() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalStateException("인증되지 않은 사용자입니다.");
+        }
+
+        String userId = authentication.getName();
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalStateException("사용자 ID를 찾을 수 없습니다.");
+        }
+
+        try {
+            return memberRepository.findById(Long.parseLong(userId))
+                    .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
+        }
+    }
+
+    /**
+     * 서버실 접근 권한 검증 (부서 기준)
+     *
+     * 접근 제어 로직:
+     * 1. ADMIN은 모든 서버실 접근 가능
+     * 2. 일반 사용자는 자신의 부서가 담당하는 랙이 속한 서버실만 접근 가능
+     * 3. 부서 소속이 없으면 접근 불가
+     *
+     * @param member 사용자
+     * @param dataCenterId 서버실 ID
+     * @throws AccessDeniedException 접근 권한이 없는 경우
+     */
+    private void validateDataCenterAccess(Member member, Long dataCenterId) {
+        if (dataCenterId == null) {
+            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
+        }
+
+        if (member.getRole() == Role.ADMIN) {
+            log.debug("Admin user {} accessing datacenter {}", member.getId(), dataCenterId);
+            return; // ADMIN은 모든 전산실 접근 가능
+        }
+
+        // 사용자의 주 부서 조회
+        MemberDepartment memberDepartment = memberDepartmentRepository
+                .findByMemberIdAndIsPrimary(member.getId(), true)
+                .orElseThrow(() -> new AccessDeniedException(
+                        "부서에 소속되지 않아 히스토리를 조회할 수 없습니다."));
+
+        Long departmentId = memberDepartment.getDepartment().getId();
+        log.debug("User {} belongs to department {}, checking access to datacenter {}",
+                member.getId(), departmentId, dataCenterId);
+
+        // 부서가 담당하는 랙들 조회
+        List<Rack> departmentRacks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
+
+        // 해당 랙들이 속한 서버실 ID 확인
+        boolean hasAccess = departmentRacks.stream()
+                .anyMatch(rack -> rack.getDatacenter().getId().equals(dataCenterId));
+
+        if (!hasAccess) {
+            log.warn("User {} (department {}) denied access to datacenter {} - no assigned racks",
+                    member.getId(), departmentId, dataCenterId);
+            throw new AccessDeniedException(
+                    "해당 전산실의 히스토리 조회 권한이 없습니다. (부서가 담당하는 랙이 없습니다)");
+        }
+
+        log.debug("User {} granted access to datacenter {} through department {}",
+                member.getId(), dataCenterId, departmentId);
     }
 }

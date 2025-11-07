@@ -92,7 +92,7 @@ public class DataCenterController {
             @Valid @RequestBody DataCenterUpdateRequest request,
             HttpServletRequest httpRequest
     ) {
-        DataCenterDetailResponse datacenter = dataCenterService.updateDataCenter(id, request, httpRequest);
+        DataCenterDetailResponse datacenter = dataCenterService.updateDataCenter(id, request);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "전산실 수정 완료", datacenter));
     }

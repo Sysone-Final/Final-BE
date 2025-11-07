@@ -47,9 +47,6 @@ public record DataCenterUpdateRequest(
         @Digits(integer = 10, fraction = 2, message = "냉각 용량은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalCoolingCapacity,
 
-        @Min(value = 1, message = "최대 랙 개수는 1 이상이어야 합니다.")
-        Integer maxRackCount,
-
         @DecimalMin(value = "-50.0", message = "최저 온도는 -50℃ 이상이어야 합니다.")
         @DecimalMax(value = "50.0", message = "최저 온도는 50℃ 이하여야 합니다.")
         @Digits(integer = 3, fraction = 2, message = "온도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
@@ -68,9 +65,7 @@ public record DataCenterUpdateRequest(
         @DecimalMin(value = "0.0", message = "최고 습도는 0% 이상이어야 합니다.")
         @DecimalMax(value = "100.0", message = "최고 습도는 100% 이하여야 합니다.")
         @Digits(integer = 3, fraction = 2, message = "습도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
-        BigDecimal humidityMax,
+        BigDecimal humidityMax
 
-        @Min(value = 1, message = "유효하지 않은 담당자 ID입니다.")
-        Long managerId
 ) {
 }

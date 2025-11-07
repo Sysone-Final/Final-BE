@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.datacenter.service;
+package org.example.finalbe.domains.serverroom.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -8,12 +8,12 @@ import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.companydatacenter.domain.CompanyDataCenter;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.dto.*;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
-import org.example.finalbe.domains.history.service.DataCenterHistoryRecorder;
+import org.example.finalbe.domains.companyserverroom.domain.CompanyServerRoom;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.dto.*;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
+import org.example.finalbe.domains.history.service.ServerRoomHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.springframework.security.core.Authentication;
@@ -28,12 +28,12 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class DataCenterService {
+public class ServerRoomService {
 
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final MemberRepository memberRepository;
-    private final CompanyDataCenterRepository companyDataCenterRepository;
-    private final DataCenterHistoryRecorder dataCenterHistoryRecorder;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
+    private final ServerRoomHistoryRecorder serverRoomHistoryRecorder;
     /**
      * 현재 로그인한 사용자 조회
      */
@@ -80,7 +80,7 @@ public class DataCenterService {
         }
 
         // CompanyDataCenter 매핑 테이블에서 접근 권한 확인
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
                 member.getCompany().getId(),
                 dataCenterId
         );
@@ -93,38 +93,38 @@ public class DataCenterService {
     /**
      * CompanyDataCenter 매핑 테이블로 접근 가능한 전산실 목록 조회
      */
-    public List<DataCenterListResponse> getAccessibleDataCenters() {
+    public List<ServerRoomListResponse> getAccessibleDataCenters() {
         Member currentMember = getCurrentMember();
         log.info("Fetching accessible data centers for user: {} (role: {}, company: {})",
                 currentMember.getId(), currentMember.getRole(), currentMember.getCompany().getId());
 
-        List<DataCenter> dataCenters;
+        List<ServerRoom> serverRooms;
 
         if (currentMember.getRole() == Role.ADMIN) {
             // ADMIN은 모든 전산실 조회
-            dataCenters = dataCenterRepository.findByDelYn(DelYN.N);
-            log.info("Admin user - returning all {} data centers", dataCenters.size());
+            serverRooms = serverRoomRepository.findByDelYn(DelYN.N);
+            log.info("Admin user - returning all {} data centers", serverRooms.size());
         } else {
             // 일반 사용자: CompanyDataCenter 매핑을 통해 접근 가능한 전산실만 조회
-            List<CompanyDataCenter> mappings = companyDataCenterRepository
+            List<CompanyServerRoom> mappings = companyServerRoomRepository
                     .findByCompanyId(currentMember.getCompany().getId());
 
-            dataCenters = mappings.stream()
-                    .map(CompanyDataCenter::getDataCenter)
+            serverRooms = mappings.stream()
+                    .map(CompanyServerRoom::getServerRoom)
                     .collect(Collectors.toList());
 
-            log.info("Non-admin user - returning {} accessible data centers", dataCenters.size());
+            log.info("Non-admin user - returning {} accessible data centers", serverRooms.size());
         }
 
-        return dataCenters.stream()
-                .map(DataCenterListResponse::from)
+        return serverRooms.stream()
+                .map(ServerRoomListResponse::from)
                 .collect(Collectors.toList());
     }
 
     /**
      * 전산실 상세 조회
      */
-    public DataCenterDetailResponse getDataCenterById(Long id) {
+    public ServerRoomDetailResponse getDataCenterById(Long id) {
         Member currentMember = getCurrentMember();
         log.info("Fetching data center by id: {} for user: {} (role: {})",
                 id, currentMember.getId(), currentMember.getRole());
@@ -136,17 +136,17 @@ public class DataCenterService {
         // CompanyDataCenter 매핑으로 접근 권한 확인
         validateDataCenterAccess(currentMember, id);
 
-        DataCenter dataCenter = dataCenterRepository.findActiveById(id)
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
-        return DataCenterDetailResponse.from(dataCenter);
+        return ServerRoomDetailResponse.from(serverRoom);
     }
 
     /**
      * 전산실 생성 + CompanyDataCenter 매핑 자동 생성 + 히스토리 기록
      */
     @Transactional
-    public DataCenterDetailResponse createDataCenter(DataCenterCreateRequest request,
+    public ServerRoomDetailResponse createDataCenter(ServerRoomCreateRequest request,
                                                      HttpServletRequest httpRequest) {
         Member currentMember = getCurrentMember();
         log.info("Creating data center with code: {} by user: {} (role: {}, company: {})",
@@ -163,38 +163,38 @@ public class DataCenterService {
         }
 
 
-        if (dataCenterRepository.existsByCodeAndDelYn(request.code(), DelYN.N)) {
+        if (serverRoomRepository.existsByCodeAndDelYn(request.code(), DelYN.N)) {
             throw new DuplicateException("전산실 코드", request.code());
         }
 
 
         // 전산실 생성
-        DataCenter dataCenter = request.toEntity();
-        DataCenter savedDataCenter = dataCenterRepository.save(dataCenter);
+        ServerRoom serverRoom = request.toEntity();
+        ServerRoom savedServerRoom = serverRoomRepository.save(serverRoom);
 
         // CompanyDataCenter 매핑 자동 생성
-        CompanyDataCenter mapping = CompanyDataCenter.builder()
+        CompanyServerRoom mapping = CompanyServerRoom.builder()
                 .company(currentMember.getCompany())
-                .dataCenter(savedDataCenter)
+                .serverRoom(savedServerRoom)
                 .grantedBy(currentMember.getUserName())
                 .build();
-        companyDataCenterRepository.save(mapping);
+        companyServerRoomRepository.save(mapping);
 
         // 히스토리 기록
-        dataCenterHistoryRecorder.recordCreate(savedDataCenter, currentMember);
+        serverRoomHistoryRecorder.recordCreate(savedServerRoom, currentMember);
 
         log.info("Data center created successfully with id: {}, automatically mapped to company: {}",
-                savedDataCenter.getId(), currentMember.getCompany().getId());
+                savedServerRoom.getId(), currentMember.getCompany().getId());
 
-        return DataCenterDetailResponse.from(savedDataCenter);
+        return ServerRoomDetailResponse.from(savedServerRoom);
     }
 
     /**
      * 전산실 정보 수정 + 히스토리 기록
      */
     @Transactional
-    public DataCenterDetailResponse updateDataCenter(Long id,
-                                                     DataCenterUpdateRequest request) {
+    public ServerRoomDetailResponse updateDataCenter(Long id,
+                                                     ServerRoomUpdateRequest request) {
         Member currentMember = getCurrentMember();
         log.info("Updating data center with id: {} by user: {} (role: {})",
                 id, currentMember.getId(), currentMember.getRole());
@@ -206,22 +206,22 @@ public class DataCenterService {
         validateWritePermission(currentMember);
         validateDataCenterAccess(currentMember, id);
 
-        DataCenter dataCenter = dataCenterRepository.findActiveById(id)
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
         // 변경 전 복사
-        DataCenter oldDataCenter = copyDataCenter(dataCenter);
+        ServerRoom oldServerRoom = copyDataCenter(serverRoom);
 
         if (request.code() != null
                 && !request.code().trim().isEmpty()
-                && !request.code().equals(dataCenter.getCode())) {
-            if (dataCenterRepository.existsByCodeAndDelYn(request.code(), DelYN.N)) {
+                && !request.code().equals(serverRoom.getCode())) {
+            if (serverRoomRepository.existsByCodeAndDelYn(request.code(), DelYN.N)) {
                 throw new DuplicateException("전산실 코드", request.code());
             }
         }
 
 
-        dataCenter.updateInfo(
+        serverRoom.updateInfo(
                 request.name(),
                 request.code(),
                 request.location(),
@@ -239,11 +239,11 @@ public class DataCenterService {
                 request.humidityMax()
         );
 
-        dataCenterHistoryRecorder.recordUpdate(oldDataCenter, dataCenter, currentMember);
+        serverRoomHistoryRecorder.recordUpdate(oldServerRoom, serverRoom, currentMember);
 
         log.info("Data center updated successfully with id: {}", id);
 
-        return DataCenterDetailResponse.from(dataCenter);
+        return ServerRoomDetailResponse.from(serverRoom);
     }
 
     /**
@@ -262,13 +262,13 @@ public class DataCenterService {
         validateWritePermission(currentMember);
         validateDataCenterAccess(currentMember, id);
 
-        DataCenter dataCenter = dataCenterRepository.findActiveById(id)
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
-        dataCenterHistoryRecorder.recordDelete(dataCenter, currentMember);
+        serverRoomHistoryRecorder.recordDelete(serverRoom, currentMember);
 
         // 소프트 삭제
-        dataCenter.softDelete();
+        serverRoom.softDelete();
 
         log.info("Data center soft deleted successfully with id: {}", id);
     }
@@ -276,7 +276,7 @@ public class DataCenterService {
     /**
      * CompanyDataCenter 기반 전산실 이름 검색
      */
-    public List<DataCenterListResponse> searchDataCentersByName(String name) {
+    public List<ServerRoomListResponse> searchDataCentersByName(String name) {
         Member currentMember = getCurrentMember();
         log.info("Searching data centers by name: {} for user: {} (role: {})",
                 name, currentMember.getId(), currentMember.getRole());
@@ -285,19 +285,19 @@ public class DataCenterService {
             throw new IllegalArgumentException("검색어를 입력해주세요.");
         }
 
-        List<DataCenter> searchResults;
+        List<ServerRoom> searchResults;
 
         if (currentMember.getRole() == Role.ADMIN) {
             // ADMIN은 전체 검색
-            searchResults = dataCenterRepository.searchByName(name);
+            searchResults = serverRoomRepository.searchByName(name);
             log.info("Admin user - searched all data centers, found: {}", searchResults.size());
         } else {
             // 일반 사용자: 접근 가능한 전산실 중에서만 검색
-            List<CompanyDataCenter> mappings = companyDataCenterRepository
+            List<CompanyServerRoom> mappings = companyServerRoomRepository
                     .findByCompanyId(currentMember.getCompany().getId());
 
             searchResults = mappings.stream()
-                    .map(CompanyDataCenter::getDataCenter)
+                    .map(CompanyServerRoom::getServerRoom)
                     .filter(dc -> dc.getName().contains(name))
                     .collect(Collectors.toList());
 
@@ -305,7 +305,7 @@ public class DataCenterService {
         }
 
         return searchResults.stream()
-                .map(DataCenterListResponse::from)
+                .map(ServerRoomListResponse::from)
                 .collect(Collectors.toList());
     }
 
@@ -313,8 +313,8 @@ public class DataCenterService {
     /**
      * DataCenter Deep Copy (변경 전 상태 저장용)
      */
-    private DataCenter copyDataCenter(DataCenter original) {
-        return DataCenter.builder()
+    private ServerRoom copyDataCenter(ServerRoom original) {
+        return ServerRoom.builder()
                 .id(original.getId())
                 .name(original.getName())
                 .code(original.getCode())

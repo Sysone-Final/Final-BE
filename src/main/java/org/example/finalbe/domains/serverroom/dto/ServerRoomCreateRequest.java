@@ -1,26 +1,29 @@
-package org.example.finalbe.domains.datacenter.dto;
+package org.example.finalbe.domains.serverroom.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Builder;
-import org.example.finalbe.domains.common.enumdir.DataCenterStatus;
+
+import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 import java.math.BigDecimal;
 
 /**
- * 전산실 수정 요청 DTO
+ * 전산실 생성 요청 DTO
  */
 @Builder
-public record DataCenterUpdateRequest(
+public record ServerRoomCreateRequest(
+        @NotBlank(message = "전산실 이름을 입력해주세요.")
         @Size(max = 100, message = "전산실 이름은 100자 이내로 입력해주세요.")
         String name,
 
+        @NotBlank(message = "전산실 코드를 입력해주세요.")
         @Size(max = 50, message = "전산실 코드는 50자 이내로 입력해주세요.")
         String code,
 
         @Size(max = 255, message = "위치는 255자 이내로 입력해주세요.")
         String location,
 
-        // ★ 수정: @Size 제거, @Min/@Max 사용
         @Min(value = -10, message = "층수는 -10 이상이어야 합니다.")
         @Max(value = 200, message = "층수는 200 이하여야 합니다.")
         Integer floor,
@@ -31,7 +34,7 @@ public record DataCenterUpdateRequest(
         @Min(value = 1, message = "열 수는 1 이상이어야 합니다.")
         Integer columns,
 
-        DataCenterStatus status,
+        ServerRoomStatus status,
 
         String description,
 
@@ -46,7 +49,6 @@ public record DataCenterUpdateRequest(
         @DecimalMin(value = "0.0", message = "냉각 용량은 0 이상이어야 합니다.")
         @Digits(integer = 10, fraction = 2, message = "냉각 용량은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalCoolingCapacity,
-
         @DecimalMin(value = "-50.0", message = "최저 온도는 -50℃ 이상이어야 합니다.")
         @DecimalMax(value = "50.0", message = "최저 온도는 50℃ 이하여야 합니다.")
         @Digits(integer = 3, fraction = 2, message = "온도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
@@ -67,5 +69,30 @@ public record DataCenterUpdateRequest(
         @Digits(integer = 3, fraction = 2, message = "습도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal humidityMax
 
+
 ) {
+    /**
+     * DTO를 Entity로 변환
+     * ★ company 파라미터 제거
+     */
+    public ServerRoom toEntity() {
+        return ServerRoom.builder()
+                .name(this.name)
+                .code(this.code)
+                .location(this.location)
+                .floor(this.floor)
+                .rows(this.rows)
+                .columns(this.columns)
+                .status(this.status != null ? this.status : ServerRoomStatus.ACTIVE)
+                .description(this.description)
+                .totalArea(this.totalArea)
+                .totalPowerCapacity(this.totalPowerCapacity)
+                .totalCoolingCapacity(this.totalCoolingCapacity)
+                .currentRackCount(0)
+                .temperatureMin(this.temperatureMin)
+                .temperatureMax(this.temperatureMax)
+                .humidityMin(this.humidityMin)
+                .humidityMax(this.humidityMax)
+                .build();
+    }
 }

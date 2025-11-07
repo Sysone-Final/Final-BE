@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.history.dto.HistoryCreateRequest;
 import org.example.finalbe.domains.member.domain.Member;
 import org.springframework.stereotype.Component;
@@ -20,27 +20,27 @@ import java.util.Map;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class DataCenterHistoryRecorder {
+public class ServerRoomHistoryRecorder {
 
     private final HistoryService historyService;
 
     /**
      * DataCenter 생성 히스토리
      */
-    public void recordCreate(DataCenter dataCenter, Member member) {
+    public void recordCreate(ServerRoom serverRoom, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(dataCenter.getId())
-                .dataCenterName(dataCenter.getName())
+                .dataCenterId(serverRoom.getId())
+                .dataCenterName(serverRoom.getName())
                 .entityType(EntityType.DATACENTER)
-                .entityId(dataCenter.getId())
-                .entityName(dataCenter.getName())
-                .entityCode(dataCenter.getCode())
+                .entityId(serverRoom.getId())
+                .entityName(serverRoom.getName())
+                .entityCode(serverRoom.getCode())
                 .action(HistoryAction.CREATE)
                 .changedBy(member.getId())
                 .changedByName(member.getName())
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
-                .afterValue(buildSnapshot(dataCenter))
+                .afterValue(buildSnapshot(serverRoom))
                 .build();
 
         historyService.recordHistory(request);
@@ -49,13 +49,13 @@ public class DataCenterHistoryRecorder {
     /**
      * DataCenter 수정 히스토리 (상세 변경 내역 포함)
      */
-    public void recordUpdate(DataCenter oldDataCenter, DataCenter newDataCenter, Member member) {
-        Map<String, Object> oldSnapshot = buildSnapshot(oldDataCenter);
-        Map<String, Object> newSnapshot = buildSnapshot(newDataCenter);
+    public void recordUpdate(ServerRoom oldServerRoom, ServerRoom newServerRoom, Member member) {
+        Map<String, Object> oldSnapshot = buildSnapshot(oldServerRoom);
+        Map<String, Object> newSnapshot = buildSnapshot(newServerRoom);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
 
         if (changedFields.isEmpty()) {
-            log.info("No changes detected for datacenter id: {}", newDataCenter.getId());
+            log.info("No changes detected for datacenter id: {}", newServerRoom.getId());
             return;
         }
 
@@ -63,12 +63,12 @@ public class DataCenterHistoryRecorder {
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(newDataCenter.getId())
-                .dataCenterName(newDataCenter.getName())
+                .dataCenterId(newServerRoom.getId())
+                .dataCenterName(newServerRoom.getName())
                 .entityType(EntityType.DATACENTER)
-                .entityId(newDataCenter.getId())
-                .entityName(newDataCenter.getName())
-                .entityCode(newDataCenter.getCode())
+                .entityId(newServerRoom.getId())
+                .entityName(newServerRoom.getName())
+                .entityCode(newServerRoom.getCode())
                 .action(HistoryAction.UPDATE)
                 .changedBy(member.getId())
                 .changedByName(member.getName())
@@ -86,14 +86,14 @@ public class DataCenterHistoryRecorder {
     /**
      * DataCenter 상태 변경 히스토리
      */
-    public void recordStatusChange(DataCenter dataCenter, String oldStatus, String newStatus, Member member) {
+    public void recordStatusChange(ServerRoom serverRoom, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(dataCenter.getId())
-                .dataCenterName(dataCenter.getName())
+                .dataCenterId(serverRoom.getId())
+                .dataCenterName(serverRoom.getName())
                 .entityType(EntityType.DATACENTER)
-                .entityId(dataCenter.getId())
-                .entityName(dataCenter.getName())
-                .entityCode(dataCenter.getCode())
+                .entityId(serverRoom.getId())
+                .entityName(serverRoom.getName())
+                .entityCode(serverRoom.getCode())
                 .action(HistoryAction.STATUS_CHANGE)
                 .changedBy(member.getId())
                 .changedByName(member.getName())
@@ -112,20 +112,20 @@ public class DataCenterHistoryRecorder {
     /**
      * DataCenter 삭제 히스토리
      */
-    public void recordDelete(DataCenter dataCenter, Member member) {
+    public void recordDelete(ServerRoom serverRoom, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(dataCenter.getId())
-                .dataCenterName(dataCenter.getName())
+                .dataCenterId(serverRoom.getId())
+                .dataCenterName(serverRoom.getName())
                 .entityType(EntityType.DATACENTER)
-                .entityId(dataCenter.getId())
-                .entityName(dataCenter.getName())
-                .entityCode(dataCenter.getCode())
+                .entityId(serverRoom.getId())
+                .entityName(serverRoom.getName())
+                .entityCode(serverRoom.getCode())
                 .action(HistoryAction.DELETE)
                 .changedBy(member.getId())
                 .changedByName(member.getName())
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
-                .beforeValue(buildSnapshot(dataCenter))
+                .beforeValue(buildSnapshot(serverRoom))
                 .build();
 
         historyService.recordHistory(request);
@@ -133,24 +133,24 @@ public class DataCenterHistoryRecorder {
 
     // === Private Helper Methods ===
 
-    private Map<String, Object> buildSnapshot(DataCenter dataCenter) {
+    private Map<String, Object> buildSnapshot(ServerRoom serverRoom) {
         Map<String, Object> snapshot = new HashMap<>();
-        snapshot.put("name", dataCenter.getName());
-        snapshot.put("code", dataCenter.getCode());
-        snapshot.put("location", dataCenter.getLocation());
-        snapshot.put("floor", dataCenter.getFloor());
-        snapshot.put("rows", dataCenter.getRows());
-        snapshot.put("columns", dataCenter.getColumns());
-        snapshot.put("status", dataCenter.getStatus() != null ? dataCenter.getStatus().name() : null);
-        snapshot.put("description", dataCenter.getDescription());
-        snapshot.put("totalArea", dataCenter.getTotalArea());
-        snapshot.put("totalPowerCapacity", dataCenter.getTotalPowerCapacity());
-        snapshot.put("totalCoolingCapacity", dataCenter.getTotalCoolingCapacity());
-        snapshot.put("currentRackCount", dataCenter.getCurrentRackCount());
-        snapshot.put("temperatureMin", dataCenter.getTemperatureMin());
-        snapshot.put("temperatureMax", dataCenter.getTemperatureMax());
-        snapshot.put("humidityMin", dataCenter.getHumidityMin());
-        snapshot.put("humidityMax", dataCenter.getHumidityMax());
+        snapshot.put("name", serverRoom.getName());
+        snapshot.put("code", serverRoom.getCode());
+        snapshot.put("location", serverRoom.getLocation());
+        snapshot.put("floor", serverRoom.getFloor());
+        snapshot.put("rows", serverRoom.getRows());
+        snapshot.put("columns", serverRoom.getColumns());
+        snapshot.put("status", serverRoom.getStatus() != null ? serverRoom.getStatus().name() : null);
+        snapshot.put("description", serverRoom.getDescription());
+        snapshot.put("totalArea", serverRoom.getTotalArea());
+        snapshot.put("totalPowerCapacity", serverRoom.getTotalPowerCapacity());
+        snapshot.put("totalCoolingCapacity", serverRoom.getTotalCoolingCapacity());
+        snapshot.put("currentRackCount", serverRoom.getCurrentRackCount());
+        snapshot.put("temperatureMin", serverRoom.getTemperatureMin());
+        snapshot.put("temperatureMax", serverRoom.getTemperatureMax());
+        snapshot.put("humidityMin", serverRoom.getHumidityMin());
+        snapshot.put("humidityMax", serverRoom.getHumidityMax());
         return snapshot;
     }
 

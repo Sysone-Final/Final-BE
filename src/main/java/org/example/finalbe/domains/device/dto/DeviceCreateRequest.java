@@ -3,7 +3,7 @@ package org.example.finalbe.domains.device.dto;
 import jakarta.validation.constraints.*;
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.DeviceStatus;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.device.domain.Device;
 import org.example.finalbe.domains.device.domain.DeviceType;
 import org.example.finalbe.domains.rack.domain.Rack;
@@ -69,7 +69,7 @@ public record DeviceCreateRequest(
     /**
      * DTO를 Entity로 변환
      */
-    public Device toEntity(DeviceType deviceType, DataCenter datacenter, Rack rack, Long managerId) {
+    public Device toEntity(DeviceType deviceType, ServerRoom datacenter, Rack rack, Long managerId) {
         return Device.builder()
                 .deviceName(this.deviceName)
                 .deviceCode(this.deviceCode)

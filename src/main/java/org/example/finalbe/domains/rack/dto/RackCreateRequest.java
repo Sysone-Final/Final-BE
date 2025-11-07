@@ -6,7 +6,7 @@ import org.example.finalbe.domains.common.enumdir.DoorDirection;
 import org.example.finalbe.domains.common.enumdir.RackStatus;
 import org.example.finalbe.domains.common.enumdir.RackType;
 import org.example.finalbe.domains.common.enumdir.ZoneDirection;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.math.BigDecimal;
@@ -75,7 +75,7 @@ public record RackCreateRequest(
         @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.")
         Long datacenterId
 ) {
-    public Rack toEntity(DataCenter datacenter, String createdBy) {
+    public Rack toEntity(ServerRoom datacenter, String createdBy) {
         return Rack.builder()
                 .rackName(this.rackName)
                 .groupNumber(this.groupNumber)

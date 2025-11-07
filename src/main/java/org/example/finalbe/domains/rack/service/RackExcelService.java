@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.finalbe.domains.common.enumdir.*;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
@@ -34,7 +34,7 @@ import java.util.Optional;
 public class RackExcelService {
 
     private final RackRepository rackRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final MemberRepository memberRepository;
 
     /**
@@ -296,7 +296,7 @@ public class RackExcelService {
     public RackBulkUploadPreviewResponse previewBulkUpload(MultipartFile file, Long dataCenterId) {
         log.info("Previewing bulk upload for datacenter: {}", dataCenterId);
 
-        DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new RuntimeException("전산실을 찾을 수 없습니다."));
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
@@ -563,7 +563,7 @@ public class RackExcelService {
     public RackBulkUploadResultResponse executeBulkUpload(MultipartFile file, Long dataCenterId) {
         log.info("Executing bulk upload for datacenter: {}", dataCenterId);
 
-        DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new RuntimeException("전산실을 찾을 수 없습니다."));
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
@@ -681,7 +681,7 @@ public class RackExcelService {
                             .status(status)
                             .rackType(rackType)
                             .managerId(managerId)
-                            .datacenter(dataCenter)
+                            .datacenter(serverRoom)
                             .createdBy(memberName)
                             .build();
 

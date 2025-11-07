@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.companydatacenter.domain;
+package org.example.finalbe.domains.companyserverroom.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -8,31 +8,32 @@ import lombok.NoArgsConstructor;
 
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.company.domain.Company;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 /**
- * 회사-전산실 매핑 엔티티
+ * 회사-서버실 매핑 엔티티
+ * (기존 회사-전산실 매핑)
  */
 @Entity
-@Table(name = "company_datacenter",
+@Table(name = "company_serverroom",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_company_datacenter",
-                        columnNames = {"company_id", "datacenter_id"})
+                @UniqueConstraint(name = "uk_company_serverroom",
+                        columnNames = {"company_id", "serverroom_id"})
         },
         indexes = {
-                @Index(name = "idx_company_id", columnList = "company_id"),
-                @Index(name = "idx_datacenter_id", columnList = "datacenter_id")
+                @Index(name = "idx_company_serverroom_company_id", columnList = "company_id"),
+                @Index(name = "idx_company_serverroom_serverroom_id", columnList = "serverroom_id")
         }
 )
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Builder
-public class CompanyDataCenter extends BaseTimeEntity {
+public class CompanyServerRoom extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "company_datacenter_id")
+    @Column(name = "company_serverroom_id")
     private Long id; // 매핑 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -40,8 +41,8 @@ public class CompanyDataCenter extends BaseTimeEntity {
     private Company company; // 소속 회사
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "datacenter_id", nullable = false)
-    private DataCenter dataCenter; // 접근 가능한 전산실
+    @JoinColumn(name = "serverroom_id", nullable = false)
+    private ServerRoom serverRoom; // 접근 가능한 서버실
 
     @Column(name = "description", length = 500)
     private String description; // 매핑 설명

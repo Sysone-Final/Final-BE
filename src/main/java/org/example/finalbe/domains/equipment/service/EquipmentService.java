@@ -7,7 +7,7 @@ import org.example.finalbe.domains.common.enumdir.EquipmentStatus;
 import org.example.finalbe.domains.common.enumdir.EquipmentType;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.*;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.dto.*;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
@@ -41,7 +41,7 @@ public class EquipmentService {
     private final EquipmentRepository equipmentRepository;
     private final RackRepository rackRepository;
     private final MemberRepository memberRepository;
-    private final CompanyDataCenterRepository companyDataCenterRepository;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
     private final EquipmentHistoryRecorder equipmentHistoryRecorder;
 
     /**
@@ -195,7 +195,7 @@ public class EquipmentService {
             Long datacenterId = rack.getDatacenter().getId();
             Long companyId = currentMember.getCompany().getId();
 
-            boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+            boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
                     companyId, datacenterId);
 
             if (!hasAccess) {
@@ -461,7 +461,7 @@ public class EquipmentService {
         Long datacenterId = equipment.getRack().getDatacenter().getId();
         Long companyId = member.getCompany().getId();
 
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
                 companyId, datacenterId);
 
         if (!hasAccess) {
@@ -590,7 +590,7 @@ public class EquipmentService {
                     Long datacenterId = equipment.getRack().getDatacenter().getId();
                     Long companyId = currentMember.getCompany().getId();
 
-                    boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+                    boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
                             companyId, datacenterId);
 
                     if (!hasAccess) {

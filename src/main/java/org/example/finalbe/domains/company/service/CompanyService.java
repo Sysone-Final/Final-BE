@@ -7,7 +7,7 @@ import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.company.domain.Company;
 import org.example.finalbe.domains.company.dto.*;
 import org.example.finalbe.domains.company.repository.CompanyRepository;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
 import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +32,7 @@ public class CompanyService {
 
     // === 의존성 주입 (생성자 주입) ===
     private final CompanyRepository companyRepository; // 회사 데이터 접근
-    private final CompanyDataCenterRepository companyDataCenterRepository; // 회사-전산실 매핑 데이터 접근
+    private final CompanyServerRoomRepository companyServerRoomRepository; // 회사-전산실 매핑 데이터 접근
 
     /**
      * 회사 목록 조회 (삭제되지 않은 것만)
@@ -281,10 +281,10 @@ public class CompanyService {
         // 회사가 존재하지 않으면 예외 발생
 
         // === 3단계: CompanyDataCenter 매핑 조회 및 DTO 변환 ===
-        List<CompanyDataCenterListResponse> dataCenters = companyDataCenterRepository.findByCompanyId(companyId)
+        List<CompanyDataCenterListResponse> dataCenters = companyServerRoomRepository.findByCompanyId(companyId)
                 .stream() // Stream API로 처리
                 .map(cdc -> CompanyDataCenterListResponse.from(
-                        cdc.getDataCenter(),    // DataCenter 엔티티
+                        cdc.getServerRoom(),    // DataCenter 엔티티
                         cdc.getCreatedAt()      // 매핑 생성 시간 (접근 허용일)
                 ))
                 .collect(Collectors.toList()); // List로 수집

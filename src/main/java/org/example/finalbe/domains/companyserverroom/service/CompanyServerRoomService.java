@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.companydatacenter.service;
+package org.example.finalbe.domains.companyserverroom.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,12 +7,12 @@ import org.example.finalbe.domains.company.repository.CompanyRepository;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.companydatacenter.domain.CompanyDataCenter;
-import org.example.finalbe.domains.companydatacenter.dto.CompanyDataCenterCreateRequest;
-import org.example.finalbe.domains.companydatacenter.dto.CompanyDataCenterResponse;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.domain.CompanyServerRoom;
+import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomCreateRequest;
+import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomResponse;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.springframework.security.core.Authentication;
@@ -33,11 +33,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class CompanyDataCenterService {
+public class CompanyServerRoomService {
 
-    private final CompanyDataCenterRepository companyDataCenterRepository;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
     private final CompanyRepository companyRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final MemberRepository memberRepository;
 
     /**
@@ -68,8 +68,8 @@ public class CompanyDataCenterService {
      * 회사-전산실 매핑 생성
      */
     @Transactional
-    public List<CompanyDataCenterResponse> createCompanyDataCenterMappings(
-            CompanyDataCenterCreateRequest request) {
+    public List<CompanyServerRoomResponse> createCompanyServerRoomMappings(
+            CompanyServerRoomCreateRequest request) {
 
         Member currentMember = getCurrentMember();
         log.info("Creating company-datacenter mappings for company: {} by user: {}",
@@ -78,13 +78,13 @@ public class CompanyDataCenterService {
         if (request.companyId() == null) {
             throw new IllegalArgumentException("회사 ID를 입력해주세요.");
         }
-        if (request.dataCenterIds() == null || request.dataCenterIds().isEmpty()) {
+        if (request.serverRoomIds() == null || request.serverRoomIds().isEmpty()) {
             throw new IllegalArgumentException("전산실을 하나 이상 선택해주세요.");
         }
 
         // 중복 제거
-        List<Long> uniqueDataCenterIds = new ArrayList<>(new HashSet<>(request.dataCenterIds()));
-        if (uniqueDataCenterIds.size() != request.dataCenterIds().size()) {
+        List<Long> uniqueDataCenterIds = new ArrayList<>(new HashSet<>(request.serverRoomIds()));
+        if (uniqueDataCenterIds.size() != request.serverRoomIds().size()) {
             log.warn("Duplicate datacenter IDs found in request, removed duplicates");
         }
 
@@ -93,21 +93,21 @@ public class CompanyDataCenterService {
                 .orElseThrow(() -> new EntityNotFoundException("회사", request.companyId()));
 
         // 전산실 존재 여부 검증
-        List<DataCenter> datacenters = new ArrayList<>();
+        List<ServerRoom> datacenters = new ArrayList<>();
         for (Long dataCenterId : uniqueDataCenterIds) {
             if (dataCenterId == null) {
                 throw new IllegalArgumentException("전산실 ID는 null일 수 없습니다.");
             }
 
-            DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
+            ServerRoom serverRoom = serverRoomRepository.findActiveById(dataCenterId)
                     .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
-            datacenters.add(dataCenter);
+            datacenters.add(serverRoom);
         }
 
         // 중복 매핑 체크
         List<Long> duplicateIds = new ArrayList<>();
         for (Long dataCenterId : uniqueDataCenterIds) {
-            if (companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
+            if (companyServerRoomRepository.existsByCompanyIdAndDataCenterId(
                     request.companyId(), dataCenterId)) {
                 duplicateIds.add(dataCenterId);
             }
@@ -122,27 +122,27 @@ public class CompanyDataCenterService {
         }
 
         // 매핑 생성
-        List<CompanyDataCenter> savedMappings = new ArrayList<>();
+        List<CompanyServerRoom> savedMappings = new ArrayList<>();
         try {
-            for (DataCenter dataCenter : datacenters) {
-                CompanyDataCenter companyDataCenter = CompanyDataCenter.builder()
+            for (ServerRoom serverRoom : datacenters) {
+                CompanyServerRoom companyServerRoom = CompanyServerRoom.builder()
                         .company(company)
-                        .dataCenter(dataCenter)
+                        .serverRoom(serverRoom)
                         .description(request.description())
                         .grantedBy(currentMember.getUserName())
                         .build();
 
-                CompanyDataCenter saved = companyDataCenterRepository.save(companyDataCenter);
+                CompanyServerRoom saved = companyServerRoomRepository.save(companyServerRoom);
                 savedMappings.add(saved);
 
                 log.debug("Company-DataCenter mapping created: company={}, datacenter={}",
-                        request.companyId(), dataCenter.getId());
+                        request.companyId(), serverRoom.getId());
             }
 
             log.info("Successfully created {} company-datacenter mappings", savedMappings.size());
 
             return savedMappings.stream()
-                    .map(CompanyDataCenterResponse::from)
+                    .map(CompanyServerRoomResponse::from)
                     .collect(Collectors.toList());
 
         } catch (Exception e) {
@@ -154,7 +154,7 @@ public class CompanyDataCenterService {
     /**
      * 회사의 전산실 매핑 목록 조회
      */
-    public List<CompanyDataCenterResponse> getCompanyDataCentersByCompanyId(Long companyId) {
+    public List<CompanyServerRoomResponse> getCompanyDataCentersByCompanyId(Long companyId) {
         log.info("Fetching company-datacenter mappings for company: {}", companyId);
 
         if (companyId == null) {
@@ -164,10 +164,10 @@ public class CompanyDataCenterService {
         companyRepository.findActiveById(companyId)
                 .orElseThrow(() -> new EntityNotFoundException("회사", companyId));
 
-        List<CompanyDataCenterResponse> mappings = companyDataCenterRepository
+        List<CompanyServerRoomResponse> mappings = companyServerRoomRepository
                 .findByCompanyId(companyId)
                 .stream()
-                .map(CompanyDataCenterResponse::from)
+                .map(CompanyServerRoomResponse::from)
                 .collect(Collectors.toList());
 
         log.info("Found {} mappings for company: {}", mappings.size(), companyId);
@@ -177,20 +177,20 @@ public class CompanyDataCenterService {
     /**
      * 전산실의 회사 매핑 목록 조회
      */
-    public List<CompanyDataCenterResponse> getCompanyDataCentersByDataCenterId(Long dataCenterId) {
+    public List<CompanyServerRoomResponse> getCompanyDataCentersByDataCenterId(Long dataCenterId) {
         log.info("Fetching company-datacenter mappings for datacenter: {}", dataCenterId);
 
         if (dataCenterId == null) {
             throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
         }
 
-        dataCenterRepository.findActiveById(dataCenterId)
+        serverRoomRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
 
-        List<CompanyDataCenterResponse> mappings = companyDataCenterRepository
+        List<CompanyServerRoomResponse> mappings = companyServerRoomRepository
                 .findByDataCenterId(dataCenterId)
                 .stream()
-                .map(CompanyDataCenterResponse::from)
+                .map(CompanyServerRoomResponse::from)
                 .collect(Collectors.toList());
 
         log.info("Found {} mappings for datacenter: {}", mappings.size(), dataCenterId);
@@ -212,12 +212,12 @@ public class CompanyDataCenterService {
             throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
         }
 
-        CompanyDataCenter companyDataCenter = companyDataCenterRepository
+        CompanyServerRoom companyServerRoom = companyServerRoomRepository
                 .findByCompanyIdAndDataCenterId(companyId, dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, dataCenterId)));
 
-        companyDataCenter.softDelete();
+        companyServerRoom.softDelete();
 
         log.info("Company-DataCenter mapping deleted successfully");
     }
@@ -246,16 +246,16 @@ public class CompanyDataCenterService {
         companyRepository.findActiveById(companyId)
                 .orElseThrow(() -> new EntityNotFoundException("회사", companyId));
 
-        List<CompanyDataCenter> mappingsToDelete = new ArrayList<>();
+        List<CompanyServerRoom> mappingsToDelete = new ArrayList<>();
         for (Long dataCenterId : dataCenterIds) {
-            CompanyDataCenter mapping = companyDataCenterRepository
+            CompanyServerRoom mapping = companyServerRoomRepository
                     .findByCompanyIdAndDataCenterId(companyId, dataCenterId)
                     .orElseThrow(() -> new EntityNotFoundException(
                             String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, dataCenterId)));
             mappingsToDelete.add(mapping);
         }
 
-        mappingsToDelete.forEach(CompanyDataCenter::softDelete);
+        mappingsToDelete.forEach(CompanyServerRoom::softDelete);
 
         log.info("Successfully deleted {} company-datacenter mappings for company {}",
                 mappingsToDelete.size(), companyId);
@@ -274,10 +274,10 @@ public class CompanyDataCenterService {
             throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
         }
 
-        dataCenterRepository.findActiveById(dataCenterId)
+        serverRoomRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
 
-        List<CompanyDataCenter> mappingsToDelete = companyDataCenterRepository
+        List<CompanyServerRoom> mappingsToDelete = companyServerRoomRepository
                 .findByDataCenterId(dataCenterId);
 
         if (mappingsToDelete.isEmpty()) {
@@ -285,7 +285,7 @@ public class CompanyDataCenterService {
             return 0;
         }
 
-        mappingsToDelete.forEach(CompanyDataCenter::softDelete);
+        mappingsToDelete.forEach(CompanyServerRoom::softDelete);
 
         log.info("Successfully deleted {} company-datacenter mappings for datacenter {}",
                 mappingsToDelete.size(), dataCenterId);
@@ -314,19 +314,19 @@ public class CompanyDataCenterService {
             }
         }
 
-        dataCenterRepository.findActiveById(dataCenterId)
+        serverRoomRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
 
-        List<CompanyDataCenter> mappingsToDelete = new ArrayList<>();
+        List<CompanyServerRoom> mappingsToDelete = new ArrayList<>();
         for (Long companyId : companyIds) {
-            CompanyDataCenter mapping = companyDataCenterRepository
+            CompanyServerRoom mapping = companyServerRoomRepository
                     .findByCompanyIdAndDataCenterId(companyId, dataCenterId)
                     .orElseThrow(() -> new EntityNotFoundException(
                             String.format("회사(ID: %d)와 전산실(ID: %d)의 매핑", companyId, dataCenterId)));
             mappingsToDelete.add(mapping);
         }
 
-        mappingsToDelete.forEach(CompanyDataCenter::softDelete);
+        mappingsToDelete.forEach(CompanyServerRoom::softDelete);
 
         log.info("Successfully deleted {} company-datacenter mappings for datacenter {}",
                 mappingsToDelete.size(), dataCenterId);

@@ -1,8 +1,8 @@
-package org.example.finalbe.domains.datacenter.repository;
+package org.example.finalbe.domains.serverroom.repository;
 
-import org.example.finalbe.domains.common.enumdir.DataCenterStatus;
+import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
 import org.example.finalbe.domains.common.enumdir.DelYN;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,27 +13,27 @@ import java.util.Optional;
 /**
  * DataCenter 데이터 접근 계층
  */
-public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
+public interface ServerRoomRepository extends JpaRepository<ServerRoom, Long> {
 
     /**
      * ★ 수정: 활성 전산실 목록 조회 (LEFT JOIN FETCH 제거)
      */
     @Query("""
-        SELECT dc FROM DataCenter dc
+        SELECT dc FROM ServerRoom dc
         WHERE dc.delYn = :delYn
         ORDER BY dc.name
     """)
-    List<DataCenter> findByDelYn(@Param("delYn") DelYN delYn);
+    List<ServerRoom> findByDelYn(@Param("delYn") DelYN delYn);
 
     /**
      * ★ 수정: ID로 활성 전산실 조회 (LEFT JOIN FETCH 제거)
      */
     @Query("""
-        SELECT dc FROM DataCenter dc
+        SELECT dc FROM ServerRoom dc
         WHERE dc.id = :id 
         AND dc.delYn = 'N'
     """)
-    Optional<DataCenter> findActiveById(@Param("id") Long id);
+    Optional<ServerRoom> findActiveById(@Param("id") Long id);
 
     /**
      * 전산실 코드 중복 체크
@@ -44,21 +44,21 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
      * ★ 수정: 상태별 전산실 조회 (LEFT JOIN FETCH 제거)
      */
     @Query("""
-        SELECT dc FROM DataCenter dc
+        SELECT dc FROM ServerRoom dc
         WHERE dc.status = :status 
         AND dc.delYn = 'N'
         ORDER BY dc.name
     """)
-    List<DataCenter> findByStatus(@Param("status") DataCenterStatus status);
+    List<ServerRoom> findByStatus(@Param("status") ServerRoomStatus status);
 
     /**
      * ★ 수정: 전산실 이름으로 검색 (LEFT JOIN FETCH 제거)
      */
     @Query("""
-        SELECT dc FROM DataCenter dc
+        SELECT dc FROM ServerRoom dc
         WHERE dc.name LIKE %:name%
         AND dc.delYn = 'N'
         ORDER BY dc.name
     """)
-    List<DataCenter> searchByName(@Param("name") String name);
+    List<ServerRoom> searchByName(@Param("name") String name);
 }

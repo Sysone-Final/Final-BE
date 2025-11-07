@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DataCenter 히스토리 기록 전담 클래스 (개선 버전)
+ * ServerRoom 히스토리 기록 전담 클래스 (개선 버전)
  */
 @Component
 @Slf4j
@@ -25,13 +25,13 @@ public class ServerRoomHistoryRecorder {
     private final HistoryService historyService;
 
     /**
-     * DataCenter 생성 히스토리
+     * ServerRoom 생성 히스토리
      */
     public void recordCreate(ServerRoom serverRoom, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(serverRoom.getId())
-                .dataCenterName(serverRoom.getName())
-                .entityType(EntityType.DATACENTER)
+                .serverRoomId(serverRoom.getId())
+                .serverRoomName(serverRoom.getName())
+                .entityType(EntityType.SERVERROOM)
                 .entityId(serverRoom.getId())
                 .entityName(serverRoom.getName())
                 .entityCode(serverRoom.getCode())
@@ -47,7 +47,7 @@ public class ServerRoomHistoryRecorder {
     }
 
     /**
-     * DataCenter 수정 히스토리 (상세 변경 내역 포함)
+     * ServerRoom 수정 히스토리 (상세 변경 내역 포함)
      */
     public void recordUpdate(ServerRoom oldServerRoom, ServerRoom newServerRoom, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldServerRoom);
@@ -55,7 +55,7 @@ public class ServerRoomHistoryRecorder {
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
 
         if (changedFields.isEmpty()) {
-            log.info("No changes detected for datacenter id: {}", newServerRoom.getId());
+            log.info("No changes detected for serverroom id: {}", newServerRoom.getId());
             return;
         }
 
@@ -63,9 +63,9 @@ public class ServerRoomHistoryRecorder {
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(newServerRoom.getId())
-                .dataCenterName(newServerRoom.getName())
-                .entityType(EntityType.DATACENTER)
+                .serverRoomId(newServerRoom.getId())
+                .serverRoomName(newServerRoom.getName())
+                .entityType(EntityType.SERVERROOM)
                 .entityId(newServerRoom.getId())
                 .entityName(newServerRoom.getName())
                 .entityCode(newServerRoom.getCode())
@@ -80,17 +80,17 @@ public class ServerRoomHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("DataCenter update history recorded: {} fields changed", changedFields.size());
+        log.info("ServerRoom update history recorded: {} fields changed", changedFields.size());
     }
 
     /**
-     * DataCenter 상태 변경 히스토리
+     * ServerRoom 상태 변경 히스토리
      */
     public void recordStatusChange(ServerRoom serverRoom, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(serverRoom.getId())
-                .dataCenterName(serverRoom.getName())
-                .entityType(EntityType.DATACENTER)
+                .serverRoomId(serverRoom.getId())
+                .serverRoomName(serverRoom.getName())
+                .entityType(EntityType.SERVERROOM)
                 .entityId(serverRoom.getId())
                 .entityName(serverRoom.getName())
                 .entityCode(serverRoom.getCode())
@@ -101,22 +101,20 @@ public class ServerRoomHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .metadata(Map.of("statusChange", String.format("%s → %s",
-                        translateStatus(oldStatus), translateStatus(newStatus))))
                 .build();
 
         historyService.recordHistory(request);
-        log.info("DataCenter status change history recorded: {} -> {}", oldStatus, newStatus);
+        log.info("ServerRoom status change history recorded: {} -> {}", oldStatus, newStatus);
     }
 
     /**
-     * DataCenter 삭제 히스토리
+     * ServerRoom 삭제 히스토리
      */
     public void recordDelete(ServerRoom serverRoom, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(serverRoom.getId())
-                .dataCenterName(serverRoom.getName())
-                .entityType(EntityType.DATACENTER)
+                .serverRoomId(serverRoom.getId())
+                .serverRoomName(serverRoom.getName())
+                .entityType(EntityType.SERVERROOM)
                 .entityId(serverRoom.getId())
                 .entityName(serverRoom.getName())
                 .entityCode(serverRoom.getCode())
@@ -131,8 +129,9 @@ public class ServerRoomHistoryRecorder {
         historyService.recordHistory(request);
     }
 
-    // === Private Helper Methods ===
-
+    /**
+     * ServerRoom 상태 스냅샷 생성
+     */
     private Map<String, Object> buildSnapshot(ServerRoom serverRoom) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("name", serverRoom.getName());
@@ -213,13 +212,11 @@ public class ServerRoomHistoryRecorder {
             case "totalArea" -> "총 면적";
             case "totalPowerCapacity" -> "총 전력 용량";
             case "totalCoolingCapacity" -> "총 냉각 용량";
-            case "maxRackCount" -> "최대 랙 수";
-            case "currentRackCount" -> "현재 랙 수";
+            case "currentRackCount" -> "현재 랙 개수";
             case "temperatureMin" -> "최저 온도";
             case "temperatureMax" -> "최고 온도";
             case "humidityMin" -> "최저 습도";
             case "humidityMax" -> "최고 습도";
-            case "managerName" -> "담당자";
             default -> field;
         };
     }
@@ -230,9 +227,8 @@ public class ServerRoomHistoryRecorder {
         }
 
         return switch (field) {
-            case "totalArea" -> value + " ㎡";
-            case "totalPowerCapacity" -> value + " kW";
-            case "totalCoolingCapacity" -> value + " RT";
+            case "totalArea" -> value + " m²";
+            case "totalPowerCapacity", "totalCoolingCapacity" -> value + " kW";
             case "temperatureMin", "temperatureMax" -> value + " ℃";
             case "humidityMin", "humidityMax" -> value + " %";
             case "status" -> translateStatus(value.toString());
@@ -245,7 +241,7 @@ public class ServerRoomHistoryRecorder {
             case "ACTIVE" -> "활성";
             case "INACTIVE" -> "비활성";
             case "MAINTENANCE" -> "점검중";
-            case "CONSTRUCTION" -> "공사중";
+            case "PLANNING" -> "계획중";
             default -> status;
         };
     }

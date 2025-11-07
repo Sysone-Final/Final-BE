@@ -31,10 +31,10 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
      * 전산실별 장치 조회 (위치순 정렬)
      */
     @Query("SELECT d FROM Device d " +
-            "WHERE d.datacenter.id = :datacenterId " +
+            "WHERE d.serverRoom.id = :serverRoomId " +
             "AND d.delYn = :delYn " +
             "ORDER BY d.gridY, d.gridX")
-    List<Device> findByDatacenterIdOrderByPosition(
-            @Param("datacenterId") Long datacenterId,
+    List<Device> findByServerRoomIdOrderByPosition(
+            @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn);
 }

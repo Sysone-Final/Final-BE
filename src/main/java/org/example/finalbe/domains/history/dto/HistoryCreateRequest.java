@@ -15,8 +15,8 @@ import java.util.Map;
  */
 @Builder
 public record HistoryCreateRequest(
-        Long dataCenterId,
-        String dataCenterName,
+        Long serverRoomId,
+        String serverRoomName,
         EntityType entityType,
         Long entityId,
         String entityName,

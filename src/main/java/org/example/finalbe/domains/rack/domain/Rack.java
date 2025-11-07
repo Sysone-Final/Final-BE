@@ -57,38 +57,35 @@ public class Rack extends BaseTimeEntity {
     @Column(name = "zone_direction", length = 10)
     private ZoneDirection zoneDirection; // 존 방향
 
-    @Column(name = "width")
-    private BigDecimal width; // 폭 (mm)
+    @Column(name = "width", precision = 10, scale = 2)
+    private BigDecimal width; // 폭
 
-    @Column(name = "depth")
-    private BigDecimal depth; // 깊이 (mm)
-
-    @Column(name = "height")
-    private BigDecimal height; // 높이 (mm)
+    @Column(name = "depth", precision = 10, scale = 2)
+    private BigDecimal depth; // 깊이
 
     @Column(name = "department", length = 100)
-    private String department; // 담당 부서명
+    private String department; // 부서
 
-    @Column(name = "max_power_capacity")
-    private BigDecimal maxPowerCapacity; // 최대 전력 용량 (W)
+    @Column(name = "max_power_capacity", precision = 10, scale = 2)
+    private BigDecimal maxPowerCapacity; // 최대 전력 용량
 
-    @Column(name = "current_power_usage")
-    private BigDecimal currentPowerUsage; // 현재 전력 사용량 (W)
+    @Column(name = "current_power_usage", precision = 10, scale = 2)
+    private BigDecimal currentPowerUsage; // 현재 전력 사용량
 
-    @Column(name = "measured_power")
-    private BigDecimal measuredPower; // 실측 전력 사용량 (W)
+    @Column(name = "measured_power", precision = 10, scale = 2)
+    private BigDecimal measuredPower; // 실측 전력
 
-    @Column(name = "max_weight_capacity")
-    private BigDecimal maxWeightCapacity; // 최대 무게 용량 (kg)
+    @Column(name = "max_weight_capacity", precision = 10, scale = 2)
+    private BigDecimal maxWeightCapacity; // 최대 무게 용량
 
-    @Column(name = "current_weight")
-    private BigDecimal currentWeight; // 현재 무게 (kg)
+    @Column(name = "current_weight", precision = 10, scale = 2)
+    private BigDecimal currentWeight; // 현재 무게
 
     @Column(name = "manufacturer", length = 100)
     private String manufacturer; // 제조사
 
     @Column(name = "serial_number", length = 100)
-    private String serialNumber; // 일련번호
+    private String serialNumber; // 시리얼 번호
 
     @Column(name = "management_number", length = 100)
     private String managementNumber; // 관리 번호
@@ -104,62 +101,38 @@ public class Rack extends BaseTimeEntity {
     @Column(name = "color_code", length = 20)
     private String colorCode; // 색상 코드
 
-    @Column(name = "notes", length = 1000)
+    @Lob
+    @Column(name = "notes", columnDefinition = "TEXT")
     private String notes; // 비고
 
-    @Column(name = "created_by", length = 100)
-    private String createdBy; // 생성자
-
-    @Column(name = "updated_by", length = 100)
-    private String updatedBy; // 최종 수정자
-
-    @Column(name = "manager_id", nullable = false)
+    @Column(name = "manager_id")
     private Long managerId; // 담당자 ID
 
+    // 서버실(전산실)과의 관계 (N:1)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "serverroom_id", nullable = false)
-    private ServerRoom serverRoom; // 소속 서버실
+    private ServerRoom serverroom; // 서버실(전산실)
 
     /**
-     * 엔티티 생성 시 기본값 설정
+     * 랙 정보 수정
      */
-    @PrePersist
-    protected void onCreate() {
-        if (this.status == null) {
-            this.status = RackStatus.ACTIVE;
-        }
-        if (this.currentPowerUsage == null) {
-            this.currentPowerUsage = BigDecimal.ZERO;
-        }
-        if (this.currentWeight == null) {
-            this.currentWeight = BigDecimal.ZERO;
-        }
-    }
-
-    /**
-     * 엔티티 수정 시 업데이트
-     */
-    @PreUpdate
-    protected void onUpdate() {
-        // BaseTimeEntity가 자동으로 updatedAt을 처리
-    }
-
-    /**
-     * 랙 정보 업데이트
-     */
-    public void updateInfo(RackUpdateRequest request, String updatedByName) {
+    public void updateInfo(RackUpdateRequest request) {
         this.rackName = request.rackName();
         this.groupNumber = request.groupNumber();
         this.rackLocation = request.rackLocation();
         this.totalUnits = request.totalUnits();
+        this.usedUnits = request.usedUnits();
+        this.availableUnits = request.availableUnits();
         this.doorDirection = request.doorDirection();
         this.zoneDirection = request.zoneDirection();
         this.width = request.width();
         this.depth = request.depth();
-        this.height = request.height();
         this.department = request.department();
         this.maxPowerCapacity = request.maxPowerCapacity();
+        this.currentPowerUsage = request.currentPowerUsage();
+        this.measuredPower = request.measuredPower();
         this.maxWeightCapacity = request.maxWeightCapacity();
+        this.currentWeight = request.currentWeight();
         this.manufacturer = request.manufacturer();
         this.serialNumber = request.serialNumber();
         this.managementNumber = request.managementNumber();
@@ -168,70 +141,97 @@ public class Rack extends BaseTimeEntity {
         this.colorCode = request.colorCode();
         this.notes = request.notes();
         this.managerId = request.managerId();
-        this.updatedBy = updatedByName;
-
-        // 사용 가능한 유닛 수 재계산
-        this.availableUnits = this.totalUnits - this.usedUnits;
     }
 
     /**
-     * 장비 추가 시 유닛 사용
+     * 유닛 사용률 계산
      */
-    public void addEquipment(Integer unitSize) {
-        this.usedUnits += unitSize;
-        this.availableUnits = this.totalUnits - this.usedUnits;
-    }
-
-    /**
-     * 장비 제거 시 유닛 해제
-     */
-    public void removeEquipment(Integer unitSize) {
-        this.usedUnits -= unitSize;
-        this.availableUnits = this.totalUnits - this.usedUnits;
-    }
-
-    /**
-     * 전력 사용량 업데이트
-     */
-    public void updatePowerUsage(BigDecimal powerChange) {
-        this.currentPowerUsage = this.currentPowerUsage.add(powerChange);
-    }
-
-    /**
-     * 무게 업데이트
-     */
-    public void updateWeight(BigDecimal weightChange) {
-        this.currentWeight = this.currentWeight.add(weightChange);
-    }
-
-    /**
-     * 전력 사용률 계산 (%)
-     */
-    public BigDecimal getPowerUsageRate() {
-        if (maxPowerCapacity == null || maxPowerCapacity.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
-        }
-        return currentPowerUsage
-                .divide(maxPowerCapacity, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
-    }
-
-    /**
-     * 공간 사용률 계산 (%)
-     */
-    public BigDecimal getSpaceUsageRate() {
+    public double getUsageRate() {
         if (totalUnits == null || totalUnits == 0) {
-            return BigDecimal.ZERO;
+            return 0.0;
         }
         return BigDecimal.valueOf(usedUnits)
                 .divide(BigDecimal.valueOf(totalUnits), 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
+                .multiply(BigDecimal.valueOf(100))
+                .doubleValue();
     }
 
     /**
-     * 소프트 삭제
+     * 전력 사용률 계산
      */
-    public void softDelete() {
-        this.status = RackStatus.INACTIVE;
+    public double getPowerUsageRate() {
+        if (maxPowerCapacity == null || maxPowerCapacity.compareTo(BigDecimal.ZERO) == 0) {
+            return 0.0;
+        }
+        return currentPowerUsage
+                .divide(maxPowerCapacity, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .doubleValue();
+    }
+
+    /**
+     * 무게 사용률 계산
+     */
+    public double getWeightUsageRate() {
+        if (maxWeightCapacity == null || maxWeightCapacity.compareTo(BigDecimal.ZERO) == 0) {
+            return 0.0;
+        }
+        return currentWeight
+                .divide(maxWeightCapacity, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .doubleValue();
+    }
+
+    /**
+     * 유닛 사용
+     */
+    public void occupyUnits(int units) {
+        if (this.availableUnits < units) {
+            throw new IllegalStateException("사용 가능한 유닛이 부족합니다.");
+        }
+        this.usedUnits += units;
+        this.availableUnits -= units;
+    }
+
+    /**
+     * 유닛 해제
+     */
+    public void releaseUnits(int units) {
+        this.usedUnits -= units;
+        this.availableUnits += units;
+    }
+
+    /**
+     * 전력 사용량 추가
+     */
+    public void addPowerUsage(BigDecimal power) {
+        this.currentPowerUsage = this.currentPowerUsage.add(power);
+    }
+
+    /**
+     * 전력 사용량 차감
+     */
+    public void subtractPowerUsage(BigDecimal power) {
+        this.currentPowerUsage = this.currentPowerUsage.subtract(power);
+        if (this.currentPowerUsage.compareTo(BigDecimal.ZERO) < 0) {
+            this.currentPowerUsage = BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * 무게 추가
+     */
+    public void addWeight(BigDecimal weight) {
+        this.currentWeight = this.currentWeight.add(weight);
+    }
+
+    /**
+     * 무게 차감
+     */
+    public void subtractWeight(BigDecimal weight) {
+        this.currentWeight = this.currentWeight.subtract(weight);
+        if (this.currentWeight.compareTo(BigDecimal.ZERO) < 0) {
+            this.currentWeight = BigDecimal.ZERO;
+        }
     }
 }

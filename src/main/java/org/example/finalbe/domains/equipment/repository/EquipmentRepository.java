@@ -26,50 +26,38 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     // ========== 페이지네이션 조회 (전체 필터) ==========
     @Query(value = "SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "LEFT JOIN FETCH r.datacenter dc " +
+            "LEFT JOIN FETCH r.serverroom sr " +
             "WHERE e.delYn = :delYn " +
             "AND (:keyword IS NULL OR :keyword = '' OR " +
             "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "AND (:type IS NULL OR e.type = :type) " +
-            "AND (:status IS NULL OR e.status = :status) " +
-            "AND (:datacenterId IS NULL OR dc.id = :datacenterId)",
+            "AND (:status IS NULL OR e.status = :status)",
             countQuery = "SELECT COUNT(DISTINCT e) FROM Equipment e " +
                     "LEFT JOIN e.rack r " +
-                    "LEFT JOIN r.datacenter dc " +
                     "WHERE e.delYn = :delYn " +
                     "AND (:keyword IS NULL OR :keyword = '' OR " +
                     "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                     "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                     "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
                     "AND (:type IS NULL OR e.type = :type) " +
-                    "AND (:status IS NULL OR e.status = :status) " +
-                    "AND (:datacenterId IS NULL OR dc.id = :datacenterId)")
-    Page<Equipment> searchEquipmentsWithFilters(
+                    "AND (:status IS NULL OR e.status = :status)")
+    Page<Equipment> findAllWithFilters(
             @Param("keyword") String keyword,
             @Param("type") EquipmentType type,
             @Param("status") EquipmentStatus status,
-            @Param("datacenterId") Long datacenterId,
             @Param("delYn") DelYN delYn,
             Pageable pageable
     );
 
-
-    // ========== 기존 메서드들 ==========
-    List<Equipment> findByRackIdAndDelYn(Long rackId, DelYN delYn);
-
-    boolean existsByRackIdAndDelYn(Long rackId, DelYN delYn);
-
-    boolean existsByCodeAndDelYn(String code, DelYN delYn);
-
-    // ========== 전산실별 조회 ==========
+    // ========== 서버실별 조회 ==========
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "LEFT JOIN FETCH r.datacenter dc " +
-            "WHERE dc.id = :datacenterId AND e.delYn = :delYn")
-    List<Equipment> findByDatacenterIdAndDelYn(
-            @Param("datacenterId") Long datacenterId,
+            "LEFT JOIN FETCH r.serverroom sr " +
+            "WHERE sr.id = :serverRoomId AND e.delYn = :delYn")
+    List<Equipment> findByServerRoomIdAndDelYn(
+            @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn
     );
 
@@ -88,12 +76,12 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     // ========== 검색 (키워드 + 회사) - 수정됨 ==========
     @Query("SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "LEFT JOIN FETCH r.datacenter dc " +
-            "LEFT JOIN CompanyServerRoom cdc ON cdc.dataCenter.id = dc.id " +
+            "LEFT JOIN FETCH r.serverroom sr " +
+            "LEFT JOIN CompanyServerRoom csr ON csr.serverRoom.id = sr.id " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND cdc.company.id = :companyId " +
+            "AND csr.company.id = :companyId " +
             "AND e.delYn = :delYn")
     List<Equipment> searchByKeywordAndCompanyIdAndDelYn(
             @Param("keyword") String keyword,

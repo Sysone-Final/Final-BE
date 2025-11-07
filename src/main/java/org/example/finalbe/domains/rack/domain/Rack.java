@@ -117,8 +117,8 @@ public class Rack extends BaseTimeEntity {
     private Long managerId; // 담당자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "datacenter_id", nullable = false)
-    private ServerRoom datacenter; // 소속 전산실
+    @JoinColumn(name = "serverroom_id", nullable = false)
+    private ServerRoom serverRoom; // 소속 서버실
 
     /**
      * 엔티티 생성 시 기본값 설정
@@ -141,191 +141,97 @@ public class Rack extends BaseTimeEntity {
      */
     @PreUpdate
     protected void onUpdate() {
-        // BaseTimeEntity에서 updatedAt 자동 갱신
+        // BaseTimeEntity가 자동으로 updatedAt을 처리
     }
 
     /**
-     * 랙 정보 수정
+     * 랙 정보 업데이트
      */
-    public void updateInfo(RackUpdateRequest request, String updatedBy) {
-        if (request.rackName() != null) {
-            this.rackName = request.rackName();
-        }
-        if (request.groupNumber() != null) {
-            this.groupNumber = request.groupNumber();
-        }
-        if (request.rackLocation() != null) {
-            this.rackLocation = request.rackLocation();
-        }
-        if (request.totalUnits() != null) {
-            this.totalUnits = request.totalUnits();
-            this.availableUnits = this.totalUnits - this.usedUnits;
-        }
-        if (request.doorDirection() != null) {
-            this.doorDirection = request.doorDirection();
-        }
-        if (request.zoneDirection() != null) {
-            this.zoneDirection = request.zoneDirection();
-        }
-        if (request.width() != null) {
-            this.width = request.width();
-        }
-        if (request.depth() != null) {
-            this.depth = request.depth();
-        }
-        if (request.department() != null) {
-            this.department = request.department();
-        }
-        if (request.maxPowerCapacity() != null) {
-            this.maxPowerCapacity = request.maxPowerCapacity();
-        }
-        if (request.maxWeightCapacity() != null) {
-            this.maxWeightCapacity = request.maxWeightCapacity();
-        }
-        if (request.manufacturer() != null) {
-            this.manufacturer = request.manufacturer();
-        }
-        if (request.serialNumber() != null) {
-            this.serialNumber = request.serialNumber();
-        }
-        if (request.managementNumber() != null) {
-            this.managementNumber = request.managementNumber();
-        }
-        if (request.status() != null) {
-            this.status = request.status();
-        }
-        if (request.rackType() != null) {
-            this.rackType = request.rackType();
-        }
-        if (request.colorCode() != null) {
-            this.colorCode = request.colorCode();
-        }
-        if (request.notes() != null) {
-            this.notes = request.notes();
-        }
-        if (request.managerId() != null) {
-            this.managerId = request.managerId();
-        }
+    public void updateInfo(RackUpdateRequest request, String updatedByName) {
+        this.rackName = request.rackName();
+        this.groupNumber = request.groupNumber();
+        this.rackLocation = request.rackLocation();
+        this.totalUnits = request.totalUnits();
+        this.doorDirection = request.doorDirection();
+        this.zoneDirection = request.zoneDirection();
+        this.width = request.width();
+        this.depth = request.depth();
+        this.height = request.height();
+        this.department = request.department();
+        this.maxPowerCapacity = request.maxPowerCapacity();
+        this.maxWeightCapacity = request.maxWeightCapacity();
+        this.manufacturer = request.manufacturer();
+        this.serialNumber = request.serialNumber();
+        this.managementNumber = request.managementNumber();
+        this.status = request.status();
+        this.rackType = request.rackType();
+        this.colorCode = request.colorCode();
+        this.notes = request.notes();
+        this.managerId = request.managerId();
+        this.updatedBy = updatedByName;
 
-        this.updatedBy = updatedBy;
-        this.updateTimestamp();
+        // 사용 가능한 유닛 수 재계산
+        this.availableUnits = this.totalUnits - this.usedUnits;
     }
 
     /**
-     * 랙 상태 변경
+     * 장비 추가 시 유닛 사용
      */
-    public void changeStatus(RackStatus newStatus, String updatedBy) {
-        RackStatus oldStatus = this.status;
-        this.status = newStatus;
-
-        String statusChangeLog = String.format("[%s] 상태 변경: %s → %s (사유: %s, 변경자: %s)",
-                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
-                oldStatus,
-                newStatus,
-                updatedBy);
-
-        if (this.notes == null || this.notes.trim().isEmpty()) {
-            this.notes = statusChangeLog;
-        } else {
-            this.notes = this.notes + "\n" + statusChangeLog;
-        }
-
-        this.updatedBy = updatedBy;
-        this.updateTimestamp();
-    }
-
-    /**
-     * 랙에 장비 배치
-     */
-    public void placeEquipment(Equipment equipment, Integer startUnit, Integer unitSize) {
-        equipment.setRack(this);
-        equipment.setStartUnit(startUnit);
-        equipment.setUnitSize(unitSize);
-
+    public void addEquipment(Integer unitSize) {
         this.usedUnits += unitSize;
         this.availableUnits = this.totalUnits - this.usedUnits;
-
-        if (equipment.getPowerConsumption() != null) {
-            if (this.currentPowerUsage == null) {
-                this.currentPowerUsage = BigDecimal.ZERO;
-            }
-            this.currentPowerUsage = this.currentPowerUsage.add(equipment.getPowerConsumption());
-        }
-
-        if (equipment.getWeight() != null) {
-            if (this.currentWeight == null) {
-                this.currentWeight = BigDecimal.ZERO;
-            }
-            this.currentWeight = this.currentWeight.add(equipment.getWeight());
-        }
-
-        this.updateTimestamp();
     }
 
     /**
-     * 랙에서 장비 제거
+     * 장비 제거 시 유닛 해제
      */
-    public void removeEquipment(Equipment equipment) {
-        this.usedUnits -= equipment.getUnitSize();
+    public void removeEquipment(Integer unitSize) {
+        this.usedUnits -= unitSize;
         this.availableUnits = this.totalUnits - this.usedUnits;
-
-        if (equipment.getPowerConsumption() != null && this.currentPowerUsage != null) {
-            this.currentPowerUsage = this.currentPowerUsage.subtract(equipment.getPowerConsumption());
-            if (this.currentPowerUsage.compareTo(BigDecimal.ZERO) < 0) {
-                this.currentPowerUsage = BigDecimal.ZERO;
-            }
-        }
-
-        if (equipment.getWeight() != null && this.currentWeight != null) {
-            this.currentWeight = this.currentWeight.subtract(equipment.getWeight());
-            if (this.currentWeight.compareTo(BigDecimal.ZERO) < 0) {
-                this.currentWeight = BigDecimal.ZERO;
-            }
-        }
-
-        this.updateTimestamp();
     }
 
     /**
-     * 랙 내에서 장비 이동
+     * 전력 사용량 업데이트
      */
-    public void moveEquipment(Equipment equipment, Integer fromUnit, Integer toUnit) {
-        equipment.setStartUnit(toUnit);
-        this.updateTimestamp();
+    public void updatePowerUsage(BigDecimal powerChange) {
+        this.currentPowerUsage = this.currentPowerUsage.add(powerChange);
     }
 
     /**
-     * 랙 사용률 계산
+     * 무게 업데이트
      */
-    public BigDecimal getUsageRate() {
-        if (this.totalUnits == null || this.totalUnits == 0) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal used = BigDecimal.valueOf(this.usedUnits);
-        BigDecimal total = BigDecimal.valueOf(this.totalUnits);
-
-        return used
-                .divide(total, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100))
-                .setScale(2, RoundingMode.HALF_UP);
+    public void updateWeight(BigDecimal weightChange) {
+        this.currentWeight = this.currentWeight.add(weightChange);
     }
 
     /**
-     * 전력 사용률 계산
+     * 전력 사용률 계산 (%)
      */
     public BigDecimal getPowerUsageRate() {
-        if (this.maxPowerCapacity == null || this.maxPowerCapacity.compareTo(BigDecimal.ZERO) == 0) {
+        if (maxPowerCapacity == null || maxPowerCapacity.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
+        return currentPowerUsage
+                .divide(maxPowerCapacity, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100));
+    }
 
-        if (this.currentPowerUsage == null) {
+    /**
+     * 공간 사용률 계산 (%)
+     */
+    public BigDecimal getSpaceUsageRate() {
+        if (totalUnits == null || totalUnits == 0) {
             return BigDecimal.ZERO;
         }
+        return BigDecimal.valueOf(usedUnits)
+                .divide(BigDecimal.valueOf(totalUnits), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100));
+    }
 
-        return this.currentPowerUsage
-                .divide(this.maxPowerCapacity, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100))
-                .setScale(2, RoundingMode.HALF_UP);
+    /**
+     * 소프트 삭제
+     */
+    public void softDelete() {
+        this.status = RackStatus.INACTIVE;
     }
 }

@@ -73,9 +73,9 @@ public record RackCreateRequest(
 
         @NotNull(message = "전산실을 선택해주세요.")
         @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.")
-        Long datacenterId
+        Long serverRoomId
 ) {
-    public Rack toEntity(ServerRoom datacenter, String createdBy) {
+    public Rack toEntity(ServerRoom serverRoom, String createdBy) {
         return Rack.builder()
                 .rackName(this.rackName)
                 .groupNumber(this.groupNumber)
@@ -101,7 +101,7 @@ public record RackCreateRequest(
                 .colorCode(this.colorCode)
                 .notes(this.notes)
                 .managerId(this.managerId)
-                .datacenter(datacenter)
+                .serverRoom(serverRoom)
                 .createdBy(createdBy)
                 .build();
     }

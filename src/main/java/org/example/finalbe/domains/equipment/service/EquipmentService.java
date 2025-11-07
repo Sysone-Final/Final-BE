@@ -48,7 +48,7 @@ public class EquipmentService {
      * GET /api/equipments?page=0&size=10&keyword=&type=&status=&datacenterId=
      */
     public EquipmentPageResponse getEquipmentsWithFilters(
-            int page, int size, String keyword, String type, String status, Long datacenterId) {
+            int page, int size, String keyword, EquipmentType type, EquipmentStatus status, Long datacenterId) {
 
         log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, datacenterId: {}",
                 page, size, keyword, type, status, datacenterId);
@@ -374,13 +374,18 @@ public class EquipmentService {
             throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }
 
-        String userName = authentication.getName();
-        if (userName == null || userName.trim().isEmpty()) {
+        String userId = authentication.getName();
+        if (userId == null || userId.trim().isEmpty()) {
             throw new IllegalStateException("사용자 ID가 존재하지 않습니다.");
         }
 
-        return memberRepository.findByUserNameAndDelYn(userName, DelYN.N)
-                .orElseThrow(() -> new EntityNotFoundException("회원", userName));
+        try {
+            return memberRepository.findById(Long.parseLong(userId))
+                    .filter(m -> m.getDelYn() == DelYN.N)
+                    .orElseThrow(() -> new EntityNotFoundException("회원", Long.parseLong(userId)));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
+        }
     }
 
     private void validateWritePermission(Member member) {

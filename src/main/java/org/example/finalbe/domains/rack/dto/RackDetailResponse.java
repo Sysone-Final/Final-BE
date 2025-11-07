@@ -26,7 +26,6 @@ public record RackDetailResponse(
         ZoneDirection zoneDirection,
         BigDecimal width,
         BigDecimal depth,
-        BigDecimal height,
         String department,
         BigDecimal maxPowerCapacity,
         BigDecimal currentPowerUsage,
@@ -42,9 +41,9 @@ public record RackDetailResponse(
         String notes,
         Long managerId,
         Long serverRoomId,
-        String ServerRoomName,
-        BigDecimal usageRate,
-        BigDecimal powerUsageRate,
+        String serverRoomName,
+        Double usageRate,
+        Double powerUsageRate,
         String createdBy,
         LocalDateTime createdAt,
         String updatedBy,
@@ -77,8 +76,8 @@ public record RackDetailResponse(
                 .colorCode(rack.getColorCode())
                 .notes(rack.getNotes())
                 .managerId(rack.getManagerId())
-                .datacenterId(rack.getDatacenter().getId())
-                .datacenterName(rack.getDatacenter().getName())
+                .serverRoomId(rack.getServerroom().getId())
+                .serverRoomName(rack.getServerroom().getName())
                 .usageRate(rack.getUsageRate())
                 .powerUsageRate(rack.getPowerUsageRate())
                 .createdBy(rack.getCreatedBy())

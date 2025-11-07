@@ -30,8 +30,8 @@ public class EquipmentHistoryRecorder {
      */
     public void recordCreate(Equipment equipment, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
+                .serverRoomId(equipment.getRack().getServerroom().getId())
+                .serverRoomName(equipment.getRack().getServerroom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -57,8 +57,6 @@ public class EquipmentHistoryRecorder {
     public void recordUpdate(Equipment oldEquipment, Equipment newEquipment, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldEquipment);
         Map<String, Object> newSnapshot = buildSnapshot(newEquipment);
-
-        // 변경된 필드 감지
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
 
         if (changedFields.isEmpty()) {
@@ -66,12 +64,12 @@ public class EquipmentHistoryRecorder {
             return;
         }
 
-        // 변경 내역 상세 정보 구성 (프론트엔드에서 활용)
+        // 변경 내역 상세 정보 구성
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(newEquipment.getRack().getDatacenter().getId())
-                .dataCenterName(newEquipment.getRack().getDatacenter().getName())
+                .serverRoomId(newEquipment.getRack().getServerroom().getId())
+                .serverRoomName(newEquipment.getRack().getServerroom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(newEquipment.getId())
                 .entityName(newEquipment.getName())
@@ -84,9 +82,9 @@ public class EquipmentHistoryRecorder {
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
                 .metadata(Map.of(
+                        "changeDetails", changeDetails,
                         "rackName", newEquipment.getRack().getRackName(),
-                        "rackId", String.valueOf(newEquipment.getRack().getId()),
-                        "changeDetails", changeDetails  // 상세 변경 내역
+                        "rackId", String.valueOf(newEquipment.getRack().getId())
                 ))
                 .build();
 
@@ -97,10 +95,16 @@ public class EquipmentHistoryRecorder {
     /**
      * Equipment 이동 히스토리
      */
-    public void recordMove(Equipment equipment, String oldLocation, String newLocation, Member member) {
+    public void recordMove(Equipment equipment, Integer oldStartUnit, Integer oldUnitSize,
+                           Integer newStartUnit, Integer newUnitSize, Member member) {
+        String oldLocation = String.format("Unit %d-%d (%d U)", oldStartUnit,
+                oldStartUnit + oldUnitSize - 1, oldUnitSize);
+        String newLocation = String.format("Unit %d-%d (%d U)", newStartUnit,
+                newStartUnit + newUnitSize - 1, newUnitSize);
+
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
+                .serverRoomId(equipment.getRack().getServerroom().getId())
+                .serverRoomName(equipment.getRack().getServerroom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -129,8 +133,8 @@ public class EquipmentHistoryRecorder {
      */
     public void recordStatusChange(Equipment equipment, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
+                .serverRoomId(equipment.getRack().getServerroom().getId())
+                .serverRoomName(equipment.getRack().getServerroom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -144,8 +148,7 @@ public class EquipmentHistoryRecorder {
                 .afterValue(Map.of("status", newStatus))
                 .metadata(Map.of(
                         "rackName", equipment.getRack().getRackName(),
-                        "rackId", String.valueOf(equipment.getRack().getId()),
-                        "statusChange", String.format("%s → %s", oldStatus, newStatus)
+                        "rackId", String.valueOf(equipment.getRack().getId())
                 ))
                 .build();
 
@@ -158,8 +161,8 @@ public class EquipmentHistoryRecorder {
      */
     public void recordDelete(Equipment equipment, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(equipment.getRack().getDatacenter().getId())
-                .dataCenterName(equipment.getRack().getDatacenter().getName())
+                .serverRoomId(equipment.getRack().getServerroom().getId())
+                .serverRoomName(equipment.getRack().getServerroom().getName())
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -177,21 +180,17 @@ public class EquipmentHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Equipment delete history recorded for id: {}", equipment.getId());
     }
 
-    // === Private Helper Methods ===
-
     /**
-     * Equipment 스냅샷 생성
+     * Equipment 상태 스냅샷 생성
      */
     private Map<String, Object> buildSnapshot(Equipment equipment) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("name", equipment.getName());
         snapshot.put("code", equipment.getCode());
         snapshot.put("type", equipment.getType() != null ? equipment.getType().name() : null);
-        snapshot.put("rackId", equipment.getRack() != null ? equipment.getRack().getId() : null);
-        snapshot.put("rackName", equipment.getRack() != null ? equipment.getRack().getRackName() : null);
+        snapshot.put("rackName", equipment.getRack().getRackName());
         snapshot.put("startUnit", equipment.getStartUnit());
         snapshot.put("unitSize", equipment.getUnitSize());
         snapshot.put("status", equipment.getStatus() != null ? equipment.getStatus().name() : null);
@@ -199,21 +198,10 @@ public class EquipmentHistoryRecorder {
         snapshot.put("manufacturer", equipment.getManufacturer());
         snapshot.put("serialNumber", equipment.getSerialNumber());
         snapshot.put("ipAddress", equipment.getIpAddress());
-        snapshot.put("macAddress", equipment.getMacAddress());
-        snapshot.put("os", equipment.getOs());
-        snapshot.put("cpuSpec", equipment.getCpuSpec());
-        snapshot.put("memorySpec", equipment.getMemorySpec());
-        snapshot.put("diskSpec", equipment.getDiskSpec());
         snapshot.put("powerConsumption", equipment.getPowerConsumption());
-        snapshot.put("weight", equipment.getWeight());
-        snapshot.put("installationDate", equipment.getInstallationDate());
-        snapshot.put("notes", equipment.getNotes());
         return snapshot;
     }
 
-    /**
-     * 변경된 필드 감지
-     */
     private List<String> detectChangedFields(Map<String, Object> oldSnapshot, Map<String, Object> newSnapshot) {
         List<String> changedFields = new ArrayList<>();
 
@@ -233,7 +221,6 @@ public class EquipmentHistoryRecorder {
 
     /**
      * 변경 내역 상세 정보 구성
-     * 프론트엔드에서 "랙 위치 변경 5 -> 10" 형태로 표시할 수 있도록 데이터 구조화
      */
     private Map<String, Object> buildChangeDetails(
             Map<String, Object> oldSnapshot,
@@ -281,62 +268,31 @@ public class EquipmentHistoryRecorder {
             case "serialNumber" -> "시리얼 번호";
             case "ipAddress" -> "IP 주소";
             case "macAddress" -> "MAC 주소";
-            case "os" -> "운영체제";
-            case "cpuSpec" -> "CPU 사양";
-            case "memorySpec" -> "메모리 사양";
-            case "diskSpec" -> "디스크 사양";
             case "powerConsumption" -> "전력 소비량";
-            case "weight" -> "무게";
-            case "installationDate" -> "설치일";
-            case "notes" -> "비고";
             default -> field;
         };
     }
 
-    /**
-     * 값을 사용자 친화적 형태로 포맷팅
-     */
     private String formatValue(String field, Object value) {
         if (value == null) {
             return "(없음)";
         }
 
-        // 특정 필드에 대한 포맷팅
         return switch (field) {
-            case "powerConsumption" -> value + " kW";
-            case "weight" -> value + " kg";
+            case "startUnit", "unitSize" -> value + " U";
+            case "powerConsumption" -> value + " W";
             case "status" -> translateStatus(value.toString());
-            case "type" -> translateType(value.toString());
             default -> value.toString();
         };
     }
 
-    /**
-     * 상태 코드를 한글로 변환
-     */
     private String translateStatus(String status) {
         return switch (status) {
-            case "ACTIVE" -> "활성";
-            case "INACTIVE" -> "비활성";
-            case "MAINTENANCE" -> "점검중";
+            case "NORMAL" -> "정상";
+            case "WARNING" -> "경고";
             case "ERROR" -> "오류";
-            case "RETIRED" -> "폐기";
+            case "MAINTENANCE" -> "점검중";
             default -> status;
-        };
-    }
-
-    /**
-     * 타입 코드를 한글로 변환
-     */
-    private String translateType(String type) {
-        return switch (type) {
-            case "SERVER" -> "서버";
-            case "NETWORK" -> "네트워크";
-            case "STORAGE" -> "스토리지";
-            case "POWER" -> "전원";
-            case "COOLING" -> "냉각";
-            case "OTHER" -> "기타";
-            default -> type;
         };
     }
 }

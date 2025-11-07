@@ -38,8 +38,7 @@ public record EquipmentDetailResponse(
         Long managerId,
         Long rackId,
         String rackName,
-        Long datacenterId,
-        // 모니터링 설정
+        Long serverRoomId,
         Boolean monitoringEnabled,
         Integer cpuThresholdWarning,
         Integer cpuThresholdCritical,
@@ -76,8 +75,8 @@ public record EquipmentDetailResponse(
                 .managerId(equipment.getManagerId())
                 .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
-                .datacenterId(equipment.getRack() != null && equipment.getRack().getDatacenter() != null
-                        ? equipment.getRack().getDatacenter().getId() : null)
+                .serverRoomId(equipment.getRack() != null && equipment.getRack().getServerroom() != null
+                        ? equipment.getRack().getServerroom().getId() : null)
                 .monitoringEnabled(equipment.getMonitoringEnabled())
                 .cpuThresholdWarning(equipment.getCpuThresholdWarning())
                 .cpuThresholdCritical(equipment.getCpuThresholdCritical())

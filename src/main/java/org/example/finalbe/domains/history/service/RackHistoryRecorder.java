@@ -29,8 +29,8 @@ public class RackHistoryRecorder {
      */
     public void recordCreate(Rack rack, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(rack.getDatacenter().getId())
-                .dataCenterName(rack.getDatacenter().getName())
+                .serverRoomId(rack.getServerroom().getId())
+                .serverRoomName(rack.getServerroom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(rack.getId())
                 .entityName(rack.getRackName())
@@ -63,8 +63,8 @@ public class RackHistoryRecorder {
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(newRack.getDatacenter().getId())
-                .dataCenterName(newRack.getDatacenter().getName())
+                .serverRoomId(newRack.getServerroom().getId())
+                .serverRoomName(newRack.getServerroom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(newRack.getId())
                 .entityName(newRack.getRackName())
@@ -88,8 +88,8 @@ public class RackHistoryRecorder {
      */
     public void recordStatusChange(Rack rack, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(rack.getDatacenter().getId())
-                .dataCenterName(rack.getDatacenter().getName())
+                .serverRoomId(rack.getServerroom().getId())
+                .serverRoomName(rack.getServerroom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(rack.getId())
                 .entityName(rack.getRackName())
@@ -101,8 +101,6 @@ public class RackHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .metadata(Map.of("statusChange", String.format("%s → %s",
-                        translateStatus(oldStatus), translateStatus(newStatus))))
                 .build();
 
         historyService.recordHistory(request);
@@ -114,8 +112,8 @@ public class RackHistoryRecorder {
      */
     public void recordDelete(Rack rack, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .dataCenterId(rack.getDatacenter().getId())
-                .dataCenterName(rack.getDatacenter().getName())
+                .serverRoomId(rack.getServerroom().getId())
+                .serverRoomName(rack.getServerroom().getName())
                 .entityType(EntityType.RACK)
                 .entityId(rack.getId())
                 .entityName(rack.getRackName())
@@ -131,8 +129,9 @@ public class RackHistoryRecorder {
         historyService.recordHistory(request);
     }
 
-    // === Private Helper Methods ===
-
+    /**
+     * Rack 상태 스냅샷 생성
+     */
     private Map<String, Object> buildSnapshot(Rack rack) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("rackName", rack.getRackName());
@@ -226,11 +225,8 @@ public class RackHistoryRecorder {
         return switch (field) {
             case "maxPowerCapacity", "currentPowerUsage" -> value + " kW";
             case "maxWeightCapacity", "currentWeight" -> value + " kg";
-            case "totalUnits", "usedUnits", "availableUnits" -> value + "U";
+            case "totalUnits", "usedUnits", "availableUnits" -> value + " U";
             case "status" -> translateStatus(value.toString());
-            case "rackType" -> translateRackType(value.toString());
-            case "doorDirection" -> translateDoorDirection(value.toString());
-            case "zoneDirection" -> translateZoneDirection(value.toString());
             default -> value.toString();
         };
     }
@@ -240,38 +236,8 @@ public class RackHistoryRecorder {
             case "ACTIVE" -> "활성";
             case "INACTIVE" -> "비활성";
             case "MAINTENANCE" -> "점검중";
-            case "RETIRED" -> "폐기";
+            case "RESERVED" -> "예약됨";
             default -> status;
-        };
-    }
-
-    private String translateRackType(String type) {
-        return switch (type) {
-            case "STANDARD" -> "표준";
-            case "WALL_MOUNT" -> "벽걸이형";
-            case "OPEN_FRAME" -> "오픈 프레임";
-            case "CABINET" -> "캐비닛";
-            default -> type;
-        };
-    }
-
-    private String translateDoorDirection(String direction) {
-        return switch (direction) {
-            case "FRONT" -> "전면";
-            case "REAR" -> "후면";
-            case "BOTH" -> "양면";
-            case "NONE" -> "도어 없음";
-            default -> direction;
-        };
-    }
-
-    private String translateZoneDirection(String direction) {
-        return switch (direction) {
-            case "NORTH" -> "북";
-            case "SOUTH" -> "남";
-            case "EAST" -> "동";
-            case "WEST" -> "서";
-            default -> direction;
         };
     }
 }

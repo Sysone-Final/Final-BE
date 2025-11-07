@@ -15,17 +15,22 @@ import java.util.List;
 
 /**
  * 히스토리 Repository
+ * 엔티티 변경 이력 조회 및 통계 제공
  */
 @Repository
 public interface HistoryRepository extends JpaRepository<History, Long> {
 
+    // ========== 기본 조회 메서드 ==========
+
     /**
      * 서버실별 히스토리 조회 (페이징)
+     * 예: 특정 서버실의 모든 변경 이력
      */
     Page<History> findByDataCenterIdOrderByChangedAtDesc(Long dataCenterId, Pageable pageable);
 
     /**
      * 서버실 + 기간별 히스토리 조회
+     * 예: 특정 서버실의 이번 주 변경 이력
      */
     Page<History> findByDataCenterIdAndChangedAtBetweenOrderByChangedAtDesc(
             Long dataCenterId,
@@ -35,7 +40,8 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
     );
 
     /**
-     * 특정 엔티티의 히스토리 조회
+     * 특정 엔티티의 히스토리 조회 (서버실 ID 포함)
+     * 예: 특정 서버실의 특정 랙의 변경 이력
      */
     Page<History> findByDataCenterIdAndEntityTypeAndEntityIdOrderByChangedAtDesc(
             Long dataCenterId,
@@ -45,7 +51,19 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
     );
 
     /**
+     * 엔티티 타입과 ID로 히스토리 조회 (서버실 ID 없이)
+     * 예: 랙 ID=123의 모든 변경 이력
+     * ⭐ 상세 조회 API에서 사용
+     */
+    Page<History> findByEntityTypeAndEntityIdOrderByChangedAtDesc(
+            EntityType entityType,
+            Long entityId,
+            Pageable pageable
+    );
+
+    /**
      * 서버실 + 엔티티 타입별 히스토리 조회
+     * 예: 특정 서버실의 모든 랙 변경 이력
      */
     Page<History> findByDataCenterIdAndEntityTypeOrderByChangedAtDesc(
             Long dataCenterId,
@@ -55,6 +73,7 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
 
     /**
      * 서버실 + 작업 타입별 히스토리 조회
+     * 예: 특정 서버실의 모든 삭제(DELETE) 이력
      */
     Page<History> findByDataCenterIdAndActionOrderByChangedAtDesc(
             Long dataCenterId,
@@ -62,22 +81,15 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
             Pageable pageable
     );
 
-    /**
-     * 사용자별 히스토리 조회
-     */
-    Page<History> findByChangedByOrderByChangedAtDesc(Long changedBy, Pageable pageable);
-
-    /**
-     * 서버실 + 사용자별 히스토리 조회
-     */
-    Page<History> findByDataCenterIdAndChangedByOrderByChangedAtDesc(
-            Long dataCenterId,
-            Long changedBy,
-            Pageable pageable
-    );
+    // ========== 복합 검색 ==========
 
     /**
      * 복합 조건 검색 (서버실 + 엔티티타입 + 작업타입 + 기간 + 사용자)
+     * null 값은 조건에서 제외됨 (유연한 검색)
+     *
+     * 사용 예시:
+     * - 서버실 1번의 RACK 엔티티 + UPDATE 액션만 조회
+     * - 서버실 1번의 홍길동(userId=5)의 이번 주 작업 조회
      */
     @Query("SELECT h FROM History h WHERE " +
             "(:dataCenterId IS NULL OR h.dataCenterId = :dataCenterId) AND " +
@@ -97,8 +109,11 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
             Pageable pageable
     );
 
+    // ========== 통계 쿼리 ==========
+
     /**
-     * 서버실별 통계 - 기간별 작업 수
+     * 서버실별 작업 타입 통계 (기간별)
+     * 예: 이번 주 CREATE: 50건, UPDATE: 120건, DELETE: 10건
      */
     @Query("SELECT h.action, COUNT(h) FROM History h " +
             "WHERE h.dataCenterId = :dataCenterId " +
@@ -111,7 +126,8 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
     );
 
     /**
-     * 서버실별 통계 - 엔티티별 작업 수
+     * 서버실별 엔티티 타입 통계 (기간별)
+     * 예: 이번 주 RACK: 30건, EQUIPMENT: 80건, DEVICE: 40건
      */
     @Query("SELECT h.entityType, COUNT(h) FROM History h " +
             "WHERE h.dataCenterId = :dataCenterId " +
@@ -124,7 +140,10 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
     );
 
     /**
-     * 서버실별 통계 - 최근 활동 많은 자산 TOP N
+     * 최근 활동 많은 자산 TOP N
+     * 예: 가장 많이 변경된 랙/장비 10개 조회
+     *
+     * 반환: [EntityType, Long entityId, String entityName, Long changeCount]
      */
     @Query("SELECT h.entityType, h.entityId, h.entityName, COUNT(h) as cnt FROM History h " +
             "WHERE h.dataCenterId = :dataCenterId " +
@@ -139,7 +158,10 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
     );
 
     /**
-     * 서버실별 통계 - 최근 활동 많은 사용자 TOP N
+     * 최근 활동 많은 사용자 TOP N
+     * 예: 가장 많이 작업한 사용자 10명 조회
+     *
+     * 반환: [Long userId, String userName, Long changeCount]
      */
     @Query("SELECT h.changedBy, h.changedByName, COUNT(h) as cnt FROM History h " +
             "WHERE h.dataCenterId = :dataCenterId " +
@@ -153,9 +175,21 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
             Pageable pageable
     );
 
+    // ========== 사용자별 조회 ==========
+
     /**
-     * 특정 기간 이전 히스토리 삭제 (아카이빙용)
+     * 사용자별 히스토리 조회
+     * 예: 홍길동(userId=5)의 모든 작업 이력
      */
-    @Query("DELETE FROM History h WHERE h.changedAt < :cutoffDate")
-    void deleteOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
+    Page<History> findByChangedByOrderByChangedAtDesc(Long changedBy, Pageable pageable);
+
+    /**
+     * 서버실 + 사용자별 히스토리 조회
+     * 예: 서버실 1번에서 홍길동의 작업 이력
+     */
+    Page<History> findByDataCenterIdAndChangedByOrderByChangedAtDesc(
+            Long dataCenterId,
+            Long changedBy,
+            Pageable pageable
+    );
 }

@@ -161,19 +161,15 @@ public class DataCenterService {
         if (request.code() == null || request.code().trim().isEmpty()) {
             throw new IllegalArgumentException("전산실 코드를 입력해주세요.");
         }
-        if (request.managerId() == null) {
-            throw new IllegalArgumentException("담당자를 지정해주세요.");
-        }
+
 
         if (dataCenterRepository.existsByCodeAndDelYn(request.code(), DelYN.N)) {
             throw new DuplicateException("전산실 코드", request.code());
         }
 
-        Member manager = memberRepository.findById(request.managerId())
-                .orElseThrow(() -> new EntityNotFoundException("담당자", request.managerId()));
 
         // 전산실 생성
-        DataCenter dataCenter = request.toEntity(manager);
+        DataCenter dataCenter = request.toEntity();
         DataCenter savedDataCenter = dataCenterRepository.save(dataCenter);
 
         // CompanyDataCenter 매핑 자동 생성
@@ -199,8 +195,7 @@ public class DataCenterService {
      */
     @Transactional
     public DataCenterDetailResponse updateDataCenter(Long id,
-                                                     DataCenterUpdateRequest request,
-                                                     HttpServletRequest httpRequest) {
+                                                     DataCenterUpdateRequest request) {
         Member currentMember = getCurrentMember();
         log.info("Updating data center with id: {} by user: {} (role: {})",
                 id, currentMember.getId(), currentMember.getRole());
@@ -226,11 +221,6 @@ public class DataCenterService {
             }
         }
 
-        Member manager = null;
-        if (request.managerId() != null) {
-            manager = memberRepository.findById(request.managerId())
-                    .orElseThrow(() -> new EntityNotFoundException("담당자", request.managerId()));
-        }
 
         dataCenter.updateInfo(
                 request.name(),
@@ -244,15 +234,11 @@ public class DataCenterService {
                 request.totalArea(),
                 request.totalPowerCapacity(),
                 request.totalCoolingCapacity(),
-                request.maxRackCount(),
                 request.temperatureMin(),
                 request.temperatureMax(),
                 request.humidityMin(),
-                request.humidityMax(),
-                manager
+                request.humidityMax()
         );
-
-
 
         dataCenterHistoryRecorder.recordUpdate(oldDataCenter, dataCenter, currentMember);
 
@@ -324,22 +310,6 @@ public class DataCenterService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 클라이언트 IP 추출
-     */
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        return ip;
-    }
 
     /**
      * DataCenter Deep Copy (변경 전 상태 저장용)
@@ -358,13 +328,11 @@ public class DataCenterService {
                 .totalArea(original.getTotalArea())
                 .totalPowerCapacity(original.getTotalPowerCapacity())
                 .totalCoolingCapacity(original.getTotalCoolingCapacity())
-                .maxRackCount(original.getMaxRackCount())
                 .currentRackCount(original.getCurrentRackCount())
                 .temperatureMin(original.getTemperatureMin())
                 .temperatureMax(original.getTemperatureMax())
                 .humidityMin(original.getHumidityMin())
                 .humidityMax(original.getHumidityMax())
-                .manager(original.getManager())
                 .build();
     }
 }

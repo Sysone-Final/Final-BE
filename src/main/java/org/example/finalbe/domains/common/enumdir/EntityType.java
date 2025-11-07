@@ -7,5 +7,7 @@ public enum EntityType {
     DATACENTER, // 전산실
     RACK,       // 랙
     EQUIPMENT,  // 장비
-    DEVICE      // 장치
+    DEVICE,      // 장치
+    MEMBER,
+    COMPANY
 }

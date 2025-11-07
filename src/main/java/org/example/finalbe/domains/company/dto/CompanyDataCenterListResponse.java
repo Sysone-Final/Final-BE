@@ -34,8 +34,6 @@ public record CompanyDataCenterListResponse(
                 .dataCenterCode(dataCenter.getCode())
                 .dataCenterName(dataCenter.getName())
                 .location(dataCenter.getLocation())
-                .managerName(dataCenter.getManager() != null ? dataCenter.getManager().getName() : null)
-                .managerPhone(dataCenter.getManager() != null ? dataCenter.getManager().getPhone() : null)
                 .grantedAt(grantedAt)
                 .build();
     }

@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 장비 서비스
@@ -220,7 +221,7 @@ public class EquipmentService {
     }
 
     /**
-     * 장비 수정
+     * 장비 수정 (개선 버전 - 상태/위치 변경 감지)
      */
     @Transactional
     public EquipmentDetailResponse updateEquipment(Long id, EquipmentUpdateRequest request) {
@@ -249,12 +250,43 @@ public class EquipmentService {
             }
         }
 
+        // === 수정 전 상태 저장 ===
         Equipment oldEquipment = cloneEquipment(equipment);
+
+        // === 상태 변경 감지 ===
+        boolean isStatusChanged = false;
+        String oldStatus = null;
+        String newStatus = null;
+
+        if (request.status() != null) {
+            oldStatus = equipment.getStatus() != null ? equipment.getStatus().name() : "UNKNOWN";
+            newStatus = request.status();
+            isStatusChanged = !oldStatus.equals(newStatus);
+        }
+
+        // === 위치 변경 감지 (유닛 위치 변경) ===
+        boolean isLocationChanged = false;
+        String oldLocation = null;
+        String newLocation = null;
+
+        // startUnit만 변경되었는지 확인
+        if (request.startUnit() != null && !request.startUnit().equals(equipment.getStartUnit())) {
+            isLocationChanged = true;
+            oldLocation = String.format("Rack: %s, StartUnit: %d, UnitSize: %d",
+                    equipment.getRack().getRackName(),
+                    equipment.getStartUnit(),
+                    equipment.getUnitSize());
+            newLocation = String.format("Rack: %s, StartUnit: %d, UnitSize: %d",
+                    equipment.getRack().getRackName(),
+                    request.startUnit(),
+                    equipment.getUnitSize());  // ✅ 기존 unitSize 사용
+        }
 
         Rack rack = equipment.getRack();
         BigDecimal oldPower = equipment.getPowerConsumption();
         BigDecimal oldWeight = equipment.getWeight();
 
+        // === 장비 정보 업데이트 ===
         equipment.updateInfo(
                 request.equipmentName(),
                 request.equipmentCode(),
@@ -282,6 +314,7 @@ public class EquipmentService {
                 request.diskThresholdCritical()
         );
 
+        // === 랙 전력/무게 재계산 ===
         BigDecimal newPower = equipment.getPowerConsumption();
         BigDecimal newWeight = equipment.getWeight();
 
@@ -300,11 +333,24 @@ public class EquipmentService {
             );
         }
 
-        equipmentHistoryRecorder.recordUpdate(oldEquipment, equipment, currentMember);
+        // === 히스토리 기록 (우선순위: 상태변경 > 위치변경 > 일반수정) ===
+        // 상태만 변경된 경우 상태변경 히스토리 기록
+        if (isStatusChanged && !hasOtherChanges(oldEquipment, equipment, "status")) {
+            equipmentHistoryRecorder.recordStatusChange(equipment, oldStatus, newStatus, currentMember);
+        }
+        // 위치만 변경된 경우 위치변경 히스토리 기록
+        else if (isLocationChanged && !hasOtherChanges(oldEquipment, equipment, "location")) {
+            equipmentHistoryRecorder.recordMove(equipment, oldLocation, newLocation, currentMember);
+        }
+        // 여러 필드가 변경된 경우 일반 수정 히스토리 기록 (상세 변경 내역 포함)
+        else {
+            equipmentHistoryRecorder.recordUpdate(oldEquipment, equipment, currentMember);
+        }
 
         log.info("Equipment updated successfully with id: {}", id);
         return EquipmentDetailResponse.from(equipment);
     }
+
 
     /**
      * 장비 삭제 (단건)
@@ -457,4 +503,39 @@ public class EquipmentService {
                 .diskThresholdCritical(equipment.getDiskThresholdCritical())
                 .build();
     }
+
+    /**
+     * 특정 필드 외에 다른 필드도 변경되었는지 확인
+     * @param oldEquipment 이전 장비
+     * @param newEquipment 새 장비
+     * @param excludeField 제외할 필드 ("status" 또는 "location")
+     * @return 다른 필드가 변경되었으면 true
+     */
+    private boolean hasOtherChanges(Equipment oldEquipment, Equipment newEquipment, String excludeField) {
+        boolean hasChanges = false;
+
+        if (!"name".equals(excludeField) && !Objects.equals(oldEquipment.getName(), newEquipment.getName())) {
+            hasChanges = true;
+        }
+        if (!"code".equals(excludeField) && !Objects.equals(oldEquipment.getCode(), newEquipment.getCode())) {
+            hasChanges = true;
+        }
+        if (!"type".equals(excludeField) && !Objects.equals(oldEquipment.getType(), newEquipment.getType())) {
+            hasChanges = true;
+        }
+        if (!"modelName".equals(excludeField) && !Objects.equals(oldEquipment.getModelName(), newEquipment.getModelName())) {
+            hasChanges = true;
+        }
+        if (!"status".equals(excludeField) && !Objects.equals(oldEquipment.getStatus(), newEquipment.getStatus())) {
+            hasChanges = true;
+        }
+        if (!"location".equals(excludeField) && !Objects.equals(oldEquipment.getStartUnit(), newEquipment.getStartUnit())) {
+            hasChanges = true;
+        }
+
+        // 기타 주요 필드들도 체크 가능
+
+        return hasChanges;
+    }
+
 }

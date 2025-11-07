@@ -65,8 +65,18 @@ public class RackElevationService {
             throw new BusinessException((String) validation.get("message"));
         }
 
-        // 장비 배치
-        rack.placeEquipment(equipment, request.startUnit(), request.unitSize());
+        // 유닛 점유
+        rack.occupyUnits(request.unitSize());
+
+        // 전력 사용량 추가
+        if (request.powerConsumption() != null) {
+            rack.addPowerUsage(request.powerConsumption());
+        }
+
+        // 장비 정보 업데이트
+        equipment.setRack(rack);
+        equipment.setStartUnit(request.startUnit());
+        equipment.setUnitSize(request.unitSize());
 
         log.info("Equipment placed successfully");
     }
@@ -85,26 +95,20 @@ public class RackElevationService {
         Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        // 기존 위치에서 제거
-        rack.removeEquipment(equipment);
-
         // 새 위치 배치 검증
         EquipmentPlacementRequest placementRequest = EquipmentPlacementRequest.builder()
                 .startUnit(request.toUnit())
                 .unitSize(equipment.getUnitSize())
                 .powerConsumption(equipment.getPowerConsumption())
-                .weight(equipment.getWeight())
                 .build();
 
         Map<String, Object> validation = validateEquipmentPlacement(rackId, placementRequest);
         if (!(Boolean) validation.get("isValid")) {
-            // 검증 실패 시 원래 위치로 복구
-            rack.placeEquipment(equipment, request.fromUnit(), equipment.getUnitSize());
             throw new BusinessException((String) validation.get("message"));
         }
 
-        // 장비 이동
-        rack.moveEquipment(equipment, request.fromUnit(), request.toUnit());
+        // 장비 이동 (시작 유닛 업데이트)
+        equipment.setStartUnit(request.toUnit());
 
         log.info("Equipment moved successfully");
     }
@@ -151,17 +155,6 @@ public class RackElevationService {
                 result.put("isValid", false);
                 result.put("message", String.format("랙의 최대 전력 용량을 초과합니다. (현재: %.2fW, 추가: %.2fW, 최대: %.2fW)",
                         rack.getCurrentPowerUsage(), request.powerConsumption(), rack.getMaxPowerCapacity()));
-                return result;
-            }
-        }
-
-        // 무게 용량 검증
-        if (rack.getMaxWeightCapacity() != null && request.weight() != null) {
-            BigDecimal newWeight = rack.getCurrentWeight().add(request.weight());
-            if (newWeight.compareTo(rack.getMaxWeightCapacity()) > 0) {
-                result.put("isValid", false);
-                result.put("message", String.format("랙의 최대 무게 용량을 초과합니다. (현재: %.2fkg, 추가: %.2fkg, 최대: %.2fkg)",
-                        rack.getCurrentWeight(), request.weight(), rack.getMaxWeightCapacity()));
                 return result;
             }
         }

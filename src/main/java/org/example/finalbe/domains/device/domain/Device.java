@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.DeviceStatus;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.time.LocalDate;
@@ -74,8 +74,8 @@ public class Device extends BaseTimeEntity {
     private Long managerId; // 관리자 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "datacenter_id", nullable = false)
-    private DataCenter datacenter; // 소속 전산실
+    @JoinColumn(name = "serverroom_id", nullable = false)
+    private ServerRoom serverRoom; // 소속 서버실
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id")

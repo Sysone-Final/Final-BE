@@ -8,9 +8,9 @@ import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.device.domain.Device;
 import org.example.finalbe.domains.device.domain.DeviceType;
 import org.example.finalbe.domains.device.dto.*;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 /**
  * 장치 서비스
- * 전산실 내 장치의 생성, 조회, 수정, 삭제 처리
+ * 서버실 내 장치의 생성, 조회, 수정, 삭제 처리
  */
 @Service
 @Slf4j
@@ -41,20 +41,20 @@ public class DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceTypeRepository deviceTypeRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final RackRepository rackRepository;
     private final MemberRepository memberRepository;
-    private final CompanyDataCenterRepository companyDataCenterRepository;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
     private final DeviceHistoryRecorder deviceHistoryRecorder;
 
     /**
-     * 전산실별 장치 목록 조회
+     * 서버실별 장치 목록 조회
      */
-    public List<DeviceListResponse> getDevicesByDatacenter(Long datacenterId) {
-        log.info("Fetching devices for datacenter: {}", datacenterId);
+    public List<DeviceListResponse> getDevicesByServerRoom(Long serverRoomId) {
+        log.info("Fetching devices for serverroom: {}", serverRoomId);
 
-        List<Device> devices = deviceRepository.findByDatacenterIdOrderByPosition(
-                datacenterId, DelYN.N);
+        List<Device> devices = deviceRepository.findByServerRoomIdOrderByPosition(
+                serverRoomId, DelYN.N);
 
         return devices.stream()
                 .map(DeviceListResponse::from)
@@ -92,15 +92,15 @@ public class DeviceService {
         DeviceType deviceType = deviceTypeRepository.findById(request.deviceTypeId())
                 .orElseThrow(() -> new EntityNotFoundException("장치 타입", request.deviceTypeId()));
 
-        DataCenter datacenter = dataCenterRepository.findActiveById(request.datacenterId())
-                .orElseThrow(() -> new EntityNotFoundException("전산실", request.datacenterId()));
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(request.serverRoomId())
+                .orElseThrow(() -> new EntityNotFoundException("서버실", request.serverRoomId()));
 
         if (currentMember.getRole() != Role.ADMIN) {
-            boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
-                    currentMember.getCompany().getId(), request.datacenterId());
+            boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                    currentMember.getCompany().getId(), request.serverRoomId());
 
             if (!hasAccess) {
-                throw new AccessDeniedException("해당 전산실에 대한 접근 권한이 없습니다.");
+                throw new AccessDeniedException("해당 서버실에 대한 접근 권한이 없습니다.");
             }
         }
 
@@ -110,7 +110,7 @@ public class DeviceService {
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
         }
 
-        Device device = request.toEntity(deviceType, datacenter, rack, currentMember.getId());
+        Device device = request.toEntity(deviceType, serverRoom, rack, currentMember.getId());
         Device savedDevice = deviceRepository.save(device);
 
         // 히스토리 기록
@@ -310,11 +310,11 @@ public class DeviceService {
         Device device = deviceRepository.findById(deviceId)
                 .orElseThrow(() -> new EntityNotFoundException("장치", deviceId));
 
-        Long datacenterId = device.getDatacenter().getId();
+        Long serverRoomId = device.getServerRoom().getId();
         Long companyId = member.getCompany().getId();
 
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
-                companyId, datacenterId);
+        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                companyId, serverRoomId);
 
         if (!hasAccess) {
             throw new AccessDeniedException("해당 장치에 대한 접근 권한이 없습니다.");
@@ -338,7 +338,7 @@ public class DeviceService {
                 .warrantyEndDate(device.getWarrantyEndDate())
                 .notes(device.getNotes())
                 .deviceType(device.getDeviceType())
-                .datacenter(device.getDatacenter())
+                .serverRoom(device.getServerRoom())
                 .rack(device.getRack())
                 .managerId(device.getManagerId())
                 .build();

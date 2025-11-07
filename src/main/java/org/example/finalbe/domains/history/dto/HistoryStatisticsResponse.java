@@ -14,8 +14,8 @@ import java.util.Map;
  */
 @Builder
 public record HistoryStatisticsResponse(
-        Long dataCenterId,
-        String dataCenterName,
+        Long serverRoomId,
+        String serverRoomName,
         LocalDateTime startDate,
         LocalDateTime endDate,
         Long totalCount,

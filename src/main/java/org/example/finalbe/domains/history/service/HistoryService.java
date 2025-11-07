@@ -7,11 +7,11 @@ import org.example.finalbe.domains.common.enumdir.HistoryAction;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.department.domain.MemberDepartment;
 import org.example.finalbe.domains.department.repository.MemberDepartmentRepository;
 import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.history.domain.History;
 import org.example.finalbe.domains.history.dto.*;
 import org.example.finalbe.domains.history.repository.HistoryRepository;
@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 public class HistoryService {
 
     private final HistoryRepository historyRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final MemberRepository memberRepository;
 
     // 부서 기준 접근 제어용 Repository
@@ -59,8 +59,8 @@ public class HistoryService {
     public void recordHistory(HistoryCreateRequest request) {
         try {
             History history = History.builder()
-                    .dataCenterId(request.dataCenterId())
-                    .dataCenterName(request.dataCenterName())
+                    .serverRoomId(request.serverRoomId())
+                    .serverRoomName(request.serverRoomName())
                     .entityType(request.entityType())
                     .entityId(request.entityId())
                     .entityName(request.entityName())
@@ -91,10 +91,10 @@ public class HistoryService {
      */
     public Page<HistoryResponse> searchHistory(HistorySearchRequest request) {
         Member currentMember = getCurrentMember();
-        log.info("Searching history for datacenter: {}", request.dataCenterId());
+        log.info("Searching history for serverroom: {}", request.serverRoomId());
 
         // 서버실 접근 권한 확인 (부서 기준)
-        validateDataCenterAccess(currentMember, request.dataCenterId());
+        validateServerRoomAccess(currentMember, request.serverRoomId());
 
         Pageable pageable = PageRequest.of(
                 request.page() != null ? request.page() : 0,
@@ -105,7 +105,7 @@ public class HistoryService {
 
         // 복합 조건 검색 사용
         historyPage = historyRepository.searchHistory(
-                request.dataCenterId(),
+                request.serverRoomId(),
                 request.entityType(),
                 request.action(),
                 request.changedBy(),
@@ -120,12 +120,12 @@ public class HistoryService {
     /**
      * 서버실 히스토리 통계
      */
-    public HistoryStatisticsResponse getStatistics(Long dataCenterId, LocalDateTime startDate, LocalDateTime endDate) {
+    public HistoryStatisticsResponse getStatistics(Long serverRoomId, LocalDateTime startDate, LocalDateTime endDate) {
         Member currentMember = getCurrentMember();
-        validateDataCenterAccess(currentMember, dataCenterId);
+        validateServerRoomAccess(currentMember, serverRoomId);
 
-        DataCenter dataCenter = dataCenterRepository.findById(dataCenterId)
-                .orElseThrow(() -> new EntityNotFoundException("전산실", dataCenterId));
+        ServerRoom serverRoom = serverRoomRepository.findById(serverRoomId)
+                .orElseThrow(() -> new EntityNotFoundException("전산실", serverRoomId));
 
         // 기본 기간 설정 (없으면 최근 30일)
         if (startDate == null) {
@@ -137,7 +137,7 @@ public class HistoryService {
 
         // 작업 타입별 카운트
         List<Object[]> actionCounts = historyRepository.countByActionAndDateRange(
-                dataCenterId, startDate, endDate);
+                serverRoomId, startDate, endDate);
         Map<HistoryAction, Long> actionCountMap = new HashMap<>();
         long totalCount = 0;
         for (Object[] row : actionCounts) {
@@ -149,7 +149,7 @@ public class HistoryService {
 
         // 엔티티 타입별 카운트
         List<Object[]> entityTypeCounts = historyRepository.countByEntityTypeAndDateRange(
-                dataCenterId, startDate, endDate);
+                serverRoomId, startDate, endDate);
         Map<EntityType, Long> entityTypeCountMap = new HashMap<>();
         for (Object[] row : entityTypeCounts) {
             EntityType entityType = (EntityType) row[0];
@@ -160,7 +160,7 @@ public class HistoryService {
         // 최근 활동 많은 자산 TOP 10
         Pageable topEntitiesPageable = PageRequest.of(0, 10);
         List<Object[]> topEntitiesData = historyRepository.findTopActiveEntities(
-                dataCenterId, startDate, endDate, topEntitiesPageable);
+                serverRoomId, startDate, endDate, topEntitiesPageable);
         List<HistoryStatisticsResponse.TopActiveEntity> topActiveEntities = topEntitiesData.stream()
                 .map(row -> HistoryStatisticsResponse.TopActiveEntity.builder()
                         .entityType((EntityType) row[0])
@@ -173,7 +173,7 @@ public class HistoryService {
         // 최근 활동 많은 사용자 TOP 10
         Pageable topUsersPageable = PageRequest.of(0, 10);
         List<Object[]> topUsersData = historyRepository.findTopActiveUsers(
-                dataCenterId, startDate, endDate, topUsersPageable);
+                serverRoomId, startDate, endDate, topUsersPageable);
         List<HistoryStatisticsResponse.TopActiveUser> topActiveUsers = topUsersData.stream()
                 .map(row -> HistoryStatisticsResponse.TopActiveUser.builder()
                         .userId((Long) row[0])
@@ -183,8 +183,8 @@ public class HistoryService {
                 .collect(Collectors.toList());
 
         return HistoryStatisticsResponse.builder()
-                .dataCenterId(dataCenterId)
-                .dataCenterName(dataCenter.getName())
+                .serverRoomId(serverRoomId)
+                .serverRoomName(serverRoom.getName())
                 .startDate(startDate)
                 .endDate(endDate)
                 .totalCount(totalCount)
@@ -268,19 +268,19 @@ public class HistoryService {
      * 서버실별 최근 히스토리 조회 (상세 정보 포함)
      */
     public Page<HistoryDetailResponse> getRecentHistoriesWithDetails(
-            Long dataCenterId,
+            Long serverRoomId,
             int page,
             int size) {
 
-        log.info("Fetching recent histories with details for datacenter: {}", dataCenterId);
+        log.info("Fetching recent histories with details for serverroom: {}", serverRoomId);
 
         Member currentMember = getCurrentMember();
-        validateDataCenterAccess(currentMember, dataCenterId);
+        validateServerRoomAccess(currentMember, serverRoomId);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("changedAt").descending());
 
-        Page<History> histories = historyRepository.findByDataCenterIdOrderByChangedAtDesc(
-                dataCenterId, pageable);
+        Page<History> histories = historyRepository.findByServerRoomIdOrderByChangedAtDesc(
+                serverRoomId, pageable);
 
         return histories.map(HistoryDetailResponse::from);
     }
@@ -295,11 +295,11 @@ public class HistoryService {
      * @param member 사용자
      * @return 접근 가능한 서버실 ID 목록
      */
-    public List<Long> getAccessibleDataCenterIds(Member member) {
+    public List<Long> getAccessibleServerRoomIds(Member member) {
         if (member.getRole() == Role.ADMIN) {
             // ADMIN은 모든 서버실 접근 가능
-            return dataCenterRepository.findAll().stream()
-                    .map(DataCenter::getId)
+            return serverRoomRepository.findAll().stream()
+                    .map(ServerRoom::getId)
                     .collect(Collectors.toList());
         }
 
@@ -318,15 +318,15 @@ public class HistoryService {
         // 부서가 담당하는 랙들이 속한 서버실 ID 수집 (중복 제거)
         List<Rack> departmentRacks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
 
-        List<Long> dataCenterIds = departmentRacks.stream()
-                .map(rack -> rack.getDatacenter().getId())
+        List<Long> serverRoomIds = departmentRacks.stream()
+                .map(rack -> rack.getServerRoom().getId())
                 .distinct()
                 .collect(Collectors.toList());
 
-        log.info("User {} can access {} datacenters through department {}",
-                member.getId(), dataCenterIds.size(), departmentId);
+        log.info("User {} can access {} serverrooms through department {}",
+                member.getId(), serverRoomIds.size(), departmentId);
 
-        return dataCenterIds;
+        return serverRoomIds;
     }
 
     /**
@@ -338,20 +338,20 @@ public class HistoryService {
      *
      * @return 접근 가능한 서버실 목록 (DTO)
      */
-    public List<DataCenterAccessResponse> getMyAccessibleDataCenters() {
+    public List<ServerRoomAccessResponse> getMyAccessibleServerRooms() {
         Member currentMember = getCurrentMember();
-        List<Long> accessibleDataCenterIds = getAccessibleDataCenterIds(currentMember);
+        List<Long> accessibleServerRoomIds = getAccessibleServerRoomIds(currentMember);
 
-        if (accessibleDataCenterIds.isEmpty()) {
-            log.warn("User {} has no accessible datacenters", currentMember.getId());
+        if (accessibleServerRoomIds.isEmpty()) {
+            log.warn("User {} has no accessible serverrooms", currentMember.getId());
             return List.of();
         }
 
-        return dataCenterRepository.findAllById(accessibleDataCenterIds).stream()
-                .map(dc -> DataCenterAccessResponse.builder()
-                        .dataCenterId(dc.getId())
-                        .dataCenterName(dc.getName())
-                        .dataCenterCode(dc.getCode())
+        return serverRoomRepository.findAllById(accessibleServerRoomIds).stream()
+                .map(dc -> ServerRoomAccessResponse.builder()
+                        .serverRoomId(dc.getId())
+                        .serverRoomName(dc.getName())
+                        .serverRoomCode(dc.getCode())
                         .location(dc.getLocation())
                         .build())
                 .collect(Collectors.toList());
@@ -391,16 +391,16 @@ public class HistoryService {
      * 3. 부서 소속이 없으면 접근 불가
      *
      * @param member 사용자
-     * @param dataCenterId 서버실 ID
+     * @param serverRoomId 서버실 ID
      * @throws AccessDeniedException 접근 권한이 없는 경우
      */
-    private void validateDataCenterAccess(Member member, Long dataCenterId) {
-        if (dataCenterId == null) {
+    private void validateServerRoomAccess(Member member, Long serverRoomId) {
+        if (serverRoomId == null) {
             throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
         }
 
         if (member.getRole() == Role.ADMIN) {
-            log.debug("Admin user {} accessing datacenter {}", member.getId(), dataCenterId);
+            log.debug("Admin user {} accessing serverroom {}", member.getId(), serverRoomId);
             return; // ADMIN은 모든 전산실 접근 가능
         }
 
@@ -411,24 +411,24 @@ public class HistoryService {
                         "부서에 소속되지 않아 히스토리를 조회할 수 없습니다."));
 
         Long departmentId = memberDepartment.getDepartment().getId();
-        log.debug("User {} belongs to department {}, checking access to datacenter {}",
-                member.getId(), departmentId, dataCenterId);
+        log.debug("User {} belongs to department {}, checking access to serverroom {}",
+                member.getId(), departmentId, serverRoomId);
 
         // 부서가 담당하는 랙들 조회
         List<Rack> departmentRacks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
 
         // 해당 랙들이 속한 서버실 ID 확인
         boolean hasAccess = departmentRacks.stream()
-                .anyMatch(rack -> rack.getDatacenter().getId().equals(dataCenterId));
+                .anyMatch(rack -> rack.getServerRoom().getId().equals(serverRoomId));
 
         if (!hasAccess) {
-            log.warn("User {} (department {}) denied access to datacenter {} - no assigned racks",
-                    member.getId(), departmentId, dataCenterId);
+            log.warn("User {} (department {}) denied access to serverroom {} - no assigned racks",
+                    member.getId(), departmentId, serverRoomId);
             throw new AccessDeniedException(
                     "해당 전산실의 히스토리 조회 권한이 없습니다. (부서가 담당하는 랙이 없습니다)");
         }
 
-        log.debug("User {} granted access to datacenter {} through department {}",
-                member.getId(), dataCenterId, departmentId);
+        log.debug("User {} granted access to serverroom {} through department {}",
+                member.getId(), serverRoomId, departmentId);
     }
 }

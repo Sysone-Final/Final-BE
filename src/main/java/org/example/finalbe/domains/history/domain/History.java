@@ -6,7 +6,6 @@ import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
 
-
 import java.time.LocalDateTime;
 
 /**
@@ -15,10 +14,10 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "history", indexes = {
-        @Index(name = "idx_history_datacenter_time", columnList = "data_center_id, changed_at DESC"),
-        @Index(name = "idx_history_datacenter_entity", columnList = "data_center_id, entity_type, entity_id, changed_at DESC"),
+        @Index(name = "idx_history_serverroom_time", columnList = "server_room_id, changed_at DESC"),
+        @Index(name = "idx_history_serverroom_entity", columnList = "server_room_id, entity_type, entity_id, changed_at DESC"),
         @Index(name = "idx_history_user", columnList = "changed_by, changed_at DESC"),
-        @Index(name = "idx_history_action", columnList = "data_center_id, action, changed_at DESC")
+        @Index(name = "idx_history_action", columnList = "server_room_id, action, changed_at DESC")
 })
 @NoArgsConstructor
 @AllArgsConstructor
@@ -32,11 +31,11 @@ public class History extends BaseTimeEntity {
     private Long id;
 
     // === 서버실 정보 (파티션 키) ===
-    @Column(name = "data_center_id", nullable = false)
-    private Long dataCenterId;
+    @Column(name = "server_room_id", nullable = false)
+    private Long serverRoomId;
 
-    @Column(name = "data_center_name", length = 200)
-    private String dataCenterName; // 조회 성능을 위한 비정규화
+    @Column(name = "server_room_name", length = 200)
+    private String serverRoomName; // 조회 성능을 위한 비정규화
 
     // === 엔티티 정보 ===
     @Enumerated(EnumType.STRING)
@@ -83,7 +82,6 @@ public class History extends BaseTimeEntity {
     // === 추가 정보 ===
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason; // 변경 사유
-
 
     @Column(name = "metadata", columnDefinition = "TEXT")
     private String metadata; // 추가 메타데이터 (JSON)

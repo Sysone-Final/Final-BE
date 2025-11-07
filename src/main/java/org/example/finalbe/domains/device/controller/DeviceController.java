@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * 장치 관리 컨트롤러
- * 전산실 내 장치의 생성, 조회, 수정, 삭제 API 제공
+ * 서버실 내 장치의 생성, 조회, 수정, 삭제 API 제공
  */
 @RestController
 @RequestMapping("/api/devices")
@@ -27,14 +27,14 @@ public class DeviceController {
     private final DeviceService deviceService;
 
     /**
-     * 전산실별 장치 목록 조회
-     * GET /api/devices/datacenter/{dataCenterId}
+     * 서버실별 장치 목록 조회
+     * GET /api/devices/serverroom/{serverRoomId}
      */
-    @GetMapping("/datacenter/{dataCenterId}")
-    public ResponseEntity<CommonResDto> getDevicesByDataCenter(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
+    @GetMapping("/serverroom/{serverRoomId}")
+    public ResponseEntity<CommonResDto> getDevicesByServerRoom(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId) {
 
-        List<DeviceListResponse> devices = deviceService.getDevicesByDatacenter(dataCenterId);
+        List<DeviceListResponse> devices = deviceService.getDevicesByServerRoom(serverRoomId);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장치 목록 조회 완료", devices));
     }
@@ -78,7 +78,6 @@ public class DeviceController {
             @Valid @RequestBody DeviceUpdateRequest request) {
 
         DeviceDetailResponse device = deviceService.updateDevice(id, request);
-
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장치 수정 완료", device));
     }
@@ -92,27 +91,9 @@ public class DeviceController {
     public ResponseEntity<CommonResDto> deleteDevice(
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id) {
 
-
         deviceService.deleteDevice(id);
-
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장치 삭제 완료", null));
-    }
-
-    /**
-     * 장치 위치 변경
-     * PUT /api/devices/{id}/position
-     */
-    @PutMapping("/{id}/position")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
-    public ResponseEntity<CommonResDto> updateDevicePosition(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
-            @Valid @RequestBody DevicePositionUpdateRequest request) {
-
-        DeviceDetailResponse device = deviceService.updateDevicePosition(id, request);
-
-        return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "장치 위치 변경 완료", device));
     }
 
     /**
@@ -125,9 +106,23 @@ public class DeviceController {
             @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
             @Valid @RequestBody DeviceStatusChangeRequest request) {
 
-        DeviceDetailResponse device = deviceService.changeDeviceStatus(id, request);
-
+        deviceService.changeDeviceStatus(id, request);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "장치 상태 변경 완료", device));
+                new CommonResDto(HttpStatus.OK, "장치 상태 변경 완료", null));
+    }
+
+    /**
+     * 장치 위치 변경
+     * PUT /api/devices/{id}/position
+     */
+    @PutMapping("/{id}/position")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    public ResponseEntity<CommonResDto> updateDevicePosition(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 장치 ID입니다.") Long id,
+            @Valid @RequestBody DevicePositionUpdateRequest request) {
+
+        deviceService.updateDevicePosition(id, request);
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "장치 위치 변경 완료", null));
     }
 }

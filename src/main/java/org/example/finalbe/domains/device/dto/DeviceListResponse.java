@@ -17,8 +17,8 @@ public record DeviceListResponse(
         Integer gridZ,
         Integer rotation,
         String status,
-        String datacenterName,
-        Long datacenterId,
+        String serverRoomName,
+        Long serverRoomId,
         String rackName,
         Long rackId
 ) {
@@ -33,8 +33,8 @@ public record DeviceListResponse(
                 .gridZ(device.getGridZ())
                 .rotation(device.getRotation())
                 .status(device.getStatus() != null ? device.getStatus().name() : null)
-                .datacenterName(device.getDatacenter().getName())
-                .datacenterId(device.getDatacenter().getId())
+                .serverRoomName(device.getServerRoom().getName())
+                .serverRoomId(device.getServerRoom().getId())
                 .rackName(device.getRack() != null ? device.getRack().getRackName() : null)
                 .rackId(device.getRack() != null ? device.getRack().getId() : null)
                 .build();

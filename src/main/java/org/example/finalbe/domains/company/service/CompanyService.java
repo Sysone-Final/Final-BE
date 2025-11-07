@@ -7,7 +7,7 @@ import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.company.domain.Company;
 import org.example.finalbe.domains.company.dto.*;
 import org.example.finalbe.domains.company.repository.CompanyRepository;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
 import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +32,7 @@ public class CompanyService {
 
     // === 의존성 주입 (생성자 주입) ===
     private final CompanyRepository companyRepository; // 회사 데이터 접근
-    private final CompanyDataCenterRepository companyDataCenterRepository; // 회사-전산실 매핑 데이터 접근
+    private final CompanyServerRoomRepository companyServerRoomRepository; // 회사-전산실 매핑 데이터 접근
 
     /**
      * 회사 목록 조회 (삭제되지 않은 것만)
@@ -263,12 +263,12 @@ public class CompanyService {
     }
 
     /**
-     * 회사가 접근 가능한 전산실 목록 조회
-     * 특정 회사에 매핑된 모든 전산실(데이터센터) 정보 반환
+     * 회사가 접근 가능한 서버실 목록 조회
+     * 특정 회사에 매핑된 모든 서버실 정보 반환
      */
-    public List<CompanyDataCenterListResponse> getCompanyDataCenters(Long companyId) {
+    public List<CompanyServerRoomListResponse> getCompanyServerRooms(Long companyId) {
         // 로그 출력: 조회 시도
-        log.info("Fetching data centers for company: {}", companyId);
+        log.info("Fetching server rooms for company: {}", companyId);
 
         // === 1단계: 입력값 검증 ===
         if (companyId == null) {
@@ -280,20 +280,20 @@ public class CompanyService {
                 .orElseThrow(() -> new EntityNotFoundException("회사", companyId));
         // 회사가 존재하지 않으면 예외 발생
 
-        // === 3단계: CompanyDataCenter 매핑 조회 및 DTO 변환 ===
-        List<CompanyDataCenterListResponse> dataCenters = companyDataCenterRepository.findByCompanyId(companyId)
+        // === 3단계: CompanyServerRoom 매핑 조회 및 DTO 변환 ===
+        List<CompanyServerRoomListResponse> serverRooms = companyServerRoomRepository.findByCompanyId(companyId)
                 .stream() // Stream API로 처리
-                .map(cdc -> CompanyDataCenterListResponse.from(
-                        cdc.getDataCenter(),    // DataCenter 엔티티
-                        cdc.getCreatedAt()      // 매핑 생성 시간 (접근 허용일)
+                .map(csr -> CompanyServerRoomListResponse.from(
+                        csr.getServerRoom(),    // ServerRoom 엔티티
+                        csr.getCreatedAt()      // 매핑 생성 시간 (접근 허용일)
                 ))
                 .collect(Collectors.toList()); // List로 수집
 
         // 로그 출력: 조회 결과 수
-        log.info("Found {} data centers for company: {}", dataCenters.size(), companyId);
+        log.info("Found {} server rooms for company: {}", serverRooms.size(), companyId);
 
         // === 4단계: DTO List 반환 ===
-        return dataCenters;
-        // 회사가 접근 가능한 전산실 목록 (전산실 정보 + 접근 허용일)
+        return serverRooms;
+        // 회사가 접근 가능한 서버실 목록 (서버실 정보 + 접근 허용일)
     }
 }

@@ -28,21 +28,21 @@ public class RackExcelController {
 
     /**
      * 랙 목록 Excel 내보내기
-     * GET /api/racks/datacenter/{dataCenterId}/export
+     * GET /api/racks/serverroom/{serverRoomId}/export
      *
-     * @param dataCenterId 전산실 ID
+     * @param serverRoomId 서버실 ID
      * @return Excel 파일 (바이너리)
      */
-    @GetMapping("/datacenter/{dataCenterId}/export")
+    @GetMapping("/serverroom/{serverRoomId}/export")
     public ResponseEntity<byte[]> exportRacksToExcel(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
+            @PathVariable @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId) {
 
-        byte[] excelData = rackExcelService.exportRacksToExcel(dataCenterId);
+        byte[] excelData = rackExcelService.exportRacksToExcel(serverRoomId);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header("Content-Disposition",
-                        "attachment; filename=racks_datacenter_" + dataCenterId + ".xlsx")
+                        "attachment; filename=racks_serverroom_" + serverRoomId + ".xlsx")
                 .body(excelData);
     }
 
@@ -68,16 +68,16 @@ public class RackExcelController {
      * POST /api/racks/bulk-upload/preview
      *
      * @param file 업로드할 Excel 파일
-     * @param dataCenterId 전산실 ID
+     * @param serverRoomId 서버실 ID
      * @return 업로드 전 검증 결과 (유효/무효 데이터, 오류 목록)
      */
     @PostMapping("/bulk-upload/preview")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> previewBulkUpload(
             @RequestParam("file") MultipartFile file,
-            @RequestParam @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
+            @RequestParam @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId) {
 
-        RackBulkUploadPreviewResponse preview = rackExcelService.previewBulkUpload(file, dataCenterId);
+        RackBulkUploadPreviewResponse preview = rackExcelService.previewBulkUpload(file, serverRoomId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "일괄 등록 미리보기 완료", preview));
     }
 
@@ -86,16 +86,16 @@ public class RackExcelController {
      * POST /api/racks/bulk-upload/execute
      *
      * @param file 업로드할 Excel 파일
-     * @param dataCenterId 전산실 ID
+     * @param serverRoomId 서버실 ID
      * @return 업로드 결과 (성공/실패 개수, 상세 결과)
      */
     @PostMapping("/bulk-upload/execute")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> executeBulkUpload(
             @RequestParam("file") MultipartFile file,
-            @RequestParam @Min(value = 1, message = "유효하지 않은 전산실 ID입니다.") Long dataCenterId) {
+            @RequestParam @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId) {
 
-        RackBulkUploadResultResponse result = rackExcelService.executeBulkUpload(file, dataCenterId);
+        RackBulkUploadResultResponse result = rackExcelService.executeBulkUpload(file, serverRoomId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "랙 일괄 등록 완료", result));
     }

@@ -130,13 +130,13 @@ public class RackController {
 
     /**
      * 랙 상태 변경
-     * PATCH /api/racks/{id}/status
+     * PUT /api/racks/{id}/status
      *
      * @param id 랙 ID
      * @param request 상태 변경 요청 DTO
      * @return 변경된 랙 정보
      */
-    @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> changeRackStatus(
             @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id,

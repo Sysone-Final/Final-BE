@@ -153,6 +153,19 @@ public class EquipmentHistoryRecorder {
      * Equipment 삭제 히스토리
      */
     public void recordDelete(Equipment equipment, Member member) {
+
+
+        if (equipment.getRack() == null) {
+            log.warn("Equipment {} has no rack, skipping history record", equipment.getId());
+            return;
+        }
+
+
+        if (equipment.getRack().getServerRoom() == null) {
+            log.warn("Rack {} has no serverRoom, skipping history record",
+                    equipment.getRack().getId());
+            return;
+        }
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(equipment.getRack().getServerRoom().getId())
                 .serverRoomName(equipment.getRack().getServerRoom().getName())
@@ -183,6 +196,12 @@ public class EquipmentHistoryRecorder {
         snapshot.put("name", equipment.getName());
         snapshot.put("code", equipment.getCode());
         snapshot.put("type", equipment.getType() != null ? equipment.getType().name() : null);
+
+        if (equipment.getRack() != null) {
+            snapshot.put("rackName", equipment.getRack().getRackName());
+            snapshot.put("rackId", equipment.getRack().getId());
+        }
+
         snapshot.put("rackName", equipment.getRack().getRackName());
         snapshot.put("startUnit", equipment.getStartUnit());
         snapshot.put("unitSize", equipment.getUnitSize());

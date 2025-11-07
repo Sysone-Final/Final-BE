@@ -2,6 +2,7 @@ package org.example.finalbe.domains.rack.repository;
 
 import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.RackStatus;
+import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -93,5 +94,11 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
             @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn
     );
+
+    /**
+     * 활성 장비 전체 조회 (delYn = 'N')
+     */
+    @Query("SELECT e FROM Equipment e WHERE e.delYn = 'N'")
+    List<Equipment> findAllActive();
 
 }

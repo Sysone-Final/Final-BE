@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Device 히스토리 기록 전담 클래스
+ * Device 히스토리 기록 전담 클래스 (개선 버전)
  */
 @Component
 @Slf4j
@@ -47,17 +47,20 @@ public class DeviceHistoryRecorder {
     }
 
     /**
-     * Device 수정 히스토리
+     * Device 수정 히스토리 (상세 변경 내역 포함)
      */
-    public void recordUpdate(Device oldDevice, Device newDevice,
-                             Member member ) {
+    public void recordUpdate(Device oldDevice, Device newDevice, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldDevice);
         Map<String, Object> newSnapshot = buildSnapshot(newDevice);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
 
         if (changedFields.isEmpty()) {
+            log.info("No changes detected for device id: {}", newDevice.getId());
             return;
         }
+
+        // 변경 내역 상세 정보 구성
+        Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(newDevice.getDatacenter().getId())
@@ -73,16 +76,17 @@ public class DeviceHistoryRecorder {
                 .changedFields(changedFields)
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
+                .metadata(Map.of("changeDetails", changeDetails))
                 .build();
 
         historyService.recordHistory(request);
+        log.info("Device update history recorded: {} fields changed", changedFields.size());
     }
 
     /**
      * Device 위치 변경 히스토리
      */
-    public void recordMove(Device device, String oldPosition, String newPosition,
-                           Member member ) {
+    public void recordMove(Device device, String oldPosition, String newPosition, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(device.getDatacenter().getId())
                 .dataCenterName(device.getDatacenter().getName())
@@ -97,16 +101,21 @@ public class DeviceHistoryRecorder {
                 .changedFields(List.of("gridX", "gridY", "gridZ", "rotation"))
                 .beforeValue(Map.of("position", oldPosition))
                 .afterValue(Map.of("position", newPosition))
+                .metadata(Map.of(
+                        "positionChange", String.format("%s → %s", oldPosition, newPosition),
+                        "oldPosition", oldPosition,
+                        "newPosition", newPosition
+                ))
                 .build();
 
         historyService.recordHistory(request);
+        log.info("Device move history recorded: {} -> {}", oldPosition, newPosition);
     }
 
     /**
      * Device 상태 변경 히스토리
      */
-    public void recordStatusChange(Device device, String oldStatus, String newStatus,
-                                   Member member) {
+    public void recordStatusChange(Device device, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .dataCenterId(device.getDatacenter().getId())
                 .dataCenterName(device.getDatacenter().getName())
@@ -121,9 +130,12 @@ public class DeviceHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
+                .metadata(Map.of("statusChange", String.format("%s → %s",
+                        translateStatus(oldStatus), translateStatus(newStatus))))
                 .build();
 
         historyService.recordHistory(request);
+        log.info("Device status change history recorded: {} -> {}", oldStatus, newStatus);
     }
 
     /**
@@ -163,6 +175,8 @@ public class DeviceHistoryRecorder {
         snapshot.put("manufacturer", device.getManufacturer());
         snapshot.put("serialNumber", device.getSerialNumber());
         snapshot.put("deviceType", device.getDeviceType() != null ? device.getDeviceType().getTypeName() : null);
+        snapshot.put("rackId", device.getRack() != null ? device.getRack().getId() : null);
+        snapshot.put("rackName", device.getRack() != null ? device.getRack().getRackName() : null);
         return snapshot;
     }
 
@@ -181,5 +195,75 @@ public class DeviceHistoryRecorder {
         }
 
         return changedFields;
+    }
+
+    /**
+     * 변경 내역 상세 정보 구성
+     */
+    private Map<String, Object> buildChangeDetails(
+            Map<String, Object> oldSnapshot,
+            Map<String, Object> newSnapshot,
+            List<String> changedFields) {
+
+        Map<String, Object> changeDetails = new HashMap<>();
+
+        for (String field : changedFields) {
+            Object oldValue = oldSnapshot.get(field);
+            Object newValue = newSnapshot.get(field);
+
+            String fieldLabel = getFieldLabel(field);
+            String oldValueStr = formatValue(field, oldValue);
+            String newValueStr = formatValue(field, newValue);
+
+            changeDetails.put(field, Map.of(
+                    "fieldLabel", fieldLabel,
+                    "oldValue", oldValueStr,
+                    "newValue", newValueStr,
+                    "changeDescription", String.format("%s: %s → %s", fieldLabel, oldValueStr, newValueStr)
+            ));
+        }
+
+        return changeDetails;
+    }
+
+    private String getFieldLabel(String field) {
+        return switch (field) {
+            case "deviceName" -> "장치명";
+            case "deviceCode" -> "장치 코드";
+            case "gridX" -> "X 좌표";
+            case "gridY" -> "Y 좌표";
+            case "gridZ" -> "Z 좌표";
+            case "rotation" -> "회전각";
+            case "status" -> "상태";
+            case "modelName" -> "모델명";
+            case "manufacturer" -> "제조사";
+            case "serialNumber" -> "시리얼 번호";
+            case "deviceType" -> "장치 타입";
+            case "rackName" -> "연결된 랙";
+            default -> field;
+        };
+    }
+
+    private String formatValue(String field, Object value) {
+        if (value == null) {
+            return "(없음)";
+        }
+
+        return switch (field) {
+            case "rotation" -> value + "°";
+            case "status" -> translateStatus(value.toString());
+            default -> value.toString();
+        };
+    }
+
+    private String translateStatus(String status) {
+        return switch (status) {
+            case "ACTIVE" -> "활성";
+            case "INACTIVE" -> "비활성";
+            case "MAINTENANCE" -> "점검중";
+            case "ERROR" -> "오류";
+            case "UNKNOWN" -> "알 수 없음";
+            default -> status;
+        };
     }
 }

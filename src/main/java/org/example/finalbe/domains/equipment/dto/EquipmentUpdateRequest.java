@@ -27,6 +27,7 @@ public record EquipmentUpdateRequest(
         String status,
         LocalDate installationDate,
         String notes,
+        Integer startUnit,
 
         // 모니터링 설정
         Boolean monitoringEnabled,

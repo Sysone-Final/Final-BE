@@ -1,10 +1,12 @@
 package org.example.finalbe.domains.history.controller;
 
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.dto.CommonResDto;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
+import org.example.finalbe.domains.history.dto.HistoryDetailResponse;
 import org.example.finalbe.domains.history.dto.HistoryResponse;
 import org.example.finalbe.domains.history.dto.HistorySearchRequest;
 import org.example.finalbe.domains.history.dto.HistoryStatisticsResponse;
@@ -201,5 +203,63 @@ public class HistoryController {
 
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "내 히스토리 조회 성공", history));
+    }
+
+    /**
+     * 히스토리 상세 조회 (변경 내역 포함)
+     * GET /api/history/{id}
+     *
+     * 사용 예시:
+     * GET /api/history/123
+     *
+     * 응답:
+     * {
+     *   "id": 123,
+     *   "entityName": "랙 A-01",
+     *   "action": "UPDATE",
+     *   "actionName": "수정",
+     *   "changedByName": "홍길동",
+     *   "changedAt": "2025-11-06T10:30:00",
+     *   "changeDetails": [
+     *     {
+     *       "fieldLabel": "랙 위치",
+     *       "oldValue": "5",
+     *       "newValue": "10",
+     *       "changeDescription": "랙 위치: 5 → 10"
+     *     },
+     *     {
+     *       "fieldLabel": "랙 이름",
+     *       "oldValue": "랙-A",
+     *       "newValue": "랙-A-01",
+     *       "changeDescription": "랙 이름: 랙-A → 랙-A-01"
+     *     }
+     *   ]
+     * }
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<CommonResDto> getHistoryDetail(
+            @PathVariable @Min(value = 1, message = "유효하지 않은 히스토리 ID입니다.") Long id) {
+
+        HistoryDetailResponse history = historyService.getHistoryDetail(id);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "히스토리 상세 조회 완료", history));
+    }
+
+    /**
+     * 엔티티별 히스토리 목록 조회
+     * GET /api/history/entity?entityType=RACK&entityId=123
+     *
+     * 특정 엔티티(예: 특정 랙)의 모든 히스토리를 조회
+     */
+    @GetMapping("/entity")
+    public ResponseEntity<CommonResDto> getHistoryByEntity(
+            @RequestParam EntityType entityType,
+            @RequestParam Long entityId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Page<HistoryDetailResponse> histories = historyService.getHistoryByEntity(
+                entityType, entityId, page, size);
+
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "엔티티 히스토리 조회 완료", histories));
     }
 }

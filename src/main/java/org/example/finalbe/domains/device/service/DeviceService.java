@@ -50,15 +50,27 @@ public class DeviceService {
     /**
      * 서버실별 장치 목록 조회
      */
-    public List<DeviceListResponse> getDevicesByServerRoom(Long serverRoomId) {
+    /**
+     * 서버실별 장치 목록 조회
+     */
+    public ServerRoomDeviceListResponse getDevicesByServerRoom(Long serverRoomId) {
         log.info("Fetching devices for serverroom: {}", serverRoomId);
 
+        // 서버실 조회
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(serverRoomId)
+                .orElseThrow(() -> new EntityNotFoundException("서버실", serverRoomId));
+
+        // 장치 목록 조회
         List<Device> devices = deviceRepository.findByServerRoomIdOrderByPosition(
                 serverRoomId, DelYN.N);
 
-        return devices.stream()
-                .map(DeviceListResponse::from)
+        // DTO 변환
+        ServerRoomInfo serverRoomInfo = ServerRoomInfo.from(serverRoom);
+        List<DeviceSimpleInfo> deviceInfos = devices.stream()
+                .map(DeviceSimpleInfo::from)
                 .collect(Collectors.toList());
+
+        return ServerRoomDeviceListResponse.of(serverRoomInfo, deviceInfos);
     }
 
     /**

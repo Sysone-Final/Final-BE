@@ -34,9 +34,9 @@ public class DeviceController {
     public ResponseEntity<CommonResDto> getDevicesByServerRoom(
             @PathVariable @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId) {
 
-        List<DeviceListResponse> devices = deviceService.getDevicesByServerRoom(serverRoomId);
+        ServerRoomDeviceListResponse response = deviceService.getDevicesByServerRoom(serverRoomId);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "장치 목록 조회 완료", devices));
+                new CommonResDto(HttpStatus.OK, "장치 목록 조회 완료", response));
     }
 
     /**

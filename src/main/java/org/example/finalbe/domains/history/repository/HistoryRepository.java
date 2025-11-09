@@ -81,23 +81,30 @@ public interface HistoryRepository extends JpaRepository<History, Long> {
             Pageable pageable
     );
 
-    // ========== 복합 검색 ==========
-
     /**
-     * 복합 조건 검색 (서버실 + 엔티티타입 + 작업타입 + 기간 + 사용자)
-     * null 값은 조건에서 제외됨 (유연한 검색)
+     * 복합 조건 검색 - COALESCE 패턴 사용
+     * PostgreSQL의 null 파라미터 타입 추론 문제 해결
      *
-     * 사용 예시:
-     * - 서버실 1번의 RACK 엔티티 + UPDATE 액션만 조회
-     * - 서버실 1번의 홍길동(userId=5)의 이번 주 작업 조회
+     * IS NULL OR 패턴 대신 COALESCE를 사용하여 항상 비교 연산 수행
+     * - null인 경우: 모든 값과 매칭되도록 극단값 사용
+     * - null이 아닌 경우: 실제 값으로 필터링
+     *
+     * @param serverRoomId 서버실 ID (null이면 모든 서버실)
+     * @param entityType 엔티티 타입 (null이면 모든 타입)
+     * @param action 작업 타입 (null이면 모든 작업)
+     * @param changedBy 변경자 ID (null이면 모든 사용자)
+     * @param startDate 시작 날짜 (null이면 과거 전체)
+     * @param endDate 종료 날짜 (null이면 미래 전체)
+     * @param pageable 페이징 정보
+     * @return 조회된 히스토리 페이지
      */
     @Query("SELECT h FROM History h WHERE " +
-            "(:serverRoomId IS NULL OR h.serverRoomId = :serverRoomId) AND " +
-            "(:entityType IS NULL OR h.entityType = :entityType) AND " +
-            "(:action IS NULL OR h.action = :action) AND " +
-            "(:changedBy IS NULL OR h.changedBy = :changedBy) AND " +
-            "(:startDate IS NULL OR h.changedAt >= :startDate) AND " +
-            "(:endDate IS NULL OR h.changedAt <= :endDate) " +
+            "(COALESCE(:serverRoomId, h.serverRoomId) = h.serverRoomId) AND " +
+            "(COALESCE(:entityType, h.entityType) = h.entityType) AND " +
+            "(COALESCE(:action, h.action) = h.action) AND " +
+            "(COALESCE(:changedBy, h.changedBy) = h.changedBy) AND " +
+            "(h.changedAt >= COALESCE(:startDate, CAST('1970-01-01 00:00:00' AS LocalDateTime))) AND " +
+            "(h.changedAt <= COALESCE(:endDate, CAST('2099-12-31 23:59:59' AS LocalDateTime))) " +
             "ORDER BY h.changedAt DESC")
     Page<History> searchHistory(
             @Param("serverRoomId") Long serverRoomId,

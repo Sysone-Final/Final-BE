@@ -110,7 +110,7 @@ public class DeviceService {
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
         }
 
-        Device device = request.toEntity(deviceType, serverRoom, rack, currentMember.getId());
+        Device device = request.toEntity(deviceType, serverRoom, rack);
         Device savedDevice = deviceRepository.save(device);
 
         // 히스토리 기록
@@ -216,8 +216,7 @@ public class DeviceService {
                 device.getGridY(), device.getGridX(), device.getGridZ(), device.getRotation());
 
         // 히스토리 기록
-        deviceHistoryRecorder.recordMove(device, oldPosition, newPosition,
-                currentMember);
+        deviceHistoryRecorder.recordMove(device, oldPosition, newPosition, currentMember);
 
         log.info("Device position updated successfully");
         return DeviceDetailResponse.from(device);
@@ -244,8 +243,7 @@ public class DeviceService {
         device.changeStatus(DeviceStatus.valueOf(request.status()), request.reason());
 
         // 히스토리 기록
-        deviceHistoryRecorder.recordStatusChange(device, oldStatus, request.status(),
-                currentMember);
+        deviceHistoryRecorder.recordStatusChange(device, oldStatus, request.status(), currentMember);
 
         log.info("Device status changed successfully");
         return DeviceDetailResponse.from(device);
@@ -340,7 +338,6 @@ public class DeviceService {
                 .deviceType(device.getDeviceType())
                 .serverRoom(device.getServerRoom())
                 .rack(device.getRack())
-                .managerId(device.getManagerId())
                 .build();
     }
 }

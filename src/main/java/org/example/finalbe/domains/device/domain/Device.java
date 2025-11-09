@@ -24,62 +24,59 @@ public class Device extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "device_id")
-    private Long id; // 장치 ID
+    private Long id;
 
     @Column(name = "device_name", nullable = false, length = 100)
-    private String deviceName; // 장치명
+    private String deviceName;
 
     @Column(name = "device_code", length = 50)
-    private String deviceCode; // 장치 코드
+    private String deviceCode;
 
-    @Column(name = "gridY")
-    private Integer gridY; // Y축 위치 (행)
+    @Column(name = "gridY", nullable = false)
+    private Integer gridY;
 
-    @Column(name = "gridX")
-    private Integer gridX; // X축 위치 (열)
+    @Column(name = "gridX", nullable = false)
+    private Integer gridX;
 
-    @Column(name = "gridZ")
-    private Integer gridZ; // Z축 위치
+    @Column(name = "gridZ", nullable = false)
+    private Integer gridZ;
 
-    @Column(name = "rotation")
-    private Integer rotation; // 회전 각도 (0, 90, 180, 270)
+    @Column(name = "rotation", nullable = false)
+    private Integer rotation;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
-    private DeviceStatus status; // 장치 상태
+    private DeviceStatus status;
 
     @Column(name = "model_name", length = 100)
-    private String modelName; // 모델명
+    private String modelName;
 
     @Column(name = "manufacturer", length = 100)
-    private String manufacturer; // 제조사
+    private String manufacturer;
 
     @Column(name = "serial_number", length = 100)
-    private String serialNumber; // 시리얼 번호
+    private String serialNumber;
 
     @Column(name = "purchase_date")
-    private LocalDate purchaseDate; // 구매일
+    private LocalDate purchaseDate;
 
     @Column(name = "warranty_end_date")
-    private LocalDate warrantyEndDate; // 보증 종료일
+    private LocalDate warrantyEndDate;
 
     @Column(name = "notes", columnDefinition = "TEXT")
-    private String notes; // 비고
+    private String notes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_type_id", nullable = false)
-    private DeviceType deviceType; // 장치 타입
-
-    @Column(name = "manager_id")
-    private Long managerId; // 관리자 ID
+    private DeviceType deviceType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "serverroom_id", nullable = false)
-    private ServerRoom serverRoom; // 소속 서버실
+    private ServerRoom serverRoom;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id")
-    private Rack rack; // 소속 랙 (server 타입일 경우)
+    private Rack rack;
 
     /**
      * 장치 상태 변경

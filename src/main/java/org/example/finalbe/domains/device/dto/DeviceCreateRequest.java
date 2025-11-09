@@ -1,5 +1,7 @@
 package org.example.finalbe.domains.device.dto;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.DeviceStatus;
 import org.example.finalbe.domains.device.domain.Device;
@@ -18,12 +20,18 @@ public record DeviceCreateRequest(
 
         String deviceCode,
 
+        @NotNull(message = "행 위치를 입력해주세요.")
+        @Min(value = 0, message = "행 위치는 0 이상이어야 합니다.")
         Integer gridY,
 
+        @NotNull(message = "열 위치를 입력해주세요.")
+        @Min(value = 0, message = "열 위치는 0 이상이어야 합니다.")
         Integer gridX,
 
+        @Min(value = 0, message = "Z축 위치는 0 이상이어야 합니다.")
         Integer gridZ,
 
+        @Min(value = 0, message = "회전 각도는 0 이상이어야 합니다.")
         Integer rotation,
 
         String status,
@@ -49,12 +57,12 @@ public record DeviceCreateRequest(
     /**
      * DTO를 Entity로 변환
      */
-    public Device toEntity(DeviceType deviceType, ServerRoom serverRoom, Rack rack, Long managerId) {
+    public Device toEntity(DeviceType deviceType, ServerRoom serverRoom, Rack rack) {
         return Device.builder()
                 .deviceName(this.deviceName)
                 .deviceCode(this.deviceCode)
-                .gridY(this.gridY)
-                .gridX(this.gridX)
+                .gridY(this.gridY != null ? this.gridY : 0)
+                .gridX(this.gridX != null ? this.gridX : 0)
                 .gridZ(this.gridZ != null ? this.gridZ : 0)
                 .rotation(this.rotation != null ? this.rotation : 0)
                 .status(this.status != null ? DeviceStatus.valueOf(this.status) : DeviceStatus.NORMAL)
@@ -67,7 +75,6 @@ public record DeviceCreateRequest(
                 .deviceType(deviceType)
                 .serverRoom(serverRoom)
                 .rack(rack)
-                .managerId(managerId)
                 .build();
     }
 }

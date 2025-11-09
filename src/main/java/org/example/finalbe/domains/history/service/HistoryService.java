@@ -101,13 +101,11 @@ public class HistoryService {
                 request.size() != null ? request.size() : 20
         );
 
-        Page<History> historyPage;
-
-        // 복합 조건 검색 사용
-        historyPage = historyRepository.searchHistory(
+        // ⭐ JPQL 사용으로 Enum을 직접 전달 (String 변환 불필요)
+        Page<History> historyPage = historyRepository.searchHistory(
                 request.serverRoomId(),
-                request.entityType(),
-                request.action(),
+                request.entityType(),       // Enum 직접 전달
+                request.action(),           // Enum 직접 전달
                 request.changedBy(),
                 request.startDate(),
                 request.endDate(),

@@ -19,6 +19,8 @@ public record DeviceListResponse(
         String status,
         String serverRoomName,
         Long serverRoomId,
+        Integer serverRoomRows,
+        Integer serverRoomColumns,
         String rackName,
         Long rackId
 ) {
@@ -35,6 +37,8 @@ public record DeviceListResponse(
                 .status(device.getStatus() != null ? device.getStatus().name() : null)
                 .serverRoomName(device.getServerRoom().getName())
                 .serverRoomId(device.getServerRoom().getId())
+                .serverRoomRows(device.getServerRoom().getRows())
+                .serverRoomColumns(device.getServerRoom().getColumns())
                 .rackName(device.getRack() != null ? device.getRack().getRackName() : null)
                 .rackId(device.getRack() != null ? device.getRack().getId() : null)
                 .build();

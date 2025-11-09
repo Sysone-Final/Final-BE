@@ -16,7 +16,7 @@ public record MemberListResponse(
         String name,               // 사용자 이름
         String email,              // 사용자 이메일
         Role role,                 // 권한 (ADMIN, OPERATOR, VIEWER)
-        LocalDateTime lastLoginAt  // 마지막 로그인 (refreshTokenExpiryDate 기준)
+        LocalDateTime lastLoginAt  // 마지막 로그인 시각
 ) {
     /**
      * Entity를 DTO로 변환
@@ -28,7 +28,7 @@ public record MemberListResponse(
                 .name(member.getName())
                 .email(member.getEmail())
                 .role(member.getRole())
-                .lastLoginAt(member.getRefreshTokenExpiryDate())
+                .lastLoginAt(member.getLastLoginAt())
                 .build();
     }
 }

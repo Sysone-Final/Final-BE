@@ -90,11 +90,13 @@ public class MemberAuthService {
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
 
         LocalDateTime refreshTokenExpiryDate = LocalDateTime.now().plusDays(REFRESH_TOKEN_VALIDITY_DAYS);
+
+        // 로그인: 리프레시 토큰 + 로그인 시각 모두 업데이트
         member.updateRefreshToken(refreshToken, refreshTokenExpiryDate);
 
         setRefreshTokenCookie(response, refreshToken);
 
-        log.info("Login success: {}", member.getUserName());
+        log.info("Login success: {} at {}", member.getUserName(), member.getLastLoginAt());
         return MemberLoginResponse.from(member, accessToken);
     }
 
@@ -127,6 +129,7 @@ public class MemberAuthService {
 
     /**
      * 토큰 재발급
+     * 토큰 갱신은 로그인이 아니므로 lastLoginAt을 업데이트하지 않음
      */
     @Transactional
     public MemberRefreshResponse refresh(String refreshToken, HttpServletResponse response) {
@@ -154,7 +157,9 @@ public class MemberAuthService {
         String newRefreshToken = jwtTokenProvider.createRefreshToken(member.getId());
 
         LocalDateTime newExpiryDate = LocalDateTime.now().plusDays(REFRESH_TOKEN_VALIDITY_DAYS);
-        member.updateRefreshToken(newRefreshToken, newExpiryDate);
+
+        // 토큰 갱신: 리프레시 토큰만 업데이트, 로그인 시각은 유지
+        member.updateRefreshTokenOnly(newRefreshToken, newExpiryDate);
 
         setRefreshTokenCookie(response, newRefreshToken);
 
@@ -198,14 +203,7 @@ public class MemberAuthService {
         }
     }
 
-
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
-//        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken);
-//        cookie.setHttpOnly(true);
-//        cookie.setSecure(cookieSecure);
-//        cookie.setPath("/");
-//        cookie.setMaxAge(REFRESH_TOKEN_COOKIE_AGE);
-//        response.addCookie(cookie);
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
                 .secure(cookieSecure)
@@ -218,12 +216,6 @@ public class MemberAuthService {
     }
 
     private void clearRefreshTokenCookie(HttpServletResponse response) {
-//        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE_NAME, null);
-//        cookie.setHttpOnly(true);
-//        cookie.setSecure(cookieSecure);
-//        cookie.setPath("/");
-//        cookie.setMaxAge(0);
-//        response.addCookie(cookie);
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
                 .httpOnly(true)
                 .secure(cookieSecure)

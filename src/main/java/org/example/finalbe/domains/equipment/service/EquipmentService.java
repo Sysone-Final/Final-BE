@@ -103,6 +103,8 @@ public class EquipmentService {
                 .map(EquipmentListResponse::from)
                 .toList();
 
+        log.info("Found {} equipments for rack: {}", equipmentResponses.size(), rackId);
+
         return RackWithEquipmentsResponse.from(rack, equipmentResponses);
     }
 

@@ -10,6 +10,8 @@ import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companyserverroom.domain.CompanyServerRoom;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.serverroom.dto.*;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
@@ -34,6 +36,8 @@ public class ServerRoomService {
     private final MemberRepository memberRepository;
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final ServerRoomHistoryRecorder serverRoomHistoryRecorder;
+    private final DataCenterRepository dataCenterRepository; // 추가
+
     /**
      * 현재 로그인한 사용자 조회
      */
@@ -162,14 +166,21 @@ public class ServerRoomService {
             throw new IllegalArgumentException("전산실 코드를 입력해주세요.");
         }
 
-
         if (serverRoomRepository.existsByCodeAndDelYn(request.code(), DelYN.N)) {
             throw new DuplicateException("전산실 코드", request.code());
         }
 
-
         // 전산실 생성
         ServerRoom serverRoom = request.toEntity();
+
+        // ★★★ 데이터센터 설정 추가 ★★★
+        if (request.dataCenterId() != null) {
+            DataCenter dataCenter = dataCenterRepository.findActiveById(request.dataCenterId())
+                    .orElseThrow(() -> new EntityNotFoundException("데이터센터", request.dataCenterId()));
+            serverRoom.setDataCenter(dataCenter);
+            log.info("DataCenter {} assigned to ServerRoom", request.dataCenterId());
+        }
+
         ServerRoom savedServerRoom = serverRoomRepository.save(serverRoom);
 
         // CompanyServerRoom 매핑 자동 생성
@@ -220,7 +231,6 @@ public class ServerRoomService {
             }
         }
 
-
         serverRoom.updateInfo(
                 request.name(),
                 request.code(),
@@ -238,6 +248,14 @@ public class ServerRoomService {
                 request.humidityMin(),
                 request.humidityMax()
         );
+
+        // ★★★ 데이터센터 수정 추가 ★★★
+        if (request.dataCenterId() != null) {
+            DataCenter dataCenter = dataCenterRepository.findActiveById(request.dataCenterId())
+                    .orElseThrow(() -> new EntityNotFoundException("데이터센터", request.dataCenterId()));
+            serverRoom.setDataCenter(dataCenter);
+            log.info("DataCenter updated to {} for ServerRoom {}", request.dataCenterId(), id);
+        }
 
         serverRoomHistoryRecorder.recordUpdate(oldServerRoom, serverRoom, currentMember);
 
@@ -309,7 +327,6 @@ public class ServerRoomService {
                 .collect(Collectors.toList());
     }
 
-
     /**
      * ServerRoom Deep Copy (변경 전 상태 저장용)
      */
@@ -332,6 +349,7 @@ public class ServerRoomService {
                 .temperatureMax(original.getTemperatureMax())
                 .humidityMin(original.getHumidityMin())
                 .humidityMax(original.getHumidityMax())
+                .dataCenter(original.getDataCenter())
                 .build();
     }
 }

@@ -122,7 +122,6 @@ public class DataCenterService {
 
         dataCenter.updateInfo(
                 request.name(),
-                request.location(),
                 request.address(),
                 request.description()
         );

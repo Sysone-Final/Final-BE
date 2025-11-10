@@ -55,7 +55,6 @@ public class DataCenter extends BaseTimeEntity {
      */
     public void updateInfo(
             String name,
-            String location,
             String address,
             String description
     ) {

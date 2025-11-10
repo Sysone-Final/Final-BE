@@ -1,7 +1,6 @@
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
-import org.example.finalbe.domains.common.enumdir.EquipmentPositionType;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 
 import java.math.BigDecimal;
@@ -18,13 +17,10 @@ public record EquipmentListResponse(
         String status,
         Integer startUnit,
         Integer unitSize,
-        String rackName,
-        Long rackId,
-        Long serverRoomId,
         String modelName,
         String manufacturer,
         String ipAddress,
-        EquipmentPositionType positionType,
+        String positionType,
         BigDecimal powerConsumption
 ) {
     public static EquipmentListResponse from(Equipment equipment) {
@@ -36,15 +32,11 @@ public record EquipmentListResponse(
                 .status(equipment.getStatus() != null ? equipment.getStatus().name() : null)
                 .startUnit(equipment.getStartUnit())
                 .unitSize(equipment.getUnitSize())
-                .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
-                .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
-                .serverRoomId(equipment.getRack() != null && equipment.getRack().getServerRoom() != null
-                        ? equipment.getRack().getServerRoom().getId() : null)
                 .modelName(equipment.getModelName())
                 .manufacturer(equipment.getManufacturer())
                 .ipAddress(equipment.getIpAddress())
+                .positionType(equipment.getPositionType() != null ? equipment.getPositionType().name() : null)
                 .powerConsumption(equipment.getPowerConsumption())
-                .positionType(equipment.getPositionType())
                 .build();
     }
 }

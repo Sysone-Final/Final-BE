@@ -146,23 +146,44 @@ public class DataCenterService {
     }
 
 
+
     /**
-     * 데이터센터 상세 조회 (서버실 목록 포함)
+     * 데이터센터 상세 조회 (서버실 목록 포함 - 권한 필터링 적용)
      */
     public DataCenterDetailResponse getDataCenterById(Long dataCenterId) {
-        getCurrentMember(); // 인증 확인
+        Member currentMember = getCurrentMember(); // 인증 확인
 
         DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("데이터센터", dataCenterId));
 
-        // 해당 데이터센터에 속한 서버실 목록 조회
-        List<ServerRoom> serverRooms = serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId);
+        List<ServerRoomSimpleResponse> serverRoomResponses;
 
-        List<ServerRoomSimpleResponse> serverRoomResponses = serverRooms.stream()
-                .map(ServerRoomSimpleResponse::from)
-                .collect(Collectors.toList());
+        if (currentMember.getRole() == Role.ADMIN) {
+            // ADMIN은 해당 데이터센터의 모든 서버실 조회
+            List<ServerRoom> serverRooms = serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId);
 
-        log.info("Found {} server rooms for data center: {}", serverRoomResponses.size(), dataCenterId);
+            serverRoomResponses = serverRooms.stream()
+                    .map(ServerRoomSimpleResponse::from)
+                    .collect(Collectors.toList());
+
+            log.info("Admin user - found {} server rooms for data center: {}", serverRoomResponses.size(), dataCenterId);
+        } else {
+            // 일반 사용자: 자신의 회사가 관리하는 서버실만 조회
+            List<CompanyServerRoom> mappings = companyServerRoomRepository
+                    .findByCompanyId(currentMember.getCompany().getId());
+
+            // 해당 데이터센터에 속하고, 회사가 관리하는 서버실만 필터링
+            serverRoomResponses = mappings.stream()
+                    .map(CompanyServerRoom::getServerRoom)
+                    .filter(sr -> sr.getDataCenter() != null
+                            && sr.getDataCenter().getId().equals(dataCenterId)
+                            && sr.getDelYn() == DelYN.N)
+                    .map(ServerRoomSimpleResponse::from)
+                    .collect(Collectors.toList());
+
+            log.info("Non-admin user - found {} accessible server rooms for data center: {}",
+                    serverRoomResponses.size(), dataCenterId);
+        }
 
         return DataCenterDetailResponse.from(dataCenter, serverRoomResponses);
     }
@@ -184,13 +205,31 @@ public class DataCenterService {
                 request.description()
         );
 
-        List<ServerRoomSimpleResponse> serverRooms = serverRoomRepository.findByDataCenterIdAndDelYn(dataCenter.getId())
-                .stream()
-                .map(ServerRoomSimpleResponse::from)
-                .toList();
+        List<ServerRoomSimpleResponse> serverRoomResponses;
+
+        if (currentMember.getRole() == Role.ADMIN) {
+            // ADMIN은 해당 데이터센터의 모든 서버실 조회
+            List<ServerRoom> serverRooms = serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId);
+
+            serverRoomResponses = serverRooms.stream()
+                    .map(ServerRoomSimpleResponse::from)
+                    .collect(Collectors.toList());
+        } else {
+            // 일반 사용자: 자신의 회사가 관리하는 서버실만 조회
+            List<CompanyServerRoom> mappings = companyServerRoomRepository
+                    .findByCompanyId(currentMember.getCompany().getId());
+
+            serverRoomResponses = mappings.stream()
+                    .map(CompanyServerRoom::getServerRoom)
+                    .filter(sr -> sr.getDataCenter() != null
+                            && sr.getDataCenter().getId().equals(dataCenterId)
+                            && sr.getDelYn() == DelYN.N)
+                    .map(ServerRoomSimpleResponse::from)
+                    .collect(Collectors.toList());
+        }
 
         log.info("데이터센터 수정 완료: {}", dataCenter.getName());
-        return DataCenterDetailResponse.from(dataCenter,serverRooms);
+        return DataCenterDetailResponse.from(dataCenter, serverRoomResponses);
     }
 
     /**

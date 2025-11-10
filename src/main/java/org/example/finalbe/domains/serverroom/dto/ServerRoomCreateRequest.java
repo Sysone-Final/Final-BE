@@ -1,98 +1,76 @@
+// src/main/java/org/example/finalbe/domains/serverroom/dto/ServerRoomCreateRequest.java
+
 package org.example.finalbe.domains.serverroom.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
-
 import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 import java.math.BigDecimal;
 
 /**
- * 전산실 생성 요청 DTO
+ * 서버실 생성 요청 DTO (DataCenter 필드 추가)
  */
 @Builder
 public record ServerRoomCreateRequest(
-        @NotBlank(message = "전산실 이름을 입력해주세요.")
-        @Size(max = 100, message = "전산실 이름은 100자 이내로 입력해주세요.")
+        @NotBlank(message = "서버실 이름은 필수입니다.")
+        @Size(max = 100, message = "서버실 이름은 100자 이하여야 합니다.")
         String name,
 
-        @NotBlank(message = "전산실 코드를 입력해주세요.")
-        @Size(max = 50, message = "전산실 코드는 50자 이내로 입력해주세요.")
+        @Size(max = 50, message = "서버실 코드는 50자 이하여야 합니다.")
         String code,
 
-        @Size(max = 255, message = "위치는 255자 이내로 입력해주세요.")
+        @Size(max = 255, message = "위치는 255자 이하여야 합니다.")
         String location,
 
-        @Min(value = -10, message = "층수는 -10 이상이어야 합니다.")
-        @Max(value = 200, message = "층수는 200 이하여야 합니다.")
         Integer floor,
 
-        @Min(value = 1, message = "행 수는 1 이상이어야 합니다.")
         Integer rows,
 
-        @Min(value = 1, message = "열 수는 1 이상이어야 합니다.")
         Integer columns,
 
         ServerRoomStatus status,
 
         String description,
 
-        @DecimalMin(value = "0.0", message = "면적은 0 이상이어야 합니다.")
-        @Digits(integer = 10, fraction = 2, message = "면적은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalArea,
 
-        @DecimalMin(value = "0.0", message = "전력 용량은 0 이상이어야 합니다.")
-        @Digits(integer = 10, fraction = 2, message = "전력 용량은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalPowerCapacity,
 
-        @DecimalMin(value = "0.0", message = "냉각 용량은 0 이상이어야 합니다.")
-        @Digits(integer = 10, fraction = 2, message = "냉각 용량은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalCoolingCapacity,
-        @DecimalMin(value = "-50.0", message = "최저 온도는 -50℃ 이상이어야 합니다.")
-        @DecimalMax(value = "50.0", message = "최저 온도는 50℃ 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "온도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
+
         BigDecimal temperatureMin,
 
-        @DecimalMin(value = "-50.0", message = "최고 온도는 -50℃ 이상이어야 합니다.")
-        @DecimalMax(value = "50.0", message = "최고 온도는 50℃ 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "온도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal temperatureMax,
 
-        @DecimalMin(value = "0.0", message = "최저 습도는 0% 이상이어야 합니다.")
-        @DecimalMax(value = "100.0", message = "최저 습도는 100% 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "습도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal humidityMin,
 
-        @DecimalMin(value = "0.0", message = "최고 습도는 0% 이상이어야 합니다.")
-        @DecimalMax(value = "100.0", message = "최고 습도는 100% 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "습도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
-        BigDecimal humidityMax
+        BigDecimal humidityMax,
 
-
+        Long dataCenterId
 ) {
     /**
-     * DTO를 Entity로 변환
-     * ★ company 파라미터 제거
+     * DTO → Entity 변환
      */
     public ServerRoom toEntity() {
         return ServerRoom.builder()
-                .name(this.name)
-                .code(this.code)
-                .location(this.location)
-                .floor(this.floor)
-                .rows(this.rows)
-                .columns(this.columns)
-                .status(this.status != null ? this.status : ServerRoomStatus.ACTIVE)
-                .description(this.description)
-                .totalArea(this.totalArea)
-                .totalPowerCapacity(this.totalPowerCapacity)
-                .totalCoolingCapacity(this.totalCoolingCapacity)
-                .currentRackCount(0)
-                .temperatureMin(this.temperatureMin)
-                .temperatureMax(this.temperatureMax)
-                .humidityMin(this.humidityMin)
-                .humidityMax(this.humidityMax)
+                .name(name)
+                .code(code)
+                .location(location)
+                .floor(floor)
+                .rows(rows)
+                .columns(columns)
+                .status(status != null ? status : ServerRoomStatus.ACTIVE)
+                .description(description)
+                .totalArea(totalArea)
+                .totalPowerCapacity(totalPowerCapacity)
+                .totalCoolingCapacity(totalCoolingCapacity)
+                .temperatureMin(temperatureMin)
+                .temperatureMax(temperatureMax)
+                .humidityMin(humidityMin)
+                .humidityMax(humidityMax)
                 .build();
     }
 }

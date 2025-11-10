@@ -75,7 +75,8 @@ public class SecurityConfig {
                 "https://serverway.shop",
                 "http://serverway.shop",
                 "https://api.serverway.shop",
-                "http://api.serverway.shop"
+                "http://api.serverway.shop",
+                "http://localhost:4173"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));

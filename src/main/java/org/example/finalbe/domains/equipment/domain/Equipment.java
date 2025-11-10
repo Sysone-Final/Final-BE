@@ -129,6 +129,7 @@ public class Equipment extends BaseTimeEntity {
             String modelName,
             String manufacturer,
             String serialNumber,
+            Integer startUnit,
             String ipAddress,
             String macAddress,
             String os,
@@ -150,6 +151,7 @@ public class Equipment extends BaseTimeEntity {
         if (name != null) this.name = name;
         if (code != null) this.code = code;
         if (type != null) this.type = type;
+        if (startUnit != null) this.startUnit = startUnit;
         if (modelName != null) this.modelName = modelName;
         if (manufacturer != null) this.manufacturer = manufacturer;
         if (serialNumber != null) this.serialNumber = serialNumber;

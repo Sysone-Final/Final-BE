@@ -61,4 +61,10 @@ public interface ServerRoomRepository extends JpaRepository<ServerRoom, Long> {
         ORDER BY dc.name
     """)
     List<ServerRoom> searchByName(@Param("name") String name);
+
+    /**
+     * 특정 데이터센터에 속한 활성 서버실 목록 조회
+     */
+    @Query("SELECT sr FROM ServerRoom sr WHERE sr.dataCenter.id = :dataCenterId AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
+    List<ServerRoom> findByDataCenterIdAndDelYn(@Param("dataCenterId") Long dataCenterId);
 }

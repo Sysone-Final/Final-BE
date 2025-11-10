@@ -13,9 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.example.finalbe.domains.equipment.dto.RackWithEquipmentsResponse;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +28,7 @@ import java.util.Map;
 public class EquipmentController {
 
     private final EquipmentService equipmentService;
+
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
@@ -74,10 +74,11 @@ public class EquipmentController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false, defaultValue = "name") String sortBy) {
 
-        List<EquipmentListResponse> equipments = equipmentService.getEquipmentsByRack(
+        RackWithEquipmentsResponse response = equipmentService.getEquipmentsByRack(
                 rackId, status, type, sortBy);
+
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", equipments));
+                new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", response));
     }
 
     /**

@@ -24,6 +24,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.example.finalbe.domains.rack.domain.Rack;
+import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -64,10 +66,11 @@ public class EquipmentService {
         return EquipmentPageResponse.from(responsePage);
     }
 
+
     /**
-     * 랙별 장비 목록 조회 (기존 유지)
+     * 랙별 장비 목록 조회 (랙 정보 포함)
      */
-    public List<EquipmentListResponse> getEquipmentsByRack(
+    public RackWithEquipmentsResponse getEquipmentsByRack(
             Long rackId, String status, String type, String sortBy) {
 
         log.info("Fetching equipments for rack: {}", rackId);
@@ -76,9 +79,15 @@ public class EquipmentService {
             throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
         }
 
+        // 랙 정보 조회
+        Rack rack = rackRepository.findActiveById(rackId)
+                .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
+
+        // 장비 목록 조회
         List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
 
-        return equipments.stream()
+        // 필터링 및 정렬
+        List<EquipmentListResponse> equipmentResponses = equipments.stream()
                 .filter(eq -> status == null || eq.getStatus().name().equals(status))
                 .filter(eq -> type == null || eq.getType().name().equals(type))
                 .sorted((e1, e2) -> {
@@ -93,6 +102,8 @@ public class EquipmentService {
                 })
                 .map(EquipmentListResponse::from)
                 .toList();
+
+        return RackWithEquipmentsResponse.from(rack, equipmentResponses);
     }
 
     /**

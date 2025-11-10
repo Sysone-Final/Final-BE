@@ -11,17 +11,8 @@ import java.util.List;
  */
 @Builder
 public record RackWithEquipmentsResponse(
-        // 랙 정보
-        Long rackId,
-        String rackName,
-        String rackCode,
-        Integer totalUnits,
-        Integer usedUnits,
-        Integer availableUnits,
-        BigDecimal usageRate,
-        String status,
-        Long serverRoomId,
-        String serverRoomName,
+        // 랙 정보 (간소화)
+        RackInfo rack,
 
         // 장비 목록
         List<EquipmentListResponse> equipments,
@@ -29,17 +20,23 @@ public record RackWithEquipmentsResponse(
         // 통계 정보
         int totalEquipmentCount
 ) {
+    @Builder
+    public record RackInfo(
+            String rackName,
+            Long rackId,
+            Long serverRoomId
+    ) {
+    }
+
     public static RackWithEquipmentsResponse from(Rack rack, List<EquipmentListResponse> equipments) {
-        return RackWithEquipmentsResponse.builder()
-                .rackId(rack.getId())
+        RackInfo rackInfo = RackInfo.builder()
                 .rackName(rack.getRackName())
-                .totalUnits(rack.getTotalUnits())
-                .usedUnits(rack.getUsedUnits())
-                .availableUnits(rack.getAvailableUnits())
-                .usageRate(rack.getUsageRate())
-                .status(rack.getStatus() != null ? rack.getStatus().name() : null)
+                .rackId(rack.getId())
                 .serverRoomId(rack.getServerRoom() != null ? rack.getServerRoom().getId() : null)
-                .serverRoomName(rack.getServerRoom() != null ? rack.getServerRoom().getName() : null)
+                .build();
+
+        return RackWithEquipmentsResponse.builder()
+                .rack(rackInfo)
                 .equipments(equipments)
                 .totalEquipmentCount(equipments.size())
                 .build();

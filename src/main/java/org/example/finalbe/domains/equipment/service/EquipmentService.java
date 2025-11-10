@@ -290,6 +290,7 @@ public class EquipmentService {
                 request.modelName(),
                 request.manufacturer(),
                 request.serialNumber(),
+                request.startUnit(),
                 request.ipAddress(),
                 request.macAddress(),
                 request.os(),

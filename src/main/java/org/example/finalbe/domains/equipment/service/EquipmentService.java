@@ -24,6 +24,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.example.finalbe.domains.rack.domain.Rack;
+import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -64,10 +66,11 @@ public class EquipmentService {
         return EquipmentPageResponse.from(responsePage);
     }
 
+
     /**
-     * 랙별 장비 목록 조회 (기존 유지)
+     * 랙별 장비 목록 조회 (랙 정보 포함)
      */
-    public List<EquipmentListResponse> getEquipmentsByRack(
+    public RackWithEquipmentsResponse getEquipmentsByRack(
             Long rackId, String status, String type, String sortBy) {
 
         log.info("Fetching equipments for rack: {}", rackId);
@@ -76,9 +79,15 @@ public class EquipmentService {
             throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
         }
 
+        // 랙 정보 조회
+        Rack rack = rackRepository.findActiveById(rackId)
+                .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
+
+        // 장비 목록 조회
         List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
 
-        return equipments.stream()
+        // 필터링 및 정렬
+        List<EquipmentListResponse> equipmentResponses = equipments.stream()
                 .filter(eq -> status == null || eq.getStatus().name().equals(status))
                 .filter(eq -> type == null || eq.getType().name().equals(type))
                 .sorted((e1, e2) -> {
@@ -93,6 +102,8 @@ public class EquipmentService {
                 })
                 .map(EquipmentListResponse::from)
                 .toList();
+
+        return RackWithEquipmentsResponse.from(rack, equipmentResponses);
     }
 
     /**
@@ -290,6 +301,7 @@ public class EquipmentService {
                 request.modelName(),
                 request.manufacturer(),
                 request.serialNumber(),
+                request.startUnit(),
                 request.ipAddress(),
                 request.macAddress(),
                 request.os(),
@@ -373,7 +385,6 @@ public class EquipmentService {
                 rack.subtractPowerUsage(equipment.getPowerConsumption());
             }
 
-            // ⚠️ 중요: rack, startUnit은 유지 (삭제된 장비의 위치 정보 보존)
         }
 
 
@@ -446,23 +457,24 @@ public class EquipmentService {
         }
     }
 
+
+    /**
+     * 장비 접근 권한 검증 (CompanyServerRoom 기반)
+     */
     private void validateEquipmentAccess(Member member, Long equipmentId) {
         if (member.getRole() == Role.ADMIN) {
-            return;
+            return; // ADMIN은 모든 장비 접근 가능
         }
 
-        Equipment equipment = equipmentRepository.findById(equipmentId)
+        Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        if (equipment.getDelYn() == DelYN.Y) {
-            throw new EntityNotFoundException("장비", equipmentId);
-        }
+        // 장비가 속한 서버실 확인
+        Long serverRoomId = equipment.getRack().getServerRoom().getId();
 
-        Long serverRoomId = equipment.getRack().getServerRoomId();
-        Long companyId = member.getCompany().getId();
-
-        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
-                companyId, serverRoomId);
+        // 회사-서버실 매핑 확인
+        boolean hasAccess = companyServerRoomRepository
+                .existsByCompanyIdAndServerRoomId(member.getCompany().getId(), serverRoomId);
 
         if (!hasAccess) {
             throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
@@ -585,7 +597,8 @@ public class EquipmentService {
 
                 // 3. 접근 권한 확인
                 if (currentMember.getRole() != Role.ADMIN) {
-                    Long serverRoomId = equipment.getRack().getServerRoomId();
+                    // ✅ 수정: equipment.getRack().getServerRoomId() → equipment.getRack().getServerRoom().getId()
+                    Long serverRoomId = equipment.getRack().getServerRoom().getId();
                     Long companyId = currentMember.getCompany().getId();
 
                     boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(

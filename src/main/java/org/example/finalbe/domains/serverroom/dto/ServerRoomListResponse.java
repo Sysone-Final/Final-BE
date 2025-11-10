@@ -1,14 +1,13 @@
+// src/main/java/org/example/finalbe/domains/serverroom/dto/ServerRoomListResponse.java
+
 package org.example.finalbe.domains.serverroom.dto;
 
 import lombok.Builder;
-
 import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
-import java.math.BigDecimal;
-
 /**
- * 서버실 목록 조회 응답 DTO
+ * 서버실 목록 조회 응답 DTO (DataCenter 정보 포함)
  */
 @Builder
 public record ServerRoomListResponse(
@@ -18,13 +17,17 @@ public record ServerRoomListResponse(
         String location,
         Integer floor,
         ServerRoomStatus status,
-        Integer currentRackCount,
-        BigDecimal totalArea
+        Long dataCenterId,
+        String dataCenterName
 ) {
     /**
      * Entity → DTO 변환
      */
     public static ServerRoomListResponse from(ServerRoom serverRoom) {
+        if (serverRoom == null) {
+            throw new IllegalArgumentException("ServerRoom 엔티티가 null입니다.");
+        }
+
         return ServerRoomListResponse.builder()
                 .id(serverRoom.getId())
                 .name(serverRoom.getName())
@@ -32,8 +35,8 @@ public record ServerRoomListResponse(
                 .location(serverRoom.getLocation())
                 .floor(serverRoom.getFloor())
                 .status(serverRoom.getStatus())
-                .currentRackCount(serverRoom.getCurrentRackCount())
-                .totalArea(serverRoom.getTotalArea())
+                .dataCenterId(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getId() : null)
+                .dataCenterName(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getName() : null)
                 .build();
     }
 }

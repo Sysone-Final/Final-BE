@@ -1,71 +1,49 @@
 package org.example.finalbe.domains.serverroom.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
 
 import java.math.BigDecimal;
 
 /**
- * 전산실 수정 요청 DTO
+ * 서버실 수정 요청 DTO (DataCenter 필드 추가)
  */
 @Builder
 public record ServerRoomUpdateRequest(
-        @Size(max = 100, message = "전산실 이름은 100자 이내로 입력해주세요.")
+        @Size(max = 100, message = "서버실 이름은 100자 이하여야 합니다.")
         String name,
 
-        @Size(max = 50, message = "전산실 코드는 50자 이내로 입력해주세요.")
+        @Size(max = 50, message = "서버실 코드는 50자 이하여야 합니다.")
         String code,
 
-        @Size(max = 255, message = "위치는 255자 이내로 입력해주세요.")
+        @Size(max = 255, message = "위치는 255자 이하여야 합니다.")
         String location,
 
-        // ★ 수정: @Size 제거, @Min/@Max 사용
-        @Min(value = -10, message = "층수는 -10 이상이어야 합니다.")
-        @Max(value = 200, message = "층수는 200 이하여야 합니다.")
         Integer floor,
 
-        @Min(value = 1, message = "행 수는 1 이상이어야 합니다.")
         Integer rows,
 
-        @Min(value = 1, message = "열 수는 1 이상이어야 합니다.")
         Integer columns,
 
         ServerRoomStatus status,
 
         String description,
 
-        @DecimalMin(value = "0.0", message = "면적은 0 이상이어야 합니다.")
-        @Digits(integer = 10, fraction = 2, message = "면적은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalArea,
 
-        @DecimalMin(value = "0.0", message = "전력 용량은 0 이상이어야 합니다.")
-        @Digits(integer = 10, fraction = 2, message = "전력 용량은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalPowerCapacity,
 
-        @DecimalMin(value = "0.0", message = "냉각 용량은 0 이상이어야 합니다.")
-        @Digits(integer = 10, fraction = 2, message = "냉각 용량은 정수 10자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal totalCoolingCapacity,
 
-        @DecimalMin(value = "-50.0", message = "최저 온도는 -50℃ 이상이어야 합니다.")
-        @DecimalMax(value = "50.0", message = "최저 온도는 50℃ 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "온도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal temperatureMin,
 
-        @DecimalMin(value = "-50.0", message = "최고 온도는 -50℃ 이상이어야 합니다.")
-        @DecimalMax(value = "50.0", message = "최고 온도는 50℃ 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "온도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal temperatureMax,
 
-        @DecimalMin(value = "0.0", message = "최저 습도는 0% 이상이어야 합니다.")
-        @DecimalMax(value = "100.0", message = "최저 습도는 100% 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "습도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
         BigDecimal humidityMin,
 
-        @DecimalMin(value = "0.0", message = "최고 습도는 0% 이상이어야 합니다.")
-        @DecimalMax(value = "100.0", message = "최고 습도는 100% 이하여야 합니다.")
-        @Digits(integer = 3, fraction = 2, message = "습도는 정수 3자리, 소수점 2자리까지 입력 가능합니다.")
-        BigDecimal humidityMax
+        BigDecimal humidityMax,
 
+        Long dataCenterId
 ) {
 }

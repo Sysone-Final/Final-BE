@@ -1,3 +1,5 @@
+// src/main/java/org/example/finalbe/domains/serverroom/domain/ServerRoom.java
+
 package org.example.finalbe.domains.serverroom.domain;
 
 import jakarta.persistence.*;
@@ -7,8 +9,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
-import org.example.finalbe.domains.member.domain.Member;
+import org.example.finalbe.domains.datacenter.domain.DataCenter;
 
 import java.math.BigDecimal;
 
@@ -20,7 +23,8 @@ import java.math.BigDecimal;
 @Table(name = "serverroom", indexes = {
         @Index(name = "idx_serverroom_name", columnList = "name"),
         @Index(name = "idx_serverroom_code", columnList = "code"),
-        @Index(name = "idx_serverroom_status", columnList = "status")
+        @Index(name = "idx_serverroom_status", columnList = "status"),
+        @Index(name = "idx_serverroom_datacenter", columnList = "datacenter_id")
 })
 @NoArgsConstructor
 @AllArgsConstructor
@@ -68,10 +72,6 @@ public class ServerRoom extends BaseTimeEntity {
     @Column(name = "total_cooling_capacity", precision = 10, scale = 2)
     private BigDecimal totalCoolingCapacity;
 
-    @Column(name = "current_rack_count")
-    @Builder.Default
-    private Integer currentRackCount = 0;
-
     @Column(name = "temperature_min", precision = 5, scale = 2)
     private BigDecimal temperatureMin;
 
@@ -83,6 +83,26 @@ public class ServerRoom extends BaseTimeEntity {
 
     @Column(name = "humidity_max", precision = 5, scale = 2)
     private BigDecimal humidityMax;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "del_yn", nullable = false, length = 1)
+    @Builder.Default
+    private DelYN delYn = DelYN.N;
+
+    /**
+     * 현재 랙 개수
+     */
+    @Column(name = "current_rack_count")
+    @Builder.Default
+    private Integer currentRackCount = 0;
+
+    /**
+     * 소속 데이터센터 (nullable)
+     * 서버실을 그룹화하기 위한 용도
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "datacenter_id")
+    private DataCenter dataCenter;
 
     /**
      * 서버실 정보 수정
@@ -152,6 +172,13 @@ public class ServerRoom extends BaseTimeEntity {
     }
 
     /**
+     * 데이터센터 설정
+     */
+    public void setDataCenter(DataCenter dataCenter) {
+        this.dataCenter = dataCenter;
+    }
+
+    /**
      * 랙 개수 증가
      */
     public void incrementRackCount() {
@@ -165,5 +192,12 @@ public class ServerRoom extends BaseTimeEntity {
         if (this.currentRackCount > 0) {
             this.currentRackCount--;
         }
+    }
+
+    /**
+     * 소프트 삭제
+     */
+    public void softDelete() {
+        this.delYn = DelYN.Y;
     }
 }

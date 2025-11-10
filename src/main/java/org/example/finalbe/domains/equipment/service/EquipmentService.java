@@ -373,7 +373,6 @@ public class EquipmentService {
                 rack.subtractPowerUsage(equipment.getPowerConsumption());
             }
 
-            // ⚠️ 중요: rack, startUnit은 유지 (삭제된 장비의 위치 정보 보존)
         }
 
 
@@ -446,23 +445,24 @@ public class EquipmentService {
         }
     }
 
+
+    /**
+     * 장비 접근 권한 검증 (CompanyServerRoom 기반)
+     */
     private void validateEquipmentAccess(Member member, Long equipmentId) {
         if (member.getRole() == Role.ADMIN) {
-            return;
+            return; // ADMIN은 모든 장비 접근 가능
         }
 
-        Equipment equipment = equipmentRepository.findById(equipmentId)
+        Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        if (equipment.getDelYn() == DelYN.Y) {
-            throw new EntityNotFoundException("장비", equipmentId);
-        }
+        // 장비가 속한 서버실 확인
+        Long serverRoomId = equipment.getRack().getServerRoom().getId();
 
-        Long serverRoomId = equipment.getRack().getServerRoomId();
-        Long companyId = member.getCompany().getId();
-
-        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
-                companyId, serverRoomId);
+        // 회사-서버실 매핑 확인
+        boolean hasAccess = companyServerRoomRepository
+                .existsByCompanyIdAndServerRoomId(member.getCompany().getId(), serverRoomId);
 
         if (!hasAccess) {
             throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
@@ -585,7 +585,8 @@ public class EquipmentService {
 
                 // 3. 접근 권한 확인
                 if (currentMember.getRole() != Role.ADMIN) {
-                    Long serverRoomId = equipment.getRack().getServerRoomId();
+                    // ✅ 수정: equipment.getRack().getServerRoomId() → equipment.getRack().getServerRoom().getId()
+                    Long serverRoomId = equipment.getRack().getServerRoom().getId();
                     Long companyId = currentMember.getCompany().getId();
 
                     boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(

@@ -1,3 +1,5 @@
+// src/main/java/org/example/finalbe/domains/history/service/HistoryService.java
+
 package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
@@ -7,9 +9,7 @@ import org.example.finalbe.domains.common.enumdir.HistoryAction;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.department.domain.MemberDepartment;
-import org.example.finalbe.domains.department.repository.MemberDepartmentRepository;
-import org.example.finalbe.domains.department.repository.RackDepartmentRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.history.domain.History;
@@ -17,7 +17,6 @@ import org.example.finalbe.domains.history.dto.*;
 import org.example.finalbe.domains.history.repository.HistoryRepository;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
-import org.example.finalbe.domains.rack.domain.Rack;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,8 +34,8 @@ import java.util.stream.Collectors;
  * 히스토리 서비스
  * 변경 이력 조회 및 통계 제공
  *
- * 접근 제어: 부서 기준
- * - 사용자가 소속된 부서가 담당하는 랙이 있는 서버실만 접근 가능
+ * 접근 제어: CompanyServerRoom 기준
+ * - 사용자가 소속된 회사가 관리하는 서버실만 접근 가능
  */
 @Service
 @Slf4j
@@ -47,10 +46,7 @@ public class HistoryService {
     private final HistoryRepository historyRepository;
     private final ServerRoomRepository serverRoomRepository;
     private final MemberRepository memberRepository;
-
-    // 부서 기준 접근 제어용 Repository
-    private final RackDepartmentRepository rackDepartmentRepository;
-    private final MemberDepartmentRepository memberDepartmentRepository;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
 
     /**
      * 히스토리 기록 (내부 사용)
@@ -82,7 +78,6 @@ public class HistoryService {
 
         } catch (Exception e) {
             log.error("Failed to record history: {}", e.getMessage(), e);
-            // 히스토리 기록 실패는 메인 트랜잭션을 롤백하지 않음 (선택사항)
         }
     }
 
@@ -93,7 +88,7 @@ public class HistoryService {
         Member currentMember = getCurrentMember();
         log.info("Searching history for serverroom: {}", request.serverRoomId());
 
-        // 서버실 접근 권한 확인 (부서 기준)
+        // 서버실 접근 권한 확인 (CompanyServerRoom 기준)
         validateServerRoomAccess(currentMember, request.serverRoomId());
 
         Pageable pageable = PageRequest.of(
@@ -101,11 +96,10 @@ public class HistoryService {
                 request.size() != null ? request.size() : 20
         );
 
-        // ⭐ JPQL 사용으로 Enum을 직접 전달 (String 변환 불필요)
         Page<History> historyPage = historyRepository.searchHistory(
                 request.serverRoomId(),
-                request.entityType(),       // Enum 직접 전달
-                request.action(),           // Enum 직접 전달
+                request.entityType(),
+                request.action(),
                 request.changedBy(),
                 request.startDate(),
                 request.endDate(),
@@ -125,7 +119,6 @@ public class HistoryService {
         ServerRoom serverRoom = serverRoomRepository.findById(serverRoomId)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", serverRoomId));
 
-        // 기본 기간 설정 (없으면 최근 30일)
         if (startDate == null) {
             startDate = LocalDateTime.now().minusDays(30);
         }
@@ -215,7 +208,6 @@ public class HistoryService {
     public Page<HistoryResponse> getUserHistory(Long userId, Integer page, Integer size) {
         Member currentMember = getCurrentMember();
 
-        // ADMIN만 조회 가능
         if (currentMember.getRole() != Role.ADMIN) {
             throw new AccessDeniedException("관리자만 다른 사용자의 히스토리를 조회할 수 있습니다.");
         }
@@ -231,7 +223,6 @@ public class HistoryService {
 
     /**
      * 히스토리 상세 조회
-     * 변경 내역을 상세하게 파싱하여 반환
      */
     public HistoryDetailResponse getHistoryDetail(Long id) {
         log.info("Fetching history detail for id: {}", id);
@@ -244,7 +235,6 @@ public class HistoryService {
 
     /**
      * 엔티티별 히스토리 목록 조회 (페이징)
-     * 특정 엔티티(예: 특정 랙)의 모든 히스토리 조회
      */
     public Page<HistoryDetailResponse> getHistoryByEntity(
             EntityType entityType,
@@ -288,7 +278,7 @@ public class HistoryService {
      *
      * 접근 제어 로직:
      * - ADMIN: 모든 서버실 접근 가능
-     * - 일반 사용자: 자신의 부서가 담당하는 랙이 있는 서버실만 접근 가능
+     * - 일반 사용자: 자신의 회사가 관리하는 서버실만 접근 가능
      *
      * @param member 사용자
      * @return 접근 가능한 서버실 ID 목록
@@ -301,38 +291,18 @@ public class HistoryService {
                     .collect(Collectors.toList());
         }
 
-        // 사용자의 주 부서 조회
-        Optional<MemberDepartment> memberDepartmentOpt = memberDepartmentRepository
-                .findByMemberIdAndIsPrimary(member.getId(), true);
+        // 회사가 관리하는 서버실 조회
+        List<Long> serverRoomIds = companyServerRoomRepository
+                .findServerRoomIdsByCompanyId(member.getCompany().getId());
 
-        if (memberDepartmentOpt.isEmpty()) {
-            log.warn("User {} has no primary department assigned", member.getId());
-            return List.of(); // 부서 없으면 접근 가능한 서버실 없음
-        }
-
-        Long departmentId = memberDepartmentOpt.get().getDepartment().getId();
-        log.debug("User {} belongs to department {}", member.getId(), departmentId);
-
-        // 부서가 담당하는 랙들이 속한 서버실 ID 수집 (중복 제거)
-        List<Rack> departmentRacks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
-
-        List<Long> serverRoomIds = departmentRacks.stream()
-                .map(rack -> rack.getServerRoom().getId())
-                .distinct()
-                .collect(Collectors.toList());
-
-        log.info("User {} can access {} serverrooms through department {}",
-                member.getId(), serverRoomIds.size(), departmentId);
+        log.info("User {} (company {}) can access {} serverrooms",
+                member.getId(), member.getCompany().getId(), serverRoomIds.size());
 
         return serverRoomIds;
     }
 
     /**
      * 사용자의 접근 가능한 서버실 목록 조회 (API용)
-     *
-     * 사용 목적:
-     * - 프론트엔드에서 히스토리 조회 시 서버실 선택 드롭다운에 사용
-     * - 사용자가 소속된 부서가 담당하는 랙이 있는 서버실만 표시
      *
      * @return 접근 가능한 서버실 목록 (DTO)
      */
@@ -346,11 +316,11 @@ public class HistoryService {
         }
 
         return serverRoomRepository.findAllById(accessibleServerRoomIds).stream()
-                .map(dc -> ServerRoomAccessResponse.builder()
-                        .serverRoomId(dc.getId())
-                        .serverRoomName(dc.getName())
-                        .serverRoomCode(dc.getCode())
-                        .location(dc.getLocation())
+                .map(sr -> ServerRoomAccessResponse.builder()
+                        .serverRoomId(sr.getId())
+                        .serverRoomName(sr.getName())
+                        .serverRoomCode(sr.getCode())
+                        .location(sr.getLocation())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -381,12 +351,11 @@ public class HistoryService {
     }
 
     /**
-     * 서버실 접근 권한 검증 (부서 기준)
+     * 서버실 접근 권한 검증 (CompanyServerRoom 기준)
      *
      * 접근 제어 로직:
      * 1. ADMIN은 모든 서버실 접근 가능
-     * 2. 일반 사용자는 자신의 부서가 담당하는 랙이 속한 서버실만 접근 가능
-     * 3. 부서 소속이 없으면 접근 불가
+     * 2. 일반 사용자는 자신의 회사가 관리하는 서버실만 접근 가능
      *
      * @param member 사용자
      * @param serverRoomId 서버실 ID
@@ -399,34 +368,21 @@ public class HistoryService {
 
         if (member.getRole() == Role.ADMIN) {
             log.debug("Admin user {} accessing serverroom {}", member.getId(), serverRoomId);
-            return; // ADMIN은 모든 전산실 접근 가능
+            return;
         }
 
-        // 사용자의 주 부서 조회
-        MemberDepartment memberDepartment = memberDepartmentRepository
-                .findByMemberIdAndIsPrimary(member.getId(), true)
-                .orElseThrow(() -> new AccessDeniedException(
-                        "부서에 소속되지 않아 히스토리를 조회할 수 없습니다."));
-
-        Long departmentId = memberDepartment.getDepartment().getId();
-        log.debug("User {} belongs to department {}, checking access to serverroom {}",
-                member.getId(), departmentId, serverRoomId);
-
-        // 부서가 담당하는 랙들 조회
-        List<Rack> departmentRacks = rackDepartmentRepository.findRacksByDepartmentId(departmentId);
-
-        // 해당 랙들이 속한 서버실 ID 확인
-        boolean hasAccess = departmentRacks.stream()
-                .anyMatch(rack -> rack.getServerRoom().getId().equals(serverRoomId));
+        // 회사-서버실 매핑 확인
+        boolean hasAccess = companyServerRoomRepository
+                .existsByCompanyIdAndServerRoomId(member.getCompany().getId(), serverRoomId);
 
         if (!hasAccess) {
-            log.warn("User {} (department {}) denied access to serverroom {} - no assigned racks",
-                    member.getId(), departmentId, serverRoomId);
+            log.warn("User {} (company {}) denied access to serverroom {}",
+                    member.getId(), member.getCompany().getId(), serverRoomId);
             throw new AccessDeniedException(
-                    "해당 전산실의 히스토리 조회 권한이 없습니다. (부서가 담당하는 랙이 없습니다)");
+                    "해당 전산실의 히스토리 조회 권한이 없습니다. (회사가 관리하는 서버실이 아닙니다)");
         }
 
-        log.debug("User {} granted access to serverroom {} through department {}",
-                member.getId(), serverRoomId, departmentId);
+        log.debug("User {} granted access to serverroom {} through company {}",
+                member.getId(), serverRoomId, member.getCompany().getId());
     }
 }

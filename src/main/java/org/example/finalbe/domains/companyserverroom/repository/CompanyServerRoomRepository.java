@@ -68,4 +68,10 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
             @Param("companyId") Long companyId,
             @Param("serverRoomId") Long serverRoomId
     );
+
+    /**
+     * 회사가 관리하는 서버실 ID 목록 조회
+     */
+    @Query("SELECT csr.serverRoom.id FROM CompanyServerRoom csr WHERE csr.company.id = :companyId")
+    List<Long> findServerRoomIdsByCompanyId(@Param("companyId") Long companyId);
 }

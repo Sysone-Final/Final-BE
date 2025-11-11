@@ -18,6 +18,12 @@ import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.history.service.ServerRoomHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
+import org.example.finalbe.domains.rack.domain.Rack;
+import org.example.finalbe.domains.rack.repository.RackRepository;
+import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.device.domain.Device;
+import org.example.finalbe.domains.device.repository.DeviceRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -36,7 +42,10 @@ public class ServerRoomService {
     private final MemberRepository memberRepository;
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final ServerRoomHistoryRecorder serverRoomHistoryRecorder;
-    private final DataCenterRepository dataCenterRepository; // 추가
+    private final DataCenterRepository dataCenterRepository;
+    private final RackRepository rackRepository;
+    private final EquipmentRepository equipmentRepository;
+    private final DeviceRepository deviceRepository;
 
     /**
      * 현재 로그인한 사용자 조회
@@ -173,7 +182,7 @@ public class ServerRoomService {
         // 전산실 생성
         ServerRoom serverRoom = request.toEntity();
 
-        // ★★★ 데이터센터 설정 추가 ★★★
+        // 데이터센터 설정
         if (request.dataCenterId() != null) {
             DataCenter dataCenter = dataCenterRepository.findActiveById(request.dataCenterId())
                     .orElseThrow(() -> new EntityNotFoundException("데이터센터", request.dataCenterId()));
@@ -249,7 +258,7 @@ public class ServerRoomService {
                 request.humidityMax()
         );
 
-        // ★★★ 데이터센터 수정 추가 ★★★
+        // 데이터센터 수정
         if (request.dataCenterId() != null) {
             DataCenter dataCenter = dataCenterRepository.findActiveById(request.dataCenterId())
                     .orElseThrow(() -> new EntityNotFoundException("데이터센터", request.dataCenterId()));
@@ -266,6 +275,7 @@ public class ServerRoomService {
 
     /**
      * 서버실 삭제 (Soft Delete) + 히스토리 기록
+     * 서버실 삭제 시 포함된 모든 Rack, Equipment, Device도 함께 삭제
      */
     @Transactional
     public void deleteServerRoom(Long id) {
@@ -283,12 +293,48 @@ public class ServerRoomService {
         ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
+        // 1. 해당 서버실의 모든 활성 Rack 조회
+        List<Rack> racks = rackRepository.findByServerRoomIdAndDelYn(id, DelYN.N);
+        log.info("Found {} racks in serverRoom {}", racks.size(), id);
+
+        int totalEquipments = 0;
+        int totalDevices = 0;
+
+        // 2. 각 Rack의 Equipment와 Device 삭제
+        for (Rack rack : racks) {
+            // 2-1. Rack의 모든 활성 Equipment 삭제
+            List<Equipment> equipments = equipmentRepository.findActiveByRackId(rack.getId());
+            if (!equipments.isEmpty()) {
+                equipments.forEach(equipment -> {
+                    equipment.setDelYn(DelYN.Y);
+                    log.debug("Equipment {} marked as deleted", equipment.getId());
+                });
+                totalEquipments += equipments.size();
+            }
+
+            // 2-2. Rack의 모든 활성 Device 삭제
+            List<Device> devices = deviceRepository.findActiveByRackId(rack.getId());
+            if (!devices.isEmpty()) {
+                devices.forEach(device -> {
+                    device.setDelYn(DelYN.Y);
+                    log.debug("Device {} marked as deleted", device.getId());
+                });
+                totalDevices += devices.size();
+            }
+
+            // 2-3. Rack 삭제
+            rack.setDelYn(DelYN.Y);
+            log.debug("Rack {} marked as deleted", rack.getId());
+        }
+
+        // 3. 서버실 히스토리 기록
         serverRoomHistoryRecorder.recordDelete(serverRoom, currentMember);
 
-        // 소프트 삭제
+        // 4. 서버실 소프트 삭제
         serverRoom.softDelete();
 
-        log.info("Data center soft deleted successfully with id: {}", id);
+        log.info("ServerRoom deleted successfully for id: {} (with {} racks, {} equipments, {} devices)",
+                id, racks.size(), totalEquipments, totalDevices);
     }
 
     /**

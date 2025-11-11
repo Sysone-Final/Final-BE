@@ -61,7 +61,7 @@ public record EquipmentCreateRequest(
         Integer diskThresholdWarning,
         Integer diskThresholdCritical
 ) {
-    public Equipment toEntity(Rack rack, Long managerId) {
+    public Equipment toEntity(Rack rack) {
         return Equipment.builder()
                 .name(equipmentName)
                 .code(equipmentCode)

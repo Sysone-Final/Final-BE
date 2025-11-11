@@ -16,11 +16,13 @@ import java.util.Optional;
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     /**
-     * ID로 활성 장비 조회 (delYn = N)
+     * ID로 활성 장비 조회 (delYn = N, Rack도 활성)
      */
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "WHERE e.id = :id AND e.delYn = 'N'")
+            "WHERE e.id = :id " +
+            "AND e.delYn = 'N' " +
+            "AND (r IS NULL OR r.delYn = 'N')")
     Optional<Equipment> findActiveById(@Param("id") Long id);
 
     /**
@@ -30,6 +32,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverRoom sr " +
             "WHERE e.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N') " +
             "AND (:keyword IS NULL OR :keyword = '' OR " +
             "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -41,6 +44,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
                     "LEFT JOIN e.rack r " +
                     "LEFT JOIN r.serverRoom sr " +
                     "WHERE e.delYn = :delYn " +
+                    "AND (r IS NULL OR r.delYn = 'N') " +
                     "AND (:keyword IS NULL OR :keyword = '' OR " +
                     "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                     "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -62,20 +66,31 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
      */
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "WHERE r.id = :rackId AND e.delYn = :delYn")
+            "WHERE r.id = :rackId " +
+            "AND e.delYn = :delYn " +
+            "AND r.delYn = 'N'")
     List<Equipment> findByRackIdAndDelYn(
             @Param("rackId") Long rackId,
             @Param("delYn") DelYN delYn
     );
 
     /**
+     * 특정 Rack의 활성 장비 조회 (랙 삭제 시 사용)
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "WHERE e.rack.id = :rackId " +
+            "AND e.delYn = 'N'")
+    List<Equipment> findActiveByRackId(@Param("rackId") Long rackId);
+
+    /**
      * 서버실별 조회
      */
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
-            "LEFT JOIN FETCH r.serverRoom sr " +  // ← 카멜케이스로 수정!
+            "LEFT JOIN FETCH r.serverRoom sr " +
             "WHERE sr.id = :serverRoomId " +
-            "AND e.delYn = :delYn")
+            "AND e.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N')")
     List<Equipment> findByServerRoomIdAndDelYn(
             @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn
@@ -94,7 +109,8 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND e.delYn = :delYn")
+            "AND e.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N')")
     List<Equipment> searchByKeywordAndDelYn(
             @Param("keyword") String keyword,
             @Param("delYn") DelYN delYn
@@ -111,7 +127,8 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "AND csr.company.id = :companyId " +
-            "AND e.delYn = :delYn")
+            "AND e.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N')")
     List<Equipment> searchByKeywordAndCompanyIdAndDelYn(
             @Param("keyword") String keyword,
             @Param("companyId") Long companyId,
@@ -121,9 +138,12 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     Boolean existsByRackIdAndDelYn(Long rackId, DelYN delYn);
 
     /**
-     * 활성 장비 전체 조회 (delYn = 'N')
+     * 활성 장비 전체 조회 (delYn = 'N', Rack도 활성)
      */
-    @Query("SELECT e FROM Equipment e WHERE e.delYn = 'N'")
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN e.rack r " +
+            "WHERE e.delYn = 'N' " +
+            "AND (r IS NULL OR r.delYn = 'N')")
     List<Equipment> findAllActive();
 
     /**

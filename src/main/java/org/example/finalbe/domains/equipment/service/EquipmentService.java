@@ -222,7 +222,7 @@ public class EquipmentService {
             }
         }
 
-        Equipment equipment = request.toEntity(rack, currentMember.getId());
+        Equipment equipment = request.toEntity(rack);
         Equipment savedEquipment = equipmentRepository.save(equipment);
 
         rack.placeEquipment(savedEquipment, request.startUnit(), request.unitSize());

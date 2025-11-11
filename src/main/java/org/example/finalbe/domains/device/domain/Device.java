@@ -13,7 +13,10 @@ import java.time.LocalDate;
  * 장치 엔티티
  */
 @Entity
-@Table(name = "device")
+@Table(name = "device",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "rack_id", name = "uk_device_rack")
+        })
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter

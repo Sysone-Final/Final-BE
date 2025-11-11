@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.device.dto;
 
 import lombok.Builder;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.device.domain.Device;
 
 /**
@@ -21,6 +22,7 @@ public record DeviceListResponse(
         Long serverRoomId,
         Integer serverRoomRows,
         Integer serverRoomColumns,
+        DelYN delYn,
         String rackName,
         Long rackId
 ) {

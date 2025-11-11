@@ -14,8 +14,6 @@ public record CompanyServerRoomListResponse(
         String serverRoomCode,
         String serverRoomName,
         String location,
-        String managerName,
-        String managerPhone,
         LocalDateTime grantedAt
 ) {
     /**

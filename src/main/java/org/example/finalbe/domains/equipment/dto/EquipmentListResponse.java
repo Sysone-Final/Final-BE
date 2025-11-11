@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 
 import java.math.BigDecimal;

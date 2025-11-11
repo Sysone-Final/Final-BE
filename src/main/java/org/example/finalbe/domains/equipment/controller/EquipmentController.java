@@ -176,7 +176,7 @@ public class EquipmentController {
     }
 
     /**
-     * 🆕 장비 대량 상태 변경
+     * 장비 대량 상태 변경
      * PUT /api/equipments/status
      * Body: {"ids": [1, 2, 3], "status": "MAINTENANCE"}
      */

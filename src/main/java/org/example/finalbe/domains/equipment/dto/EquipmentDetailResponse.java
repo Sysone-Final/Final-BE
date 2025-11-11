@@ -35,7 +35,6 @@ public record EquipmentDetailResponse(
         String notes,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        Long managerId,
         Long rackId,
         String rackName,
         Long serverRoomId,

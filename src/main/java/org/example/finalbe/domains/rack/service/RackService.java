@@ -11,7 +11,10 @@ import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
+import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.device.domain.Device;
+import org.example.finalbe.domains.device.repository.DeviceRepository;
 import org.example.finalbe.domains.history.service.RackHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
@@ -40,6 +43,7 @@ public class RackService {
     private final RackRepository rackRepository;
     private final ServerRoomRepository serverRoomRepository;
     private final EquipmentRepository equipmentRepository;
+    private final DeviceRepository deviceRepository;
     private final MemberRepository memberRepository;
     private final CompanyServerRoomRepository csrRepository;
     private final RackHistoryRecorder rackHistoryRecorder;
@@ -166,6 +170,7 @@ public class RackService {
 
     /**
      * 랙 삭제 (소프트 삭제)
+     * 랙 삭제 시 포함된 장비(Equipment)와 장치(Device)도 함께 삭제
      */
     @Transactional
     public void deleteRack(Long id) {
@@ -183,19 +188,34 @@ public class RackService {
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));
 
-        // 랙에 장비가 있는지 확인
-        boolean hasEquipment = equipmentRepository.existsByRackIdAndDelYn(id, DelYN.N);
-        if (hasEquipment) {
-            throw new BusinessException("랙에 장비가 존재하여 삭제할 수 없습니다. 먼저 장비를 제거해주세요.");
+        // 1. 해당 랙의 모든 활성 장비(Equipment) 삭제
+        List<Equipment> equipments = equipmentRepository.findActiveByRackId(id);
+        if (!equipments.isEmpty()) {
+            log.info("Deleting {} equipments in rack {}", equipments.size(), id);
+            equipments.forEach(equipment -> {
+                equipment.setDelYn(DelYN.Y);
+                log.debug("Equipment {} marked as deleted", equipment.getId());
+            });
         }
 
-        // 소프트 삭제
+        // 2. 해당 랙의 모든 활성 장치(Device) 삭제
+        List<Device> devices = deviceRepository.findActiveByRackId(id);
+        if (!devices.isEmpty()) {
+            log.info("Deleting {} devices in rack {}", devices.size(), id);
+            devices.forEach(device -> {
+                device.setDelYn(DelYN.Y);
+                log.debug("Device {} marked as deleted", device.getId());
+            });
+        }
+
+        // 3. 랙 소프트 삭제
         rack.setDelYn(DelYN.Y);
 
         // 히스토리 기록
         rackHistoryRecorder.recordDelete(rack, currentMember);
 
-        log.info("Rack deleted successfully for id: {}", id);
+        log.info("Rack deleted successfully for id: {} (with {} equipments and {} devices)",
+                id, equipments.size(), devices.size());
     }
 
     /**

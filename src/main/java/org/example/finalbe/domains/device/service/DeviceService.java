@@ -6,6 +6,7 @@ import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.DeviceStatus;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
+import org.example.finalbe.domains.common.exception.BusinessException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
@@ -47,9 +48,6 @@ public class DeviceService {
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final DeviceHistoryRecorder deviceHistoryRecorder;
 
-    /**
-     * 서버실별 장치 목록 조회
-     */
     /**
      * 서버실별 장치 목록 조회
      */
@@ -120,6 +118,11 @@ public class DeviceService {
         if (request.rackId() != null) {
             rack = rackRepository.findActiveById(request.rackId())
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
+
+            // Rack에 이미 활성 장치가 있는지 확인 (1:1 관계 검증)
+            if (deviceRepository.existsActiveDeviceByRackId(request.rackId())) {
+                throw new BusinessException("이미 다른 장치가 해당 랙에 배치되어 있습니다. 한 랙에는 하나의 장치만 배치할 수 있습니다.");
+            }
         }
 
         Device device = request.toEntity(deviceType, serverRoom, rack);
@@ -188,6 +191,15 @@ public class DeviceService {
         if (request.rackId() != null) {
             Rack rack = rackRepository.findActiveById(request.rackId())
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
+
+            // 다른 Rack으로 변경하는 경우, 해당 Rack에 이미 장치가 있는지 확인
+            if (device.getRack() == null || !device.getRack().getId().equals(request.rackId())) {
+                // Rack에 이미 다른 활성 장치가 있는지 확인 (현재 장치 제외)
+                if (deviceRepository.existsActiveDeviceByRackIdExcludingDevice(request.rackId(), id)) {
+                    throw new BusinessException("이미 다른 장치가 해당 랙에 배치되어 있습니다. 한 랙에는 하나의 장치만 배치할 수 있습니다.");
+                }
+            }
+
             device.setRack(rack);
         }
 

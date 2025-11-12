@@ -59,7 +59,6 @@ public class ServerRoom extends BaseTimeEntity {
     @Column(name = "status", length = 20)
     private ServerRoomStatus status;
 
-    @Lob
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 

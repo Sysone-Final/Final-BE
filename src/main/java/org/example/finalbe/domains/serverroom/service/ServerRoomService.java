@@ -162,6 +162,13 @@ public class ServerRoomService {
     public ServerRoomDetailResponse createServerRoom(ServerRoomCreateRequest request,
                                                      HttpServletRequest httpRequest) {
         Member currentMember = getCurrentMember();
+
+        log.info("===== CREATE SERVERROOM REQUEST =====");
+        log.info("Request DTO: {}", request);
+        log.info("Name: {}", request.name());
+        log.info("Description: {}", request.description());
+        log.info("Description class: {}", request.description() != null ? request.description().getClass() : "null");
+
         log.info("Creating data center with code: {} by user: {} (role: {}, company: {})",
                 request.code(), currentMember.getId(), currentMember.getRole(),
                 currentMember.getCompany().getId());
@@ -182,6 +189,8 @@ public class ServerRoomService {
         // 전산실 생성
         ServerRoom serverRoom = request.toEntity();
 
+        log.info("===== AFTER toEntity() =====");
+        log.info("ServerRoom description: {}", serverRoom.getDescription());
         // 데이터센터 설정
         if (request.dataCenterId() != null) {
             DataCenter dataCenter = dataCenterRepository.findActiveById(request.dataCenterId())
@@ -191,6 +200,10 @@ public class ServerRoomService {
         }
 
         ServerRoom savedServerRoom = serverRoomRepository.save(serverRoom);
+
+        log.info("===== AFTER SAVE =====");
+        log.info("Saved ServerRoom ID: {}", savedServerRoom.getId());
+        log.info("Saved ServerRoom description: {}", savedServerRoom.getDescription());
 
         // CompanyServerRoom 매핑 자동 생성
         CompanyServerRoom mapping = CompanyServerRoom.builder()

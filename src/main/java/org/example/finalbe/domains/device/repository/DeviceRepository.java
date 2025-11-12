@@ -35,15 +35,13 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
      * 서버실별 장치 조회 (위치순 정렬) - 활성 Rack에 속한 것만
      */
     @Query("SELECT d FROM Device d " +
-            "JOIN d.rack r " +
-            "WHERE r.serverRoom.id = :serverRoomId " +
+            "LEFT JOIN d.rack r " +
+            "WHERE d.serverRoom.id = :serverRoomId " +
             "AND d.delYn = :delYn " +
-            "AND r.delYn = 'N' " +
             "ORDER BY d.gridY, d.gridX")
     List<Device> findByServerRoomIdOrderByPosition(
             @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn);
-
     /**
      * 특정 Rack의 활성 장치 조회 (랙 삭제 시 사용)
      */

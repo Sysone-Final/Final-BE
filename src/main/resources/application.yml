@@ -52,3 +52,9 @@ monitoring:
     enabled: true
     interval-seconds: 5
     device-count: 9
+
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

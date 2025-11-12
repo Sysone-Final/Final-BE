@@ -191,28 +191,24 @@ public class EquipmentService {
         if (request.equipmentName() == null || request.equipmentName().trim().isEmpty()) {
             throw new IllegalArgumentException("장비명을 입력해주세요.");
         }
-        if (request.rackId() == null) {
-            throw new IllegalArgumentException("랙을 선택해주세요.");
-        }
-        if (request.startUnit() == null) {
-            throw new IllegalArgumentException("시작 유닛을 입력해주세요.");
-        }
-        if (request.unitSize() == null || request.unitSize() <= 0) {
-            throw new IllegalArgumentException("유닛 크기를 입력해주세요.");
-        }
 
-        Rack rack = rackRepository.findActiveById(request.rackId())
-                .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
+        // 랙은 선택적으로 설정 가능
+        Rack rack = null;
+        if (request.rackId() != null && request.rackId() > 0) {
+            rack = rackRepository.findActiveById(request.rackId())
+                    .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
 
-        if (currentMember.getRole() != Role.ADMIN) {
-            Long serverRoomId = rack.getServerRoom().getId();
-            Long companyId = currentMember.getCompany().getId();
+            // 랙이 있을 때만 권한 확인
+            if (currentMember.getRole() != Role.ADMIN) {
+                Long serverRoomId = rack.getServerRoom().getId();
+                Long companyId = currentMember.getCompany().getId();
 
-            boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
-                    companyId, serverRoomId);
+                boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                        companyId, serverRoomId);
 
-            if (!hasAccess) {
-                throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
+                if (!hasAccess) {
+                    throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
+                }
             }
         }
 
@@ -225,7 +221,10 @@ public class EquipmentService {
         Equipment equipment = request.toEntity(rack);
         Equipment savedEquipment = equipmentRepository.save(equipment);
 
-        rack.placeEquipment(savedEquipment, request.startUnit(), request.unitSize());
+        // 랙이 있을 때만 placeEquipment 호출
+        if (rack != null) {
+            rack.placeEquipment(savedEquipment, request.startUnit(), request.unitSize());
+        }
 
         equipmentHistoryRecorder.recordCreate(savedEquipment, currentMember);
 

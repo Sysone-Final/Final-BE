@@ -17,6 +17,7 @@ import java.util.Map;
 /**
  * Equipment 히스토리 기록 전담 클래스 (개선 버전)
  * 변경 내역을 상세하게 기록하여 "무엇이 어떻게 변경되었는지" 추적 가능
+ * 랙이 없는 장비도 히스토리 기록 가능
  */
 @Component
 @Slf4j
@@ -27,11 +28,29 @@ public class EquipmentHistoryRecorder {
 
     /**
      * Equipment 생성 히스토리
+     * 랙이 없어도 히스토리 기록 가능
      */
     public void recordCreate(Equipment equipment, Member member) {
+        // 랙이 없는 경우를 위한 기본값 설정
+        Long serverRoomId = null;
+        String serverRoomName = "미배정";
+        Map<String, Object> metadata = new HashMap<>();
+
+        // 랙이 있는 경우 정보 추출
+        if (equipment.getRack() != null) {
+            metadata.put("rackName", equipment.getRack().getRackName());
+            metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
+
+            // 서버룸 정보가 있는 경우
+            if (equipment.getRack().getServerRoom() != null) {
+                serverRoomId = equipment.getRack().getServerRoom().getId();
+                serverRoomName = equipment.getRack().getServerRoom().getName();
+            }
+        }
+
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerRoom().getId())
-                .serverRoomName(equipment.getRack().getServerRoom().getName())
+                .serverRoomId(serverRoomId)
+                .serverRoomName(serverRoomName)
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -42,17 +61,16 @@ public class EquipmentHistoryRecorder {
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
                 .afterValue(buildSnapshot(equipment))
-                .metadata(Map.of(
-                        "rackName", equipment.getRack().getRackName(),
-                        "rackId", String.valueOf(equipment.getRack().getId())
-                ))
+                .metadata(metadata)
                 .build();
 
         historyService.recordHistory(request);
+        log.info("Equipment create history recorded: {}", equipment.getName());
     }
 
     /**
      * Equipment 수정 히스토리 (상세 변경 내역 포함)
+     * 랙이 없어도 히스토리 기록 가능
      */
     public void recordUpdate(Equipment oldEquipment, Equipment newEquipment, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldEquipment);
@@ -67,9 +85,27 @@ public class EquipmentHistoryRecorder {
         // 변경 내역 상세 정보 구성
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
+        // 랙이 없는 경우를 위한 기본값 설정
+        Long serverRoomId = null;
+        String serverRoomName = "미배정";
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("changeDetails", changeDetails);
+
+        // 랙이 있는 경우 정보 추출
+        if (newEquipment.getRack() != null) {
+            metadata.put("rackName", newEquipment.getRack().getRackName());
+            metadata.put("rackId", String.valueOf(newEquipment.getRack().getId()));
+
+            // 서버룸 정보가 있는 경우
+            if (newEquipment.getRack().getServerRoom() != null) {
+                serverRoomId = newEquipment.getRack().getServerRoom().getId();
+                serverRoomName = newEquipment.getRack().getServerRoom().getName();
+            }
+        }
+
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(newEquipment.getRack().getServerRoom().getId())
-                .serverRoomName(newEquipment.getRack().getServerRoom().getName())
+                .serverRoomId(serverRoomId)
+                .serverRoomName(serverRoomName)
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(newEquipment.getId())
                 .entityName(newEquipment.getName())
@@ -81,11 +117,7 @@ public class EquipmentHistoryRecorder {
                 .changedFields(changedFields)
                 .beforeValue(oldSnapshot)
                 .afterValue(newSnapshot)
-                .metadata(Map.of(
-                        "changeDetails", changeDetails,
-                        "rackName", newEquipment.getRack().getRackName(),
-                        "rackId", String.valueOf(newEquipment.getRack().getId())
-                ))
+                .metadata(metadata)
                 .build();
 
         historyService.recordHistory(request);
@@ -94,11 +126,31 @@ public class EquipmentHistoryRecorder {
 
     /**
      * Equipment 이동 히스토리
+     * 랙이 없어도 히스토리 기록 가능
      */
     public void recordMove(Equipment equipment, String oldLocation, String newLocation, Member member) {
+        // 랙이 없는 경우를 위한 기본값 설정
+        Long serverRoomId = null;
+        String serverRoomName = "미배정";
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("oldLocation", oldLocation);
+        metadata.put("newLocation", newLocation);
+
+        // 랙이 있는 경우 정보 추출
+        if (equipment.getRack() != null) {
+            metadata.put("rackName", equipment.getRack().getRackName());
+            metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
+
+            // 서버룸 정보가 있는 경우
+            if (equipment.getRack().getServerRoom() != null) {
+                serverRoomId = equipment.getRack().getServerRoom().getId();
+                serverRoomName = equipment.getRack().getServerRoom().getName();
+            }
+        }
+
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerRoom().getId())
-                .serverRoomName(equipment.getRack().getServerRoom().getName())
+                .serverRoomId(serverRoomId)
+                .serverRoomName(serverRoomName)
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -110,24 +162,38 @@ public class EquipmentHistoryRecorder {
                 .changedFields(List.of("startUnit"))
                 .beforeValue(Map.of("location", oldLocation))
                 .afterValue(Map.of("location", newLocation))
-                .metadata(Map.of(
-                        "rackName", equipment.getRack().getRackName(),
-                        "rackId", String.valueOf(equipment.getRack().getId()),
-                        "oldLocation", oldLocation,
-                        "newLocation", newLocation
-                ))
+                .metadata(metadata)
                 .build();
 
         historyService.recordHistory(request);
         log.info("Equipment move history recorded: {} -> {}", oldLocation, newLocation);
     }
+
     /**
      * Equipment 상태 변경 히스토리
+     * 랙이 없어도 히스토리 기록 가능
      */
     public void recordStatusChange(Equipment equipment, String oldStatus, String newStatus, Member member) {
+        // 랙이 없는 경우를 위한 기본값 설정
+        Long serverRoomId = null;
+        String serverRoomName = "미배정";
+        Map<String, Object> metadata = new HashMap<>();
+
+        // 랙이 있는 경우 정보 추출
+        if (equipment.getRack() != null) {
+            metadata.put("rackName", equipment.getRack().getRackName());
+            metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
+
+            // 서버룸 정보가 있는 경우
+            if (equipment.getRack().getServerRoom() != null) {
+                serverRoomId = equipment.getRack().getServerRoom().getId();
+                serverRoomName = equipment.getRack().getServerRoom().getName();
+            }
+        }
+
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerRoom().getId())
-                .serverRoomName(equipment.getRack().getServerRoom().getName())
+                .serverRoomId(serverRoomId)
+                .serverRoomName(serverRoomName)
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -139,10 +205,7 @@ public class EquipmentHistoryRecorder {
                 .changedFields(List.of("status"))
                 .beforeValue(Map.of("status", oldStatus))
                 .afterValue(Map.of("status", newStatus))
-                .metadata(Map.of(
-                        "rackName", equipment.getRack().getRackName(),
-                        "rackId", String.valueOf(equipment.getRack().getId())
-                ))
+                .metadata(metadata)
                 .build();
 
         historyService.recordHistory(request);
@@ -151,24 +214,29 @@ public class EquipmentHistoryRecorder {
 
     /**
      * Equipment 삭제 히스토리
+     * 랙이 없어도 히스토리 기록 가능
      */
     public void recordDelete(Equipment equipment, Member member) {
+        // 랙이 없는 경우를 위한 기본값 설정
+        Long serverRoomId = null;
+        String serverRoomName = "미배정";
+        Map<String, Object> metadata = new HashMap<>();
 
+        // 랙이 있는 경우 정보 추출
+        if (equipment.getRack() != null) {
+            metadata.put("rackName", equipment.getRack().getRackName());
+            metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
 
-        if (equipment.getRack() == null) {
-            log.warn("Equipment {} has no rack, skipping history record", equipment.getId());
-            return;
+            // 서버룸 정보가 있는 경우
+            if (equipment.getRack().getServerRoom() != null) {
+                serverRoomId = equipment.getRack().getServerRoom().getId();
+                serverRoomName = equipment.getRack().getServerRoom().getName();
+            }
         }
 
-
-        if (equipment.getRack().getServerRoom() == null) {
-            log.warn("Rack {} has no serverRoom, skipping history record",
-                    equipment.getRack().getId());
-            return;
-        }
         HistoryCreateRequest request = HistoryCreateRequest.builder()
-                .serverRoomId(equipment.getRack().getServerRoom().getId())
-                .serverRoomName(equipment.getRack().getServerRoom().getName())
+                .serverRoomId(serverRoomId)
+                .serverRoomName(serverRoomName)
                 .entityType(EntityType.EQUIPMENT)
                 .entityId(equipment.getId())
                 .entityName(equipment.getName())
@@ -179,17 +247,16 @@ public class EquipmentHistoryRecorder {
                 .changedByRole(member.getRole().name())
                 .changedFields(List.of("ALL"))
                 .beforeValue(buildSnapshot(equipment))
-                .metadata(Map.of(
-                        "rackName", equipment.getRack().getRackName(),
-                        "rackId", String.valueOf(equipment.getRack().getId())
-                ))
+                .metadata(metadata)
                 .build();
 
         historyService.recordHistory(request);
+        log.info("Equipment delete history recorded: {}", equipment.getName());
     }
 
     /**
      * Equipment 상태 스냅샷 생성
+     * 랙이 없는 경우도 안전하게 처리
      */
     private Map<String, Object> buildSnapshot(Equipment equipment) {
         Map<String, Object> snapshot = new HashMap<>();
@@ -197,12 +264,15 @@ public class EquipmentHistoryRecorder {
         snapshot.put("code", equipment.getCode());
         snapshot.put("type", equipment.getType() != null ? equipment.getType().name() : null);
 
+        // 랙 정보 안전하게 처리
         if (equipment.getRack() != null) {
             snapshot.put("rackName", equipment.getRack().getRackName());
             snapshot.put("rackId", equipment.getRack().getId());
+        } else {
+            snapshot.put("rackName", null);
+            snapshot.put("rackId", null);
         }
 
-        snapshot.put("rackName", equipment.getRack().getRackName());
         snapshot.put("startUnit", equipment.getStartUnit());
         snapshot.put("unitSize", equipment.getUnitSize());
         snapshot.put("status", equipment.getStatus() != null ? equipment.getStatus().name() : null);

@@ -22,11 +22,9 @@ public record EquipmentCreateRequest(
         String equipmentCode,
         String equipmentType,
 
-        @NotNull(message = "시작 유닛을 입력해주세요.")
         @Min(value = 1, message = "시작 유닛은 1 이상이어야 합니다.")
         Integer startUnit,
 
-        @NotNull(message = "유닛 크기를 입력해주세요.")
         @Min(value = 1, message = "유닛 크기는 1 이상이어야 합니다.")
         Integer unitSize,
 
@@ -49,7 +47,6 @@ public record EquipmentCreateRequest(
         LocalDate installationDate,
         String notes,
 
-        @NotNull(message = "랙을 선택해주세요.")
         Long rackId,
 
         // 모니터링 설정

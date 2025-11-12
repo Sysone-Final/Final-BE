@@ -35,16 +35,16 @@ public class Device extends BaseTimeEntity {
     @Column(name = "device_code", length = 50)
     private String deviceCode;
 
-    @Column(name = "gridY", nullable = false)
+    @Column(name = "gridY")
     private Integer gridY;
 
-    @Column(name = "gridX", nullable = false)
+    @Column(name = "gridX")
     private Integer gridX;
 
-    @Column(name = "gridZ", nullable = false)
+    @Column(name = "gridZ")
     private Integer gridZ;
 
-    @Column(name = "rotation", nullable = false)
+    @Column(name = "rotation")
     private Integer rotation;
 
     @Enumerated(EnumType.STRING)
@@ -74,7 +74,7 @@ public class Device extends BaseTimeEntity {
     private DeviceType deviceType;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "serverroom_id", nullable = false)
+    @JoinColumn(name = "serverroom_id")
     private ServerRoom serverRoom;
 
     @ManyToOne(fetch = FetchType.LAZY)

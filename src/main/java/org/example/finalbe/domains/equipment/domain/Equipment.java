@@ -36,10 +36,10 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "equipment_type", length = 50)
     private EquipmentType type;
 
-    @Column(name = "start_unit", nullable = false)
+    @Column(name = "start_unit")
     private Integer startUnit;
 
-    @Column(name = "unit_size", nullable = false)
+    @Column(name = "unit_size")
     private Integer unitSize;
 
     @Enumerated(EnumType.STRING)
@@ -116,7 +116,7 @@ public class Equipment extends BaseTimeEntity {
     private DelYN delYn = DelYN.N;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rack_id", nullable = false)
+    @JoinColumn(name = "rack_id")
     private Rack rack;
 
     /**

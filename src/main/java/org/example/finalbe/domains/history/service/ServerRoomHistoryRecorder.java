@@ -28,6 +28,10 @@ public class ServerRoomHistoryRecorder {
      * ServerRoom 생성 히스토리
      */
     public void recordCreate(ServerRoom serverRoom, Member member) {
+
+        log.info("===== BEFORE HISTORY RECORD =====");
+        log.info("ServerRoom description before history: {}", serverRoom.getDescription());
+
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(serverRoom.getId())
                 .serverRoomName(serverRoom.getName())

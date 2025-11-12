@@ -40,13 +40,13 @@ public class Rack extends BaseTimeEntity {
     @Column(name = "grid_y")
     private BigDecimal gridY; // Y 좌표
 
-    @Column(name = "total_units", nullable = false)
+    @Column(name = "total_units")
     private Integer totalUnits; // 전체 유닛 수
 
-    @Column(name = "used_units", nullable = false)
+    @Column(name = "used_units")
     private Integer usedUnits; // 사용 중인 유닛 수
 
-    @Column(name = "available_units", nullable = false)
+    @Column(name = "available_units")
     private Integer availableUnits; // 사용 가능한 유닛 수
 
     @Enumerated(EnumType.STRING)
@@ -86,7 +86,7 @@ public class Rack extends BaseTimeEntity {
 
     // 서버실(전산실)과의 관계 (N:1)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "serverRoom_id", nullable = false)
+    @JoinColumn(name = "serverRoom_id")
     private ServerRoom serverRoom; // 서버실(전산실)
 
     /**

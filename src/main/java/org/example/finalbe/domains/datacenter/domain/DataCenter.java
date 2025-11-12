@@ -46,7 +46,7 @@ public class DataCenter extends BaseTimeEntity {
 
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "del_yn", nullable = false, length = 1)
+    @Column(name = "del_yn", length = 1)
     @Builder.Default
     private DelYN delYn = DelYN.N; // 삭제 여부
 

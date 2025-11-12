@@ -1,7 +1,6 @@
 package org.example.finalbe.domains.device.dto;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.DeviceStatus;
 import org.example.finalbe.domains.device.domain.Device;
@@ -20,11 +19,9 @@ public record DeviceCreateRequest(
 
         String deviceCode,
 
-        @NotNull(message = "행 위치를 입력해주세요.")
         @Min(value = 0, message = "행 위치는 0 이상이어야 합니다.")
         Integer gridY,
 
-        @NotNull(message = "열 위치를 입력해주세요.")
         @Min(value = 0, message = "열 위치는 0 이상이어야 합니다.")
         Integer gridX,
 

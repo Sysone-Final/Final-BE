@@ -31,10 +31,10 @@ public class History extends BaseTimeEntity {
     private Long id;
 
     // === 서버실 정보 (파티션 키) ===
-    @Column(name = "server_room_id", nullable = false)
+    @Column(name = "server_room_id", nullable = true)
     private Long serverRoomId;
 
-    @Column(name = "server_room_name", length = 200)
+    @Column(name = "server_room_name", length = 200, nullable = true)
     private String serverRoomName; // 조회 성능을 위한 비정규화
 
     // === 엔티티 정보 ===

@@ -29,7 +29,6 @@ public record MemberSignupRequest(
         String phone,
 
 
-        @NotNull(message = "회사를 선택해주세요.")
         @Min(value = 1, message = "유효하지 않은 회사 ID입니다.")
         Long companyId,
 

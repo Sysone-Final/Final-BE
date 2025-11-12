@@ -36,14 +36,15 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "equipment_type", length = 50)
     private EquipmentType type;
 
-    @Column(name = "start_unit")
+    // 랙을 선택적으로 설정할 수 있도록 nullable = true로 변경
+    @Column(name = "start_unit", nullable = true)
     private Integer startUnit;
 
-    @Column(name = "unit_size")
+    @Column(name = "unit_size", nullable = true)
     private Integer unitSize;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "position_type", length = 50)
+    @Column(name = "position_type", length = 50, nullable = true)
     private EquipmentPositionType positionType;
 
     @Column(name = "model_name", length = 100)
@@ -115,8 +116,9 @@ public class Equipment extends BaseTimeEntity {
     @Builder.Default
     private DelYN delYn = DelYN.N;
 
+    // 랙을 선택적으로 설정할 수 있도록 nullable = true로 변경
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rack_id")
+    @JoinColumn(name = "rack_id", nullable = true)
     private Rack rack;
 
     /**

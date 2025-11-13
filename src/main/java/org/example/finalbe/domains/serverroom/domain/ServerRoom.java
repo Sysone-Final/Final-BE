@@ -58,7 +58,7 @@ public class ServerRoom extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
     private ServerRoomStatus status;
-
+    
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 

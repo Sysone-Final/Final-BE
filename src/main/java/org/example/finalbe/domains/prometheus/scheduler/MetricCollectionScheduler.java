@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.prometheus.dto.serverroom.ServerRoomMetricsResponse;
 import org.example.finalbe.domains.prometheus.service.PrometheusMetricService;
-import org.example.finalbe.domains.prometheus.service.SSEBroadcastService;
+import org.example.finalbe.domains.prometheus.service.PrometheusSSEBroadcastService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,7 @@ import java.time.temporal.ChronoUnit;
 public class MetricCollectionScheduler {
 
     private final PrometheusMetricService prometheusMetricService;
-    private final SSEBroadcastService sseBroadcastService;
+    private final PrometheusSSEBroadcastService prometheusSseBroadcastService;
 
     /**
      * 5초마다 메트릭 수집 및 브로드캐스트
@@ -25,19 +25,19 @@ public class MetricCollectionScheduler {
     @Scheduled(fixedRateString = "${monitoring.scheduler.metric-collection.fixed-rate:5000}")
     public void collectAndBroadcastMetrics() {
         try {
-            if (sseBroadcastService.getTotalConnections() == 0) {
+            if (prometheusSseBroadcastService.getTotalConnections() == 0) {
                 log.debug("활성 SSE 연결 없음 - 메트릭 수집 스킵");
                 return;
             }
 
-            log.debug("메트릭 수집 시작 - 연결 수: {}", sseBroadcastService.getTotalConnections());
+            log.debug("메트릭 수집 시작 - 연결 수: {}", prometheusSseBroadcastService.getTotalConnections());
 
             Instant endTime = Instant.now();
             Instant startTime = endTime.minus(5, ChronoUnit.MINUTES);
 
             ServerRoomMetricsResponse metrics = prometheusMetricService.getAllMetrics(startTime, endTime);
 
-            sseBroadcastService.broadcast("metrics", metrics);
+            prometheusSseBroadcastService.broadcast("metrics", metrics);
 
             log.debug("메트릭 브로드캐스트 완료");
 
@@ -52,9 +52,9 @@ public class MetricCollectionScheduler {
     @Scheduled(fixedRateString = "${monitoring.sse.heartbeat-interval:30000}")
     public void sendHeartbeat() {
         try {
-            int connections = sseBroadcastService.getTotalConnections();
+            int connections = prometheusSseBroadcastService.getTotalConnections();
             if (connections > 0) {
-                sseBroadcastService.sendHeartbeat();
+                prometheusSseBroadcastService.sendHeartbeat();
                 log.debug("Heartbeat 전송 완료 - 연결 수: {}", connections);
             }
         } catch (Exception e) {

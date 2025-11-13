@@ -19,20 +19,20 @@ import java.time.Instant;
 @Transactional(readOnly = true)
 public class PrometheusMetricService {
 
-    private final CpuMetricQueryService cpuMetricQueryService;
-    private final MemoryMetricQueryService memoryMetricQueryService;
-    private final NetworkMetricQueryService networkMetricQueryService;
-    private final DiskMetricQueryService diskMetricQueryService;
-    private final TemperatureMetricQueryService temperatureMetricQueryService;
+    private final PrometheusCpuMetricQueryService prometheusCpuMetricQueryService;
+    private final PrometheusMemoryMetricQueryService prometheusMemoryMetricQueryService;
+    private final PrometheusNetworkMetricQueryService prometheusNetworkMetricQueryService;
+    private final PrometheusDiskMetricQueryService prometheusDiskMetricQueryService;
+    private final PrometheusTemperatureMetricQueryService prometheusTemperatureMetricQueryService;
 
     public ServerRoomMetricsResponse getAllMetrics(Instant startTime, Instant endTime) {
         log.info("전체 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
 
-        CpuMetricsResponse cpu = cpuMetricQueryService.getCpuMetrics(startTime, endTime);
-        MemoryMetricsResponse memory = memoryMetricQueryService.getMemoryMetrics(startTime, endTime);
-        NetworkMetricsResponse network = networkMetricQueryService.getNetworkMetrics(startTime, endTime);
-        DiskMetricsResponse disk = diskMetricQueryService.getDiskMetrics(startTime, endTime);
-        TemperatureMetricsResponse temperature = temperatureMetricQueryService.getTemperatureMetrics(startTime, endTime);
+        CpuMetricsResponse cpu = prometheusCpuMetricQueryService.getCpuMetrics(startTime, endTime);
+        MemoryMetricsResponse memory = prometheusMemoryMetricQueryService.getMemoryMetrics(startTime, endTime);
+        NetworkMetricsResponse network = prometheusNetworkMetricQueryService.getNetworkMetrics(startTime, endTime);
+        DiskMetricsResponse disk = prometheusDiskMetricQueryService.getDiskMetrics(startTime, endTime);
+        TemperatureMetricsResponse temperature = prometheusTemperatureMetricQueryService.getTemperatureMetrics(startTime, endTime);
 
         return ServerRoomMetricsResponse.builder()
                 .cpu(cpu)

@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.prometheus.dto.temperature.TemperatureResponse;
 import org.example.finalbe.domains.prometheus.dto.temperature.TemperatureMetricsResponse;
-import org.example.finalbe.domains.prometheus.repository.temperature.TemperatureMetricRepository;
+import org.example.finalbe.domains.prometheus.repository.temperature.PrometheusTemperatureMetricRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +16,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class TemperatureMetricQueryService {
+public class PrometheusTemperatureMetricQueryService {
 
-    private final TemperatureMetricRepository temperatureMetricRepository;
+    private final PrometheusTemperatureMetricRepository prometheusTemperatureMetricRepository;
 
     public TemperatureMetricsResponse getTemperatureMetrics(Instant startTime, Instant endTime) {
         log.info("온도 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
@@ -34,7 +34,7 @@ public class TemperatureMetricQueryService {
 
     private Double getCurrentTemperature() {
         try {
-            Object[] result = temperatureMetricRepository.getCurrentTemperature();
+            Object[] result = prometheusTemperatureMetricRepository.getCurrentTemperature();
             if (result != null && result.length > 0) {
                 return ((Number) result[0]).doubleValue();
             }
@@ -47,7 +47,7 @@ public class TemperatureMetricQueryService {
     private List<TemperatureResponse> getTemperatureTrend(Instant startTime, Instant endTime) {
         List<TemperatureResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = temperatureMetricRepository.getTemperatureTrend(startTime, endTime);
+            List<Object[]> rows = prometheusTemperatureMetricRepository.getTemperatureTrend(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(TemperatureResponse.builder()
                         .time((Instant) row[0])

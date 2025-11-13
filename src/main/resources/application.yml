@@ -32,6 +32,7 @@ spring:
           batch_size: 50
         order_inserts: true
         order_updates: true
+        default_schema: public
     open-in-view: false
 
   task:
@@ -41,7 +42,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-validity: 3600000
+  access-token-validity: 7200000
   refresh-token-validity: 604800000
 
 cookie:

@@ -12,9 +12,8 @@ import java.util.List;
 @Slf4j
 @Repository
 @RequiredArgsConstructor
-public class TemperatureMetricRepository {
+public class PrometheusTemperatureMetricRepository {
 
-    @PersistenceContext(unitName = "appEntityManagerFactory")
     private final EntityManager entityManager;
 
     /**

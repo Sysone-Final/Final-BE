@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.prometheus.dto.cpu.*;
 import org.example.finalbe.domains.prometheus.dto.cpu.CpuMetricsResponse;
-import org.example.finalbe.domains.prometheus.repository.cpu.CpuMetricRepository;
+import org.example.finalbe.domains.prometheus.repository.cpu.PrometheusCpuMetricRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +16,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class CpuMetricQueryService {
+public class PrometheusCpuMetricQueryService {
 
-    private final CpuMetricRepository cpuMetricRepository;
+    private final PrometheusCpuMetricRepository prometheusCpuMetricRepository;
 
     public CpuMetricsResponse getCpuMetrics(Instant startTime, Instant endTime) {
         log.info("CPU 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
@@ -40,7 +40,7 @@ public class CpuMetricQueryService {
 
     private Double getCurrentCpuUsage() {
         try {
-            Object[] result = cpuMetricRepository.getCurrentCpuUsage();
+            Object[] result = prometheusCpuMetricRepository.getCurrentCpuUsage();
             if (result != null && result.length > 0) {
                 return ((Number) result[0]).doubleValue();
             }
@@ -53,7 +53,7 @@ public class CpuMetricQueryService {
     private List<CpuUsageResponse> getCpuUsageTrend(Instant startTime, Instant endTime) {
         List<CpuUsageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = cpuMetricRepository.getCpuUsageTrend(startTime, endTime);
+            List<Object[]> rows = prometheusCpuMetricRepository.getCpuUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(CpuUsageResponse.builder()
                         .time((Instant) row[0])
@@ -69,7 +69,7 @@ public class CpuMetricQueryService {
     private List<CpuModeDistributionResponse> getCpuModeDistribution(Instant startTime, Instant endTime) {
         List<CpuModeDistributionResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = cpuMetricRepository.getCpuModeDistribution(startTime, endTime);
+            List<Object[]> rows = prometheusCpuMetricRepository.getCpuModeDistribution(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(CpuModeDistributionResponse.builder()
                         .time((Instant) row[0])
@@ -89,7 +89,7 @@ public class CpuMetricQueryService {
     private List<LoadAverageResponse> getLoadAverage(Instant startTime, Instant endTime) {
         List<LoadAverageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = cpuMetricRepository.getLoadAverage(startTime, endTime);
+            List<Object[]> rows = prometheusCpuMetricRepository.getLoadAverage(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(LoadAverageResponse.builder()
                         .time((Instant) row[0])
@@ -107,7 +107,7 @@ public class CpuMetricQueryService {
     private List<ContextSwitchResponse> getContextSwitchTrend(Instant startTime, Instant endTime) {
         List<ContextSwitchResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = cpuMetricRepository.getContextSwitchTrend(startTime, endTime);
+            List<Object[]> rows = prometheusCpuMetricRepository.getContextSwitchTrend(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(ContextSwitchResponse.builder()
                         .time((Instant) row[0])

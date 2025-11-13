@@ -12,9 +12,8 @@ import java.util.List;
 @Slf4j
 @Repository
 @RequiredArgsConstructor
-public class ProcessMetricRepository {
+public class PrometheusProcessMetricRepository {
 
-    @PersistenceContext(unitName = "appEntityManagerFactory")
     private final EntityManager entityManager;
 
     /**

@@ -11,7 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 @Service
-public class SSEBroadcastService {
+public class PrometheusSSEBroadcastService {
 
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
     private static final long SSE_TIMEOUT = 3600000L; // 1시간

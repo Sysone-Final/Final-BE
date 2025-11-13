@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/monitoring/**").authenticated()
                         .requestMatchers("/api/members/**").authenticated()
                         .requestMatchers("/api/history/**").authenticated()
+                        .requestMatchers("/api/prometheus/metrics/stream/**").permitAll()
+                        .requestMatchers("/api/prometheus/metrics/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

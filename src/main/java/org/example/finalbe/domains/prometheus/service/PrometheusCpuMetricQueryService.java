@@ -40,9 +40,9 @@ public class PrometheusCpuMetricQueryService {
 
     private Double getCurrentCpuUsage() {
         try {
-            Object[] result = prometheusCpuMetricRepository.getCurrentCpuUsage();
-            if (result != null && result.length > 0) {
-                return ((Number) result[0]).doubleValue();
+            Double result = prometheusCpuMetricRepository.getCurrentCpuUsage();
+            if (result != null) {
+                return result;
             }
         } catch (Exception e) {
             log.error("현재 CPU 사용률 조회 실패", e);

@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.prometheus.domain.cpu;
+package org.example.finalbe.domains.prometheus.domain.disk;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,12 +9,12 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "node_load1", schema = "prom_metric")
+@Table(name = "node_filesystem_files", schema = "prom_metric")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NodeLoad1 {
+public class NodeFilesystemFiles {
 
     @Id
     @Column(name = "series_id")
@@ -26,9 +26,18 @@ public class NodeLoad1 {
     @Column(name = "value")
     private Double value;
 
+    @Column(name = "device_id")
+    private Integer deviceId;
+
+    @Column(name = "fstype_id")
+    private Integer fstypeId;
+
     @Column(name = "instance_id")
     private Integer instanceId;
 
     @Column(name = "job_id")
     private Integer jobId;
+
+    @Column(name = "mountpoint_id")
+    private Integer mountpointId;
 }

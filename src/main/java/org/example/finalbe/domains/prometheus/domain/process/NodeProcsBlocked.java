@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.prometheus.domain.cpu;
+package org.example.finalbe.domains.prometheus.domain.process;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,12 +9,12 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "node_load1", schema = "prom_metric")
+@Table(name = "node_procs_blocked", schema = "prom_metric")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NodeLoad1 {
+public class NodeProcsBlocked {
 
     @Id
     @Column(name = "series_id")

@@ -27,12 +27,12 @@ import java.util.UUID;
 public class PrometheusMetricsController {
 
     private final PrometheusMetricService prometheusMetricService;
-    private final CpuMetricQueryService cpuMetricQueryService;
-    private final MemoryMetricQueryService memoryMetricQueryService;
-    private final NetworkMetricQueryService networkMetricQueryService;
-    private final DiskMetricQueryService diskMetricQueryService;
-    private final TemperatureMetricQueryService temperatureMetricQueryService;
-    private final SSEBroadcastService sseBroadcastService;
+    private final PrometheusCpuMetricQueryService prometheusCpuMetricQueryService;
+    private final PrometheusMemoryMetricQueryService prometheusMemoryMetricQueryService;
+    private final PrometheusNetworkMetricQueryService prometheusNetworkMetricQueryService;
+    private final PrometheusDiskMetricQueryService prometheusDiskMetricQueryService;
+    private final PrometheusTemperatureMetricQueryService prometheusTemperatureMetricQueryService;
+    private final PrometheusSSEBroadcastService prometheusSseBroadcastService;
 
     /**
      * SSE 실시간 스트리밍 연결
@@ -43,7 +43,7 @@ public class PrometheusMetricsController {
         String finalClientId = clientId != null ? clientId : UUID.randomUUID().toString();
         log.info("SSE 스트리밍 연결 요청 - clientId: {}", finalClientId);
 
-        return sseBroadcastService.createEmitter(finalClientId);
+        return prometheusSseBroadcastService.createEmitter(finalClientId);
     }
 
     /**
@@ -78,7 +78,7 @@ public class PrometheusMetricsController {
 
         log.info("CPU 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
-        CpuMetricsResponse response = cpuMetricQueryService.getCpuMetrics(start, end);
+        CpuMetricsResponse response = prometheusCpuMetricQueryService.getCpuMetrics(start, end);
         return ResponseEntity.ok(response);
     }
 
@@ -96,7 +96,7 @@ public class PrometheusMetricsController {
 
         log.info("메모리 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
-        MemoryMetricsResponse response = memoryMetricQueryService.getMemoryMetrics(start, end);
+        MemoryMetricsResponse response = prometheusMemoryMetricQueryService.getMemoryMetrics(start, end);
         return ResponseEntity.ok(response);
     }
 
@@ -114,7 +114,7 @@ public class PrometheusMetricsController {
 
         log.info("네트워크 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
-        NetworkMetricsResponse response = networkMetricQueryService.getNetworkMetrics(start, end);
+        NetworkMetricsResponse response = prometheusNetworkMetricQueryService.getNetworkMetrics(start, end);
         return ResponseEntity.ok(response);
     }
 
@@ -132,7 +132,7 @@ public class PrometheusMetricsController {
 
         log.info("디스크 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
-        DiskMetricsResponse response = diskMetricQueryService.getDiskMetrics(start, end);
+        DiskMetricsResponse response = prometheusDiskMetricQueryService.getDiskMetrics(start, end);
         return ResponseEntity.ok(response);
     }
 
@@ -150,7 +150,7 @@ public class PrometheusMetricsController {
 
         log.info("온도 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
-        TemperatureMetricsResponse response = temperatureMetricQueryService.getTemperatureMetrics(start, end);
+        TemperatureMetricsResponse response = prometheusTemperatureMetricQueryService.getTemperatureMetrics(start, end);
         return ResponseEntity.ok(response);
     }
 
@@ -160,8 +160,8 @@ public class PrometheusMetricsController {
      */
     @GetMapping("/stream/status")
     public ResponseEntity<Map<String, Object>> getStreamStatus() {
-        Map<String, Integer> connections = sseBroadcastService.getConnectionStatus();
-        int totalConnections = sseBroadcastService.getTotalConnections();
+        Map<String, Integer> connections = prometheusSseBroadcastService.getConnectionStatus();
+        int totalConnections = prometheusSseBroadcastService.getTotalConnections();
 
         return ResponseEntity.ok(Map.of(
                 "totalConnections", totalConnections,
@@ -176,7 +176,7 @@ public class PrometheusMetricsController {
     @DeleteMapping("/stream/{clientId}")
     public ResponseEntity<Void> closeStream(@PathVariable String clientId) {
         log.info("SSE 연결 종료 요청 - clientId: {}", clientId);
-        sseBroadcastService.closeClient(clientId);
+        prometheusSseBroadcastService.closeClient(clientId);
         return ResponseEntity.noContent().build();
     }
 }

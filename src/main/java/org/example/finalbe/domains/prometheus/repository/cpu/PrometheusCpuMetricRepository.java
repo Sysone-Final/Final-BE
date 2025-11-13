@@ -1,7 +1,6 @@
 package org.example.finalbe.domains.prometheus.repository.cpu;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -12,9 +11,8 @@ import java.util.List;
 @Slf4j
 @Repository
 @RequiredArgsConstructor
-public class CpuMetricRepository {
+public class PrometheusCpuMetricRepository {
 
-    @PersistenceContext(unitName = "appEntityManagerFactory")
     private final EntityManager entityManager;
 
     /**

@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.prometheus.dto.memory.*;
 import org.example.finalbe.domains.prometheus.dto.memory.MemoryMetricsResponse;
-import org.example.finalbe.domains.prometheus.repository.memory.MemoryMetricRepository;
+import org.example.finalbe.domains.prometheus.repository.memory.PrometheusMemoryMetricRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +16,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class MemoryMetricQueryService {
+public class PrometheusMemoryMetricQueryService {
 
-    private final MemoryMetricRepository memoryMetricRepository;
+    private final PrometheusMemoryMetricRepository prometheusMemoryMetricRepository;
 
     public MemoryMetricsResponse getMemoryMetrics(Instant startTime, Instant endTime) {
         log.info("메모리 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
@@ -38,7 +38,7 @@ public class MemoryMetricQueryService {
 
     private Double getCurrentMemoryUsage() {
         try {
-            Object[] result = memoryMetricRepository.getCurrentMemoryUsage();
+            Object[] result = prometheusMemoryMetricRepository.getCurrentMemoryUsage();
             if (result != null && result.length > 2) {
                 return ((Number) result[2]).doubleValue();
             }
@@ -51,7 +51,7 @@ public class MemoryMetricQueryService {
     private List<MemoryUsageResponse> getMemoryUsageTrend(Instant startTime, Instant endTime) {
         List<MemoryUsageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = memoryMetricRepository.getMemoryUsageTrend(startTime, endTime);
+            List<Object[]> rows = prometheusMemoryMetricRepository.getMemoryUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
                 Double total = row[1] != null ? ((Number) row[1]).doubleValue() : 0.0;
                 Double available = row[2] != null ? ((Number) row[2]).doubleValue() : 0.0;
@@ -72,7 +72,7 @@ public class MemoryMetricQueryService {
     private List<MemoryCompositionResponse> getMemoryComposition(Instant startTime, Instant endTime) {
         List<MemoryCompositionResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = memoryMetricRepository.getMemoryComposition(startTime, endTime);
+            List<Object[]> rows = prometheusMemoryMetricRepository.getMemoryComposition(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(MemoryCompositionResponse.builder()
                         .time((Instant) row[0])
@@ -92,7 +92,7 @@ public class MemoryMetricQueryService {
     private List<SwapUsageResponse> getSwapUsageTrend(Instant startTime, Instant endTime) {
         List<SwapUsageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = memoryMetricRepository.getSwapUsageTrend(startTime, endTime);
+            List<Object[]> rows = prometheusMemoryMetricRepository.getSwapUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(SwapUsageResponse.builder()
                         .time((Instant) row[0])

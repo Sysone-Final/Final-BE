@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.prometheus.dto.network.*;
 import org.example.finalbe.domains.prometheus.dto.network.NetworkMetricsResponse;
-import org.example.finalbe.domains.prometheus.repository.network.NetworkMetricRepository;
+import org.example.finalbe.domains.prometheus.repository.network.PrometheusNetworkMetricRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +16,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class NetworkMetricQueryService {
+public class PrometheusNetworkMetricQueryService {
 
-    private final NetworkMetricRepository networkMetricRepository;
+    private final PrometheusNetworkMetricRepository prometheusNetworkMetricRepository;
 
     public NetworkMetricsResponse getNetworkMetrics(Instant startTime, Instant endTime) {
         log.info("네트워크 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
@@ -42,7 +42,7 @@ public class NetworkMetricQueryService {
 
     private Object[] getCurrentNetworkUsage() {
         try {
-            return networkMetricRepository.getCurrentNetworkUsage();
+            return prometheusNetworkMetricRepository.getCurrentNetworkUsage();
         } catch (Exception e) {
             log.error("현재 네트워크 사용량 조회 실패", e);
             return null;
@@ -52,7 +52,7 @@ public class NetworkMetricQueryService {
     private List<NetworkUsageResponse> getNetworkUsageTrend(Instant startTime, Instant endTime) {
         List<NetworkUsageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = networkMetricRepository.getNetworkUsageTrend(startTime, endTime);
+            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(NetworkUsageResponse.builder()
                         .time((Instant) row[0])
@@ -69,7 +69,7 @@ public class NetworkMetricQueryService {
     private List<NetworkPacketsResponse> getNetworkPacketsTrend(Instant startTime, Instant endTime) {
         List<NetworkPacketsResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = networkMetricRepository.getNetworkPacketsTrend(startTime, endTime);
+            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkPacketsTrend(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(NetworkPacketsResponse.builder()
                         .time((Instant) row[0])
@@ -86,7 +86,7 @@ public class NetworkMetricQueryService {
     private List<NetworkErrorsResponse> getNetworkErrorsTrend(Instant startTime, Instant endTime) {
         List<NetworkErrorsResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = networkMetricRepository.getNetworkErrorsAndDrops(startTime, endTime);
+            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkErrorsAndDrops(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(NetworkErrorsResponse.builder()
                         .time((Instant) row[0])

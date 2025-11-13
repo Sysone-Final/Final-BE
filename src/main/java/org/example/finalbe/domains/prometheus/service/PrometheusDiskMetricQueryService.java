@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.prometheus.dto.disk.*;
 import org.example.finalbe.domains.prometheus.dto.disk.DiskMetricsResponse;
-import org.example.finalbe.domains.prometheus.repository.disk.DiskMetricRepository;
+import org.example.finalbe.domains.prometheus.repository.disk.PrometheusDiskMetricRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +16,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class DiskMetricQueryService {
+public class PrometheusDiskMetricQueryService {
 
-    private final DiskMetricRepository diskMetricRepository;
+    private final PrometheusDiskMetricRepository prometheusDiskMetricRepository;
 
     public DiskMetricsResponse getDiskMetrics(Instant startTime, Instant endTime) {
         log.info("디스크 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
@@ -38,7 +38,7 @@ public class DiskMetricQueryService {
 
     private Double getCurrentDiskUsage() {
         try {
-            Object[] result = diskMetricRepository.getCurrentDiskUsage();
+            Object[] result = prometheusDiskMetricRepository.getCurrentDiskUsage();
             if (result != null && result.length > 2) {
                 return ((Number) result[2]).doubleValue();
             }
@@ -51,7 +51,7 @@ public class DiskMetricQueryService {
     private List<DiskUsageResponse> getDiskUsageTrend(Instant startTime, Instant endTime) {
         List<DiskUsageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = diskMetricRepository.getDiskUsageTrend(startTime, endTime);
+            List<Object[]> rows = prometheusDiskMetricRepository.getDiskUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
                 result.add(DiskUsageResponse.builder()
                         .time((Instant) row[0])
@@ -70,9 +70,9 @@ public class DiskMetricQueryService {
     private List<DiskIoResponse> getDiskIoTrend(Instant startTime, Instant endTime) {
         List<DiskIoResponse> result = new ArrayList<>();
         try {
-            List<Object[]> ioSpeedRows = diskMetricRepository.getDiskIoSpeed(startTime, endTime);
-            List<Object[]> iopsRows = diskMetricRepository.getDiskIops(startTime, endTime);
-            List<Object[]> utilizationRows = diskMetricRepository.getDiskIoUtilization(startTime, endTime);
+            List<Object[]> ioSpeedRows = prometheusDiskMetricRepository.getDiskIoSpeed(startTime, endTime);
+            List<Object[]> iopsRows = prometheusDiskMetricRepository.getDiskIops(startTime, endTime);
+            List<Object[]> utilizationRows = prometheusDiskMetricRepository.getDiskIoUtilization(startTime, endTime);
 
             for (int i = 0; i < ioSpeedRows.size(); i++) {
                 Object[] ioSpeed = ioSpeedRows.get(i);
@@ -97,7 +97,7 @@ public class DiskMetricQueryService {
     private List<InodeUsageResponse> getInodeUsage(Instant time) {
         List<InodeUsageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = diskMetricRepository.getInodeUsage(time);
+            List<Object[]> rows = prometheusDiskMetricRepository.getInodeUsage(time);
             for (Object[] row : rows) {
                 result.add(InodeUsageResponse.builder()
                         .deviceId((Integer) row[0])

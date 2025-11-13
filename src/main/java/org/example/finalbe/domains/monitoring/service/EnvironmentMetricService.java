@@ -277,7 +277,9 @@ public class EnvironmentMetricService {
 
         // 3. 각 랙별 데이터 조합
         for (Long rackId : rackIds) {
-            String rackName = rackMap.getOrDefault(rackId, new Rack(rackId, "Unknown Rack " + rackId)).getName();
+//            String rackName = rackMap.getOrDefault(rackId, new Rack(rackId, "Unknown Rack " + rackId)).getName();
+            Rack rack = rackMap.get(rackId);
+            String rackName = (rack != null) ? rack.getRackName() : ("Unknown Rack " + rackId);
             try {
                 EnvironmentMetric latest = latestMetricMap.get(rackId);
 

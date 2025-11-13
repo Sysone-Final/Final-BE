@@ -33,7 +33,7 @@ public record CompanyServerRoomResponse(
                 .companyName(companyServerRoom.getCompany().getName())
                 .serverRoomId(companyServerRoom.getServerRoom().getId())
                 .serverRoomName(companyServerRoom.getServerRoom().getName())
-                .description(companyServerRoom.getDescription())
+                .description(companyServerRoom.getServerRoom().getDescription())
                 .grantedBy(companyServerRoom.getGrantedBy())
                 .createdAt(companyServerRoom.getCreatedAt())
                 .build();

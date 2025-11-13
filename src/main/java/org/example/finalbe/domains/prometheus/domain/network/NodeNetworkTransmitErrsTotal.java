@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.prometheus.domain.cpu;
+package org.example.finalbe.domains.prometheus.domain.network;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,12 +9,12 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "node_load1", schema = "prom_metric")
+@Table(name = "node_network_transmit_errs_total", schema = "prom_metric")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NodeLoad1 {
+public class NodeNetworkTransmitErrsTotal {
 
     @Id
     @Column(name = "series_id")
@@ -25,6 +25,9 @@ public class NodeLoad1 {
 
     @Column(name = "value")
     private Double value;
+
+    @Column(name = "device_id")
+    private Integer deviceId;
 
     @Column(name = "instance_id")
     private Integer instanceId;

@@ -1,0 +1,56 @@
+package org.example.finalbe.domains.prometheus.repository.temperature;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
+import java.util.List;
+
+@Slf4j
+@Repository
+@RequiredArgsConstructor
+public class TemperatureMetricRepository {
+
+    @PersistenceContext(unitName = "appEntityManagerFactory")
+    private final EntityManager entityManager;
+
+    /**
+     * 온도 추이
+     */
+    public List<Object[]> getTemperatureTrend(Instant startTime, Instant endTime) {
+        String query = """
+            SELECT 
+                time,
+                AVG(value) as avg_temperature,
+                MAX(value) as max_temperature,
+                MIN(value) as min_temperature
+            FROM prom_metric.node_hwmon_temp_celsius
+            WHERE time BETWEEN :startTime AND :endTime
+            GROUP BY time
+            ORDER BY time ASC
+            """;
+
+        return entityManager.createNativeQuery(query)
+                .setParameter("startTime", startTime)
+                .setParameter("endTime", endTime)
+                .getResultList();
+    }
+
+    /**
+     * 현재 온도 (Gauge용)
+     */
+    public Object[] getCurrentTemperature() {
+        String query = """
+            SELECT 
+                AVG(value) as current_temperature
+            FROM prom_metric.node_hwmon_temp_celsius
+            WHERE time = (SELECT MAX(time) FROM prom_metric.node_hwmon_temp_celsius)
+            """;
+
+        List<Object[]> results = entityManager.createNativeQuery(query).getResultList();
+        return results.isEmpty() ? null : results.get(0);
+    }
+}

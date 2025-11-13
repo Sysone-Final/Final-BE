@@ -16,7 +16,6 @@ import java.time.Instant;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class PrometheusMetricService {
 
     private final PrometheusCpuMetricQueryService prometheusCpuMetricQueryService;
@@ -28,11 +27,42 @@ public class PrometheusMetricService {
     public ServerRoomMetricsResponse getAllMetrics(Instant startTime, Instant endTime) {
         log.info("전체 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
 
-        CpuMetricsResponse cpu = prometheusCpuMetricQueryService.getCpuMetrics(startTime, endTime);
-        MemoryMetricsResponse memory = prometheusMemoryMetricQueryService.getMemoryMetrics(startTime, endTime);
-        NetworkMetricsResponse network = prometheusNetworkMetricQueryService.getNetworkMetrics(startTime, endTime);
-        DiskMetricsResponse disk = prometheusDiskMetricQueryService.getDiskMetrics(startTime, endTime);
-        TemperatureMetricsResponse temperature = prometheusTemperatureMetricQueryService.getTemperatureMetrics(startTime, endTime);
+        // 각 메트릭을 독립적으로 조회하여 일부 실패해도 다른 메트릭은 반환
+        CpuMetricsResponse cpu = null;
+        MemoryMetricsResponse memory = null;
+        NetworkMetricsResponse network = null;
+        DiskMetricsResponse disk = null;
+        TemperatureMetricsResponse temperature = null;
+
+        try {
+            cpu = prometheusCpuMetricQueryService.getCpuMetrics(startTime, endTime);
+        } catch (Exception e) {
+            log.error("CPU 메트릭 조회 실패", e);
+        }
+
+        try {
+            memory = prometheusMemoryMetricQueryService.getMemoryMetrics(startTime, endTime);
+        } catch (Exception e) {
+            log.error("Memory 메트릭 조회 실패", e);
+        }
+
+        try {
+            network = prometheusNetworkMetricQueryService.getNetworkMetrics(startTime, endTime);
+        } catch (Exception e) {
+            log.error("Network 메트릭 조회 실패", e);
+        }
+
+        try {
+            disk = prometheusDiskMetricQueryService.getDiskMetrics(startTime, endTime);
+        } catch (Exception e) {
+            log.error("Disk 메트릭 조회 실패", e);
+        }
+
+        try {
+            temperature = prometheusTemperatureMetricQueryService.getTemperatureMetrics(startTime, endTime);
+        } catch (Exception e) {
+            log.error("Temperature 메트릭 조회 실패", e);
+        }
 
         return ServerRoomMetricsResponse.builder()
                 .cpu(cpu)

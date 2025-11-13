@@ -1,7 +1,6 @@
 package org.example.finalbe.domains.prometheus.repository.temperature;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -23,9 +22,9 @@ public class PrometheusTemperatureMetricRepository {
         String query = """
             SELECT 
                 time,
-                AVG(value) as avg_temperature,
-                MAX(value) as max_temperature,
-                MIN(value) as min_temperature
+                AVG(value)::double precision as avg_temperature,
+                MAX(value)::double precision as max_temperature,
+                MIN(value)::double precision as min_temperature
             FROM prom_metric.node_hwmon_temp_celsius
             WHERE time BETWEEN :startTime AND :endTime
             GROUP BY time
@@ -44,7 +43,7 @@ public class PrometheusTemperatureMetricRepository {
     public Object[] getCurrentTemperature() {
         String query = """
             SELECT 
-                AVG(value) as current_temperature
+                AVG(value)::double precision as current_temperature
             FROM prom_metric.node_hwmon_temp_celsius
             WHERE time = (SELECT MAX(time) FROM prom_metric.node_hwmon_temp_celsius)
             """;

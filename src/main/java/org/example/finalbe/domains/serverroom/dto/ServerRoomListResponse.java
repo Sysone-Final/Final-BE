@@ -18,7 +18,8 @@ public record ServerRoomListResponse(
         Integer floor,
         ServerRoomStatus status,
         Long dataCenterId,
-        String dataCenterName
+        String dataCenterName,
+        String dataCenterAddress
 ) {
     /**
      * Entity → DTO 변환
@@ -37,6 +38,7 @@ public record ServerRoomListResponse(
                 .status(serverRoom.getStatus())
                 .dataCenterId(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getId() : null)
                 .dataCenterName(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getName() : null)
+                .dataCenterAddress(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getAddress() : null)  // ✅ 추가
                 .build();
     }
 }

@@ -25,7 +25,7 @@ public class PrometheusDiskMetricRepository {
                 fs.value as total_bytes,
                 ff.value as free_bytes,
                 (fs.value - ff.value) as used_bytes,
-                ((fs.value - ff.value) / NULLIF(fs.value, 0) * 100) as usage_percent
+                (((fs.value - ff.value) / NULLIF(fs.value, 0) * 100)::double precision) as usage_percent
             FROM prom_metric.node_filesystem_size_bytes fs
             JOIN prom_metric.node_filesystem_free_bytes ff 
                 ON fs.time = ff.time 
@@ -67,9 +67,9 @@ public class PrometheusDiskMetricRepository {
             SELECT 
                 r.time,
                 SUM(CASE WHEN r.prev_value IS NOT NULL 
-                    THEN (r.value - r.prev_value) ELSE 0 END) as read_bps,
+                    THEN (r.value - r.prev_value) ELSE 0 END)::double precision as read_bps,
                 SUM(CASE WHEN w.prev_value IS NOT NULL 
-                    THEN (w.value - w.prev_value) ELSE 0 END) as write_bps
+                    THEN (w.value - w.prev_value) ELSE 0 END)::double precision as write_bps
             FROM read_data r
             JOIN write_data w ON r.time = w.time AND r.device_id = w.device_id
             GROUP BY r.time
@@ -108,9 +108,9 @@ public class PrometheusDiskMetricRepository {
             SELECT 
                 r.time,
                 SUM(CASE WHEN r.prev_value IS NOT NULL 
-                    THEN (r.value - r.prev_value) ELSE 0 END) as read_iops,
+                    THEN (r.value - r.prev_value) ELSE 0 END)::double precision as read_iops,
                 SUM(CASE WHEN w.prev_value IS NOT NULL 
-                    THEN (w.value - w.prev_value) ELSE 0 END) as write_iops
+                    THEN (w.value - w.prev_value) ELSE 0 END)::double precision as write_iops
             FROM read_data r
             JOIN write_data w ON r.time = w.time AND r.device_id = w.device_id
             GROUP BY r.time
@@ -140,7 +140,7 @@ public class PrometheusDiskMetricRepository {
             SELECT 
                 time,
                 SUM(CASE WHEN prev_value IS NOT NULL 
-                    THEN (value - prev_value) * 100 ELSE 0 END) as io_utilization_percent
+                    THEN ((value - prev_value) * 100) ELSE 0 END)::double precision as io_utilization_percent
             FROM io_data
             GROUP BY time
             ORDER BY time ASC
@@ -163,7 +163,7 @@ public class PrometheusDiskMetricRepository {
                 fi.value as total_inodes,
                 ff.value as free_inodes,
                 (fi.value - ff.value) as used_inodes,
-                ((fi.value - ff.value) / NULLIF(fi.value, 0) * 100) as inode_usage_percent
+                (((fi.value - ff.value) / NULLIF(fi.value, 0) * 100)::double precision) as inode_usage_percent
             FROM prom_metric.node_filesystem_files fi
             JOIN prom_metric.node_filesystem_files_free ff 
                 ON fi.device_id = ff.device_id 
@@ -185,7 +185,7 @@ public class PrometheusDiskMetricRepository {
             SELECT 
                 fs.value as total_bytes,
                 ff.value as free_bytes,
-                ((fs.value - ff.value) / NULLIF(fs.value, 0) * 100) as usage_percent
+                (((fs.value - ff.value) / NULLIF(fs.value, 0) * 100)::double precision) as usage_percent
             FROM prom_metric.node_filesystem_size_bytes fs
             JOIN prom_metric.node_filesystem_free_bytes ff 
                 ON fs.device_id = ff.device_id 

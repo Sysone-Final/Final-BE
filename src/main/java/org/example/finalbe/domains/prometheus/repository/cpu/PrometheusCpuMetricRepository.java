@@ -43,7 +43,7 @@ public class PrometheusCpuMetricRepository {
             )
             SELECT 
                 time,
-                100 - (SUM(CASE WHEN mode_id = 1 THEN rate ELSE 0 END) * 100.0 / NULLIF(SUM(rate), 0)) as cpu_usage
+                (100 - (SUM(CASE WHEN mode_id = 1 THEN rate ELSE 0 END) * 100.0 / NULLIF(SUM(rate), 0)))::double precision as cpu_usage
             FROM cpu_rates
             GROUP BY time
             ORDER BY time ASC
@@ -82,11 +82,11 @@ public class PrometheusCpuMetricRepository {
             )
             SELECT 
                 time,
-                SUM(CASE WHEN mode_id = 2 THEN rate ELSE 0 END) as user_mode,
-                SUM(CASE WHEN mode_id = 3 THEN rate ELSE 0 END) as system_mode,
-                SUM(CASE WHEN mode_id = 4 THEN rate ELSE 0 END) as iowait_mode,
-                SUM(CASE WHEN mode_id = 5 THEN rate ELSE 0 END) as irq_mode,
-                SUM(CASE WHEN mode_id = 6 THEN rate ELSE 0 END) as softirq_mode
+                SUM(CASE WHEN mode_id = 2 THEN rate ELSE 0 END)::double precision as user_mode,
+                SUM(CASE WHEN mode_id = 3 THEN rate ELSE 0 END)::double precision as system_mode,
+                SUM(CASE WHEN mode_id = 4 THEN rate ELSE 0 END)::double precision as iowait_mode,
+                SUM(CASE WHEN mode_id = 5 THEN rate ELSE 0 END)::double precision as irq_mode,
+                SUM(CASE WHEN mode_id = 6 THEN rate ELSE 0 END)::double precision as softirq_mode
             FROM cpu_rates
             GROUP BY time
             ORDER BY time ASC
@@ -105,9 +105,9 @@ public class PrometheusCpuMetricRepository {
         String query = """
             SELECT 
                 l1.time,
-                l1.value as load1,
-                l5.value as load5,
-                l15.value as load15
+                l1.value::double precision as load1,
+                l5.value::double precision as load5,
+                l15.value::double precision as load15
             FROM prom_metric.node_load1 l1
             JOIN prom_metric.node_load5 l5 ON l1.time = l5.time
             JOIN prom_metric.node_load15 l15 ON l1.time = l15.time
@@ -136,11 +136,11 @@ public class PrometheusCpuMetricRepository {
             )
             SELECT 
                 time,
-                CASE 
+                (CASE 
                     WHEN prev_value IS NOT NULL 
                     THEN (value - prev_value)
                     ELSE 0 
-                END as context_switches_per_sec
+                END)::double precision as context_switches_per_sec
             FROM context_data
             ORDER BY time ASC
             """;
@@ -166,10 +166,10 @@ public class PrometheusCpuMetricRepository {
                 WHERE time >= NOW() - INTERVAL '1 minute'
             )
             SELECT 
-                100 - (SUM(CASE WHEN mode_id = 1 AND prev_value IS NOT NULL 
+                (100 - (SUM(CASE WHEN mode_id = 1 AND prev_value IS NOT NULL 
                     THEN (value - prev_value) ELSE 0 END) * 100.0 / 
                     NULLIF(SUM(CASE WHEN prev_value IS NOT NULL 
-                    THEN (value - prev_value) ELSE 0 END), 0)) as current_cpu_usage
+                    THEN (value - prev_value) ELSE 0 END), 0)))::double precision as current_cpu_usage
             FROM latest_cpu
             """;
 

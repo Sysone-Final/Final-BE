@@ -1,7 +1,6 @@
 package org.example.finalbe.domains.prometheus.repository.process;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -23,7 +22,7 @@ public class PrometheusProcessMetricRepository {
         String query = """
             SELECT 
                 time,
-                value as running_processes
+                value::double precision as running_processes
             FROM prom_metric.node_procs_running
             WHERE time BETWEEN :startTime AND :endTime
             ORDER BY time ASC
@@ -42,7 +41,7 @@ public class PrometheusProcessMetricRepository {
         String query = """
             SELECT 
                 time,
-                value as blocked_processes
+                value::double precision as blocked_processes
             FROM prom_metric.node_procs_blocked
             WHERE time BETWEEN :startTime AND :endTime
             ORDER BY time ASC
@@ -61,9 +60,9 @@ public class PrometheusProcessMetricRepository {
         String query = """
             SELECT 
                 (SELECT value FROM prom_metric.node_procs_running 
-                 WHERE time = (SELECT MAX(time) FROM prom_metric.node_procs_running)) as running,
+                 WHERE time = (SELECT MAX(time) FROM prom_metric.node_procs_running))::double precision as running,
                 (SELECT value FROM prom_metric.node_procs_blocked 
-                 WHERE time = (SELECT MAX(time) FROM prom_metric.node_procs_blocked)) as blocked
+                 WHERE time = (SELECT MAX(time) FROM prom_metric.node_procs_blocked))::double precision as blocked
             """;
 
         List<Object[]> results = entityManager.createNativeQuery(query).getResultList();

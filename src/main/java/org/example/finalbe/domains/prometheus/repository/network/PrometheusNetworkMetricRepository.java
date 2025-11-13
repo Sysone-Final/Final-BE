@@ -41,9 +41,9 @@ public class PrometheusNetworkMetricRepository {
             SELECT 
                 rx.time,
                 SUM(CASE WHEN rx.prev_value IS NOT NULL 
-                    THEN (rx.value - rx.prev_value) ELSE 0 END) as rx_bytes_per_sec,
+                    THEN (rx.value - rx.prev_value) ELSE 0 END)::double precision as rx_bytes_per_sec,
                 SUM(CASE WHEN tx.prev_value IS NOT NULL 
-                    THEN (tx.value - tx.prev_value) ELSE 0 END) as tx_bytes_per_sec
+                    THEN (tx.value - tx.prev_value) ELSE 0 END)::double precision as tx_bytes_per_sec
             FROM rx_data rx
             JOIN tx_data tx ON rx.time = tx.time AND rx.device_id = tx.device_id
             GROUP BY rx.time
@@ -63,8 +63,8 @@ public class PrometheusNetworkMetricRepository {
         String query = """
             SELECT 
                 rx.time,
-                SUM(rx.value) as total_rx_packets,
-                SUM(tx.value) as total_tx_packets
+                SUM(rx.value)::double precision as total_rx_packets,
+                SUM(tx.value)::double precision as total_tx_packets
             FROM prom_metric.node_network_receive_packets_total rx
             JOIN prom_metric.node_network_transmit_packets_total tx 
                 ON rx.time = tx.time AND rx.device_id = tx.device_id
@@ -86,10 +86,10 @@ public class PrometheusNetworkMetricRepository {
         String query = """
             SELECT 
                 re.time,
-                SUM(re.value) as rx_errors,
-                SUM(te.value) as tx_errors,
-                SUM(rd.value) as rx_drops,
-                SUM(td.value) as tx_drops
+                SUM(re.value)::double precision as rx_errors,
+                SUM(te.value)::double precision as tx_errors,
+                SUM(rd.value)::double precision as rx_drops,
+                SUM(td.value)::double precision as tx_drops
             FROM prom_metric.node_network_receive_errs_total re
             JOIN prom_metric.node_network_transmit_errs_total te 
                 ON re.time = te.time AND re.device_id = te.device_id
@@ -115,7 +115,7 @@ public class PrometheusNetworkMetricRepository {
         String query = """
             SELECT 
                 device_id,
-                value as status
+                value::double precision as status
             FROM prom_metric.node_network_up
             WHERE time = :time
             ORDER BY device_id
@@ -147,9 +147,9 @@ public class PrometheusNetworkMetricRepository {
             )
             SELECT 
                 SUM(CASE WHEN latest_rx.prev_value IS NOT NULL 
-                    THEN (latest_rx.value - latest_rx.prev_value) ELSE 0 END) as current_rx_bps,
+                    THEN (latest_rx.value - latest_rx.prev_value) ELSE 0 END)::double precision as current_rx_bps,
                 SUM(CASE WHEN latest_tx.prev_value IS NOT NULL 
-                    THEN (latest_tx.value - latest_tx.prev_value) ELSE 0 END) as current_tx_bps
+                    THEN (latest_tx.value - latest_tx.prev_value) ELSE 0 END)::double precision as current_tx_bps
             FROM latest_rx, latest_tx
             """;
 

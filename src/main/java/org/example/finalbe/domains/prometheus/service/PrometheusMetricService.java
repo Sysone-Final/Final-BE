@@ -9,9 +9,11 @@ import org.example.finalbe.domains.prometheus.dto.network.NetworkMetricsResponse
 import org.example.finalbe.domains.prometheus.dto.serverroom.ServerRoomMetricsResponse;
 import org.example.finalbe.domains.prometheus.dto.temperature.TemperatureMetricsResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 @Slf4j
 @Service
@@ -25,7 +27,10 @@ public class PrometheusMetricService {
     private final PrometheusTemperatureMetricQueryService prometheusTemperatureMetricQueryService;
 
     public ServerRoomMetricsResponse getAllMetrics(Instant startTime, Instant endTime) {
-        log.info("전체 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
+        ZonedDateTime startKst = startTime.atZone(ZoneId.of("Asia/Seoul"));
+        ZonedDateTime endKst = endTime.atZone(ZoneId.of("Asia/Seoul"));
+
+        log.info("전체 메트릭 조회 시작 (KST) - startTime: {}, endTime: {}", startKst, endKst);
 
         // 각 메트릭을 독립적으로 조회하여 일부 실패해도 다른 메트릭은 반환
         CpuMetricsResponse cpu = null;

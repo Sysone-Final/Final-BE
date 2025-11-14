@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,9 +21,13 @@ import java.util.List;
 public class PrometheusDiskMetricQueryService {
 
     private final PrometheusDiskMetricRepository prometheusDiskMetricRepository;
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
     public DiskMetricsResponse getDiskMetrics(Instant startTime, Instant endTime) {
-        log.info("디스크 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
+        ZonedDateTime startKst = startTime.atZone(KST_ZONE);
+        ZonedDateTime endKst = endTime.atZone(KST_ZONE);
+
+        log.info("디스크 메트릭 조회 시작 (KST) - startTime: {}, endTime: {}", startKst, endKst);
 
         Double currentDiskUsagePercent = getCurrentDiskUsage();
         List<DiskUsageResponse> diskUsageTrend = getDiskUsageTrend(startTime, endTime);
@@ -53,8 +59,11 @@ public class PrometheusDiskMetricQueryService {
         try {
             List<Object[]> rows = prometheusDiskMetricRepository.getDiskUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(DiskUsageResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .totalBytes(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
                         .freeBytes(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
                         .usedBytes(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
@@ -79,8 +88,11 @@ public class PrometheusDiskMetricQueryService {
                 Object[] iops = i < iopsRows.size() ? iopsRows.get(i) : null;
                 Object[] utilization = i < utilizationRows.size() ? utilizationRows.get(i) : null;
 
+                Instant instant = (Instant) ioSpeed[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(DiskIoResponse.builder()
-                        .time((Instant) ioSpeed[0])
+                        .time(timeKst)
                         .readBytesPerSec(ioSpeed[1] != null ? ((Number) ioSpeed[1]).doubleValue() : 0.0)
                         .writeBytesPerSec(ioSpeed[2] != null ? ((Number) ioSpeed[2]).doubleValue() : 0.0)
                         .readIops(iops != null && iops[1] != null ? ((Number) iops[1]).doubleValue() : 0.0)

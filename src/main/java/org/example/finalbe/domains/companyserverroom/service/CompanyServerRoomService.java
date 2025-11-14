@@ -9,8 +9,10 @@ import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companyserverroom.domain.CompanyServerRoom;
 import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomCreateRequest;
+import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomGroupedByDataCenterResponse;
 import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomResponse;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.member.domain.Member;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -330,5 +333,62 @@ public class CompanyServerRoomService {
                 mappingsToDelete.size(), serverRoomId);
 
         return mappingsToDelete.size();
+    }
+
+    /**
+     * 회사의 서버실 목록을 데이터센터별로 그룹화하여 조회
+     */
+    public List<CompanyServerRoomGroupedByDataCenterResponse> getCompanyServerRoomsGroupedByDataCenter(Long companyId) {
+        log.info("Fetching server rooms grouped by datacenter for company: {}", companyId);
+
+        // 회사 존재 확인
+        companyRepository.findActiveById(companyId)
+                .orElseThrow(() -> new EntityNotFoundException("회사", companyId));
+
+        // CompanyServerRoom 매핑 조회
+        List<CompanyServerRoom> mappings = companyServerRoomRepository.findByCompanyId(companyId);
+
+        // 데이터센터별로 그룹화
+        Map<Long, List<CompanyServerRoom>> groupedByDataCenter = mappings.stream()
+                .filter(mapping -> mapping.getServerRoom().getDataCenter() != null)
+                .collect(Collectors.groupingBy(
+                        mapping -> mapping.getServerRoom().getDataCenter().getId()
+                ));
+
+        // 응답 DTO 생성
+        List<CompanyServerRoomGroupedByDataCenterResponse> result = groupedByDataCenter.entrySet().stream()
+                .map(entry -> {
+                    // 첫 번째 서버실에서 데이터센터 정보 추출
+                    DataCenter dataCenter = entry.getValue().get(0).getServerRoom().getDataCenter();
+
+                    // 서버실 정보 리스트 생성
+                    List<CompanyServerRoomGroupedByDataCenterResponse.ServerRoomInfo> serverRooms =
+                            entry.getValue().stream()
+                                    .map(mapping -> {
+                                        ServerRoom sr = mapping.getServerRoom();
+                                        return CompanyServerRoomGroupedByDataCenterResponse.ServerRoomInfo.builder()
+                                                .id(sr.getId())
+                                                .name(sr.getName())
+                                                .code(sr.getCode())
+                                                .location(sr.getLocation())
+                                                .floor(sr.getFloor())
+                                                .status(sr.getStatus())
+                                                .build();
+                                    })
+                                    .collect(Collectors.toList());
+
+                    // 데이터센터별 응답 DTO 생성
+                    return CompanyServerRoomGroupedByDataCenterResponse.builder()
+                            .dataCenterId(dataCenter.getId())
+                            .dataCenterName(dataCenter.getName())
+                            .dataCenterCode(dataCenter.getCode())
+                            .dataCenterAddress(dataCenter.getAddress())
+                            .serverRooms(serverRooms)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        log.info("Found {} datacenters with server rooms for company: {}", result.size(), companyId);
+        return result;
     }
 }

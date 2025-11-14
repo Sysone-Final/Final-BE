@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
@@ -33,6 +35,8 @@ public class PrometheusMetricsController {
     private final PrometheusDiskMetricQueryService prometheusDiskMetricQueryService;
     private final PrometheusTemperatureMetricQueryService prometheusTemperatureMetricQueryService;
     private final PrometheusSSEBroadcastService prometheusSseBroadcastService;
+
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
     /**
      * SSE 실시간 스트리밍 연결
@@ -55,10 +59,21 @@ public class PrometheusMetricsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime) {
 
-        Instant start = startTime != null ? startTime : Instant.now().minus(1, ChronoUnit.HOURS);
-        Instant end = endTime != null ? endTime : Instant.now();
+        ZonedDateTime nowKst = ZonedDateTime.now(KST_ZONE);
 
-        log.info("전체 메트릭 조회 - startTime: {}, endTime: {}", start, end);
+        Instant start = startTime != null
+                ? startTime
+                : nowKst.minus(1, ChronoUnit.HOURS).toInstant();
+
+        Instant end = endTime != null
+                ? endTime
+                : nowKst.toInstant();
+
+        // KST로만 로그 출력 (UTC는 제거)
+        ZonedDateTime startKst = start.atZone(KST_ZONE);
+        ZonedDateTime endKst = end.atZone(KST_ZONE);
+
+        log.info("전체 메트릭 조회 (KST) - startTime: {}, endTime: {}", startKst, endKst);
 
         ServerRoomMetricsResponse response = prometheusMetricService.getAllMetrics(start, end);
         return ResponseEntity.ok(response);
@@ -73,8 +88,15 @@ public class PrometheusMetricsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime) {
 
-        Instant start = startTime != null ? startTime : Instant.now().minus(1, ChronoUnit.HOURS);
-        Instant end = endTime != null ? endTime : Instant.now();
+        ZonedDateTime nowKst = ZonedDateTime.now(KST_ZONE);
+
+        Instant start = startTime != null
+                ? startTime
+                : nowKst.minus(1, ChronoUnit.HOURS).toInstant();
+
+        Instant end = endTime != null
+                ? endTime
+                : nowKst.toInstant();
 
         log.info("CPU 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
@@ -91,8 +113,15 @@ public class PrometheusMetricsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime) {
 
-        Instant start = startTime != null ? startTime : Instant.now().minus(1, ChronoUnit.HOURS);
-        Instant end = endTime != null ? endTime : Instant.now();
+        ZonedDateTime nowKst = ZonedDateTime.now(KST_ZONE);
+
+        Instant start = startTime != null
+                ? startTime
+                : nowKst.minus(1, ChronoUnit.HOURS).toInstant();
+
+        Instant end = endTime != null
+                ? endTime
+                : nowKst.toInstant();
 
         log.info("메모리 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
@@ -109,8 +138,15 @@ public class PrometheusMetricsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime) {
 
-        Instant start = startTime != null ? startTime : Instant.now().minus(1, ChronoUnit.HOURS);
-        Instant end = endTime != null ? endTime : Instant.now();
+        ZonedDateTime nowKst = ZonedDateTime.now(KST_ZONE);
+
+        Instant start = startTime != null
+                ? startTime
+                : nowKst.minus(1, ChronoUnit.HOURS).toInstant();
+
+        Instant end = endTime != null
+                ? endTime
+                : nowKst.toInstant();
 
         log.info("네트워크 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
@@ -127,8 +163,15 @@ public class PrometheusMetricsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime) {
 
-        Instant start = startTime != null ? startTime : Instant.now().minus(1, ChronoUnit.HOURS);
-        Instant end = endTime != null ? endTime : Instant.now();
+        ZonedDateTime nowKst = ZonedDateTime.now(KST_ZONE);
+
+        Instant start = startTime != null
+                ? startTime
+                : nowKst.minus(1, ChronoUnit.HOURS).toInstant();
+
+        Instant end = endTime != null
+                ? endTime
+                : nowKst.toInstant();
 
         log.info("디스크 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 
@@ -145,8 +188,15 @@ public class PrometheusMetricsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime) {
 
-        Instant start = startTime != null ? startTime : Instant.now().minus(1, ChronoUnit.HOURS);
-        Instant end = endTime != null ? endTime : Instant.now();
+        ZonedDateTime nowKst = ZonedDateTime.now(KST_ZONE);
+
+        Instant start = startTime != null
+                ? startTime
+                : nowKst.minus(1, ChronoUnit.HOURS).toInstant();
+
+        Instant end = endTime != null
+                ? endTime
+                : nowKst.toInstant();
 
         log.info("온도 메트릭 조회 - startTime: {}, endTime: {}", start, end);
 

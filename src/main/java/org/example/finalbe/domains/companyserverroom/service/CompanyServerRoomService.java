@@ -373,6 +373,7 @@ public class CompanyServerRoomService {
                                                 .location(sr.getLocation())
                                                 .floor(sr.getFloor())
                                                 .status(sr.getStatus())
+                                                .description(sr.getDescription())
                                                 .build();
                                     })
                                     .collect(Collectors.toList());

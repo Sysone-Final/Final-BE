@@ -1,4 +1,4 @@
-package org.example.finalbe.domains.companyserverroom.dto;
+package org.example.finalbe.domains.serverroom.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
@@ -7,9 +7,10 @@ import java.util.List;
 
 /**
  * 데이터센터별로 그룹화된 서버실 응답 DTO
+ * /api/serverrooms 엔드포인트용
  */
 @Builder
-public record CompanyServerRoomGroupedByDataCenterResponse(
+public record ServerRoomGroupedByDataCenterResponse(
         Long dataCenterId,
         String dataCenterName,
         String dataCenterCode,

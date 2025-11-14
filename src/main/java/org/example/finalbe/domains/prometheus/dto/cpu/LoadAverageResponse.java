@@ -5,14 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
+import java.time.ZonedDateTime;
+
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoadAverageResponse {
-    private Instant time;
+    private ZonedDateTime time;
     private Double load1;
     private Double load5;
     private Double load15;

@@ -57,7 +57,7 @@ public class PrometheusNetworkMetricRepository {
     }
 
     /**
-     * 네트워크 패킷 수 추이 (RX/TX)
+     * 네트워크 패킷 수 추이 (RX/TX) - 그래프 3.3, 3.4
      */
     public List<Object[]> getNetworkPacketsTrend(Instant startTime, Instant endTime) {
         String query = """
@@ -80,7 +80,30 @@ public class PrometheusNetworkMetricRepository {
     }
 
     /**
-     * 네트워크 에러 및 드롭 패킷
+     * 네트워크 바이트 누적 추이 - 그래프 3.5, 3.6
+     */
+    public List<Object[]> getNetworkBytesTrend(Instant startTime, Instant endTime) {
+        String query = """
+            SELECT 
+                rx.time,
+                SUM(rx.value)::double precision as total_rx_bytes,
+                SUM(tx.value)::double precision as total_tx_bytes
+            FROM prom_metric.node_network_receive_bytes_total rx
+            JOIN prom_metric.node_network_transmit_bytes_total tx 
+                ON rx.time = tx.time AND rx.device_id = tx.device_id
+            WHERE rx.time BETWEEN :startTime AND :endTime
+            GROUP BY rx.time
+            ORDER BY rx.time ASC
+            """;
+
+        return entityManager.createNativeQuery(query)
+                .setParameter("startTime", startTime)
+                .setParameter("endTime", endTime)
+                .getResultList();
+    }
+
+    /**
+     * 네트워크 에러 및 드롭 패킷 - 그래프 3.8
      */
     public List<Object[]> getNetworkErrorsAndDrops(Instant startTime, Instant endTime) {
         String query = """
@@ -109,16 +132,17 @@ public class PrometheusNetworkMetricRepository {
     }
 
     /**
-     * 인터페이스 상태 조회
+     * 네트워크 인터페이스 상태 - 그래프 3.9
      */
     public List<Object[]> getNetworkInterfaceStatus(Instant time) {
         String query = """
             SELECT 
-                device_id,
-                value::double precision as status
-            FROM prom_metric.node_network_up
-            WHERE time = :time
-            ORDER BY device_id
+                d.device as device_name,
+                nu.value::integer as oper_status
+            FROM prom_metric.node_network_up nu
+            JOIN prom_metric.device d ON nu.device_id = d.id
+            WHERE nu.time = :time
+            ORDER BY d.device
             """;
 
         return entityManager.createNativeQuery(query)
@@ -137,6 +161,8 @@ public class PrometheusNetworkMetricRepository {
                     LAG(value) OVER (ORDER BY time) as prev_value
                 FROM prom_metric.node_network_receive_bytes_total
                 WHERE time >= NOW() - INTERVAL '1 minute'
+                ORDER BY time DESC
+                LIMIT 2
             ),
             latest_tx AS (
                 SELECT 
@@ -144,6 +170,8 @@ public class PrometheusNetworkMetricRepository {
                     LAG(value) OVER (ORDER BY time) as prev_value
                 FROM prom_metric.node_network_transmit_bytes_total
                 WHERE time >= NOW() - INTERVAL '1 minute'
+                ORDER BY time DESC
+                LIMIT 2
             )
             SELECT 
                 SUM(CASE WHEN latest_rx.prev_value IS NOT NULL 

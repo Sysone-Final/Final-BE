@@ -22,16 +22,17 @@ public class PrometheusDiskMetricRepository {
         String query = """
             SELECT 
                 fs.time,
-                fs.value as total_bytes,
-                ff.value as free_bytes,
-                (fs.value - ff.value) as used_bytes,
-                (((fs.value - ff.value) / NULLIF(fs.value, 0) * 100)::double precision) as usage_percent
+                SUM(fs.value)::double precision as total_bytes,
+                SUM(ff.value)::double precision as free_bytes,
+                SUM(fs.value - ff.value)::double precision as used_bytes,
+                AVG((((fs.value - ff.value) / NULLIF(fs.value, 0) * 100)::double precision)) as usage_percent
             FROM prom_metric.node_filesystem_size_bytes fs
             JOIN prom_metric.node_filesystem_free_bytes ff 
                 ON fs.time = ff.time 
                 AND fs.device_id = ff.device_id 
                 AND fs.mountpoint_id = ff.mountpoint_id
             WHERE fs.time BETWEEN :startTime AND :endTime
+            GROUP BY fs.time
             ORDER BY fs.time ASC
             """;
 
@@ -42,7 +43,7 @@ public class PrometheusDiskMetricRepository {
     }
 
     /**
-     * 디스크 I/O 속도 (읽기/쓰기)
+     * 디스크 I/O 속도 (읽기/쓰기 bytes/sec)
      */
     public List<Object[]> getDiskIoSpeed(Instant startTime, Instant endTime) {
         String query = """
@@ -67,9 +68,9 @@ public class PrometheusDiskMetricRepository {
             SELECT 
                 r.time,
                 SUM(CASE WHEN r.prev_value IS NOT NULL 
-                    THEN (r.value - r.prev_value) ELSE 0 END)::double precision as read_bps,
+                    THEN (r.value - r.prev_value) ELSE 0 END)::double precision as read_bytes_per_sec,
                 SUM(CASE WHEN w.prev_value IS NOT NULL 
-                    THEN (w.value - w.prev_value) ELSE 0 END)::double precision as write_bps
+                    THEN (w.value - w.prev_value) ELSE 0 END)::double precision as write_bytes_per_sec
             FROM read_data r
             JOIN write_data w ON r.time = w.time AND r.device_id = w.device_id
             GROUP BY r.time
@@ -83,7 +84,7 @@ public class PrometheusDiskMetricRepository {
     }
 
     /**
-     * 디스크 IOPS (읽기/쓰기)
+     * 디스크 IOPS (읽기/쓰기 작업 횟수)
      */
     public List<Object[]> getDiskIops(Instant startTime, Instant endTime) {
         String query = """
@@ -196,5 +197,31 @@ public class PrometheusDiskMetricRepository {
 
         List<Object[]> results = entityManager.createNativeQuery(query).getResultList();
         return results.isEmpty() ? null : results.get(0);
+    }
+
+    /**
+     * 디스크 공간 예측용 데이터 조회 (그래프 4.5)
+     */
+    public List<Object[]> getDiskUsageForPrediction(Instant startTime, Instant endTime) {
+        String query = """
+            SELECT 
+                fs.time,
+                SUM(ff.value)::double precision as free_bytes,
+                SUM(fs.value - ff.value)::double precision as used_bytes,
+                AVG((((fs.value - ff.value) / NULLIF(fs.value, 0) * 100)::double precision)) as usage_percent
+            FROM prom_metric.node_filesystem_size_bytes fs
+            JOIN prom_metric.node_filesystem_free_bytes ff 
+                ON fs.time = ff.time 
+                AND fs.device_id = ff.device_id 
+                AND fs.mountpoint_id = ff.mountpoint_id
+            WHERE fs.time BETWEEN :startTime AND :endTime
+            GROUP BY fs.time
+            ORDER BY fs.time ASC
+            """;
+
+        return entityManager.createNativeQuery(query)
+                .setParameter("startTime", startTime)
+                .setParameter("endTime", endTime)
+                .getResultList();
     }
 }

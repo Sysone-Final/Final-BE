@@ -1,21 +1,27 @@
 package org.example.finalbe.domains.prometheus.dto.cpu;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-
 import java.util.List;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class CpuMetricsResponse {
-    private Double currentCpuUsage;
-    private List<CpuUsageResponse> cpuUsageTrend;
-    private List<CpuModeDistributionResponse> cpuModeDistribution;
-    private List<LoadAverageResponse> loadAverageTrend;
-    private List<ContextSwitchResponse> contextSwitchTrend;
+public record CpuMetricsResponse(
+        Double currentCpuUsage,
+        List<CpuUsageResponse> cpuUsageTrend,
+        List<CpuModeDistributionResponse> cpuModeDistribution,
+        List<LoadAverageResponse> loadAverageTrend,
+        List<ContextSwitchResponse> contextSwitchTrend
+) {
+    public static CpuMetricsResponse of(
+            Double currentCpuUsage,
+            List<CpuUsageResponse> cpuUsageTrend,
+            List<CpuModeDistributionResponse> cpuModeDistribution,
+            List<LoadAverageResponse> loadAverageTrend,
+            List<ContextSwitchResponse> contextSwitchTrend
+    ) {
+        return new CpuMetricsResponse(
+                currentCpuUsage,
+                cpuUsageTrend,
+                cpuModeDistribution,
+                loadAverageTrend,
+                contextSwitchTrend
+        );
+    }
 }

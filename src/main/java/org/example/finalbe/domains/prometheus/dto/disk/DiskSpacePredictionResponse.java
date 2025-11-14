@@ -3,15 +3,16 @@ package org.example.finalbe.domains.prometheus.dto.disk;
 import java.time.ZonedDateTime;
 
 /**
- * 디스크 사용률 응답 DTO
- * 그래프 4.1: 디스크 사용률 추이
+ * 디스크 공간 예측 응답 DTO
+ * 그래프 4.5: 디스크 공간 추이 with 예측
  */
-public record DiskUsageResponse(
+public record DiskSpacePredictionResponse(
         ZonedDateTime time,
-        Double totalBytes,
         Double freeBytes,
         Double usedBytes,
-        Double usagePercent
+        Double usagePercent,
+        Boolean isPrediction,
+        Double predictedUsagePercent
 ) {
     public static Builder builder() {
         return new Builder();
@@ -19,18 +20,14 @@ public record DiskUsageResponse(
 
     public static class Builder {
         private ZonedDateTime time;
-        private Double totalBytes;
         private Double freeBytes;
         private Double usedBytes;
         private Double usagePercent;
+        private Boolean isPrediction;
+        private Double predictedUsagePercent;
 
         public Builder time(ZonedDateTime time) {
             this.time = time;
-            return this;
-        }
-
-        public Builder totalBytes(Double totalBytes) {
-            this.totalBytes = totalBytes;
             return this;
         }
 
@@ -49,8 +46,25 @@ public record DiskUsageResponse(
             return this;
         }
 
-        public DiskUsageResponse build() {
-            return new DiskUsageResponse(time, totalBytes, freeBytes, usedBytes, usagePercent);
+        public Builder isPrediction(Boolean isPrediction) {
+            this.isPrediction = isPrediction;
+            return this;
+        }
+
+        public Builder predictedUsagePercent(Double predictedUsagePercent) {
+            this.predictedUsagePercent = predictedUsagePercent;
+            return this;
+        }
+
+        public DiskSpacePredictionResponse build() {
+            return new DiskSpacePredictionResponse(
+                    time,
+                    freeBytes,
+                    usedBytes,
+                    usagePercent,
+                    isPrediction,
+                    predictedUsagePercent
+            );
         }
     }
 }

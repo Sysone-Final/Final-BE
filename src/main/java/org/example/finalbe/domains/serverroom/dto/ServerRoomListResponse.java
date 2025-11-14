@@ -1,5 +1,3 @@
-// src/main/java/org/example/finalbe/domains/serverroom/dto/ServerRoomListResponse.java
-
 package org.example.finalbe.domains.serverroom.dto;
 
 import lombok.Builder;
@@ -38,7 +36,7 @@ public record ServerRoomListResponse(
                 .status(serverRoom.getStatus())
                 .dataCenterId(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getId() : null)
                 .dataCenterName(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getName() : null)
-                .dataCenterAddress(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getAddress() : null)  // ✅ 추가
+                .dataCenterAddress(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getAddress() : null)
                 .build();
     }
 }

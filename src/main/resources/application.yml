@@ -32,7 +32,7 @@ spring:
           batch_size: 50
         order_inserts: true
         order_updates: true
-        default_schema: public
+#        default_schema: public
     open-in-view: false
 
   task:

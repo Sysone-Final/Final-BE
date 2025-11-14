@@ -23,6 +23,7 @@ public record CompanyServerRoomGroupedByDataCenterResponse(
             String code,
             String location,
             Integer floor,
-            ServerRoomStatus status
+            ServerRoomStatus status,
+            String description
     ) {}
 }

@@ -181,6 +181,54 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
             @Param("endTime") LocalDateTime endTime
     );
 
+    /**
+     * 시간대별 CPU 평균 사용률 (1일 단위 집계)
+     */
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('1 day', generate_time) AS bucket, " +
+                    "  AVG(100 - cpu_idle) AS avg_cpu_usage, " +
+                    "  MAX(100 - cpu_idle) AS max_cpu_usage, " +
+                    "  MIN(100 - cpu_idle) AS min_cpu_usage, " +
+                    "  AVG(load_avg1) AS avg_load, " +
+                    "  SUM(context_switches) AS total_context_switches, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM system_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getCpuAggregatedStats1Day(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    /**
+     * 시간대별 메모리 평균 사용률 (1일 단위 집계)
+     */
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('1 day', generate_time) AS bucket, " +
+                    "  AVG(used_memory_percentage) AS avg_mem_usage, " +
+                    "  MAX(used_memory_percentage) AS max_mem_usage, " +
+                    "  MIN(used_memory_percentage) AS min_mem_usage, " +
+                    "  AVG(used_swap_percentage) AS avg_swap_usage, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM system_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getMemoryAggregatedStats1Day(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+
     // ==================== 최신 데이터 조회 (실시간 대시보드용) ====================
 
     /**

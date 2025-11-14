@@ -60,6 +60,9 @@ public class DiskMetricService {
             case HOUR:
                 aggregatedData = getDiskAggregatedData1Hour(equipmentId, startTime, endTime);
                 return buildDiskSectionFromAggregated(currentStats, aggregatedData);
+            case DAY:
+                aggregatedData = getDiskAggregatedData1Day(equipmentId, startTime, endTime);
+                return buildDiskSectionFromAggregated(currentStats, aggregatedData);
             case RAW:
             default:
                 metrics = diskMetricRepository.findByEquipmentIdAndTimeRange(
@@ -183,6 +186,21 @@ public class DiskMetricService {
 
         return results.stream()
                 .map(this::mapToDiskAggregatedStats)
+                .collect(Collectors.toList());
+    }
+    /**
+     * 1일 단위 집계 데이터 조회 (새로 추가)
+     */
+    private List<DiskAggregatedStatsDto> getDiskAggregatedData1Day(
+            Long equipmentId,
+            LocalDateTime startTime,
+            LocalDateTime endTime) {
+
+        List<Object[]> results = diskMetricRepository.getDiskAggregatedStats1Day(
+                equipmentId, startTime, endTime);
+
+        return results.stream()
+                .map(this::mapToDiskAggregatedStats) // 기존 매퍼 재활용
                 .collect(Collectors.toList());
     }
 

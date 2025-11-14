@@ -113,6 +113,27 @@ public interface DiskMetricRepository extends JpaRepository<DiskMetric, Long> {
             @Param("endTime") LocalDateTime endTime
     );
 
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('1 day', generate_time) AS bucket, " +
+                    "  AVG(used_percentage) AS avg_usage, " +
+                    "  AVG(used_inode_percentage) AS avg_inode_usage, " +
+                    "  AVG(io_read_bps) AS avg_read_bps, " +
+                    "  AVG(io_write_bps) AS avg_write_bps, " +
+                    "  AVG(io_time_percentage) AS avg_io_time, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM disk_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getDiskAggregatedStats1Day(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
     // ==================== 일괄 조회 (Batch) ====================
 
     @Query(value =

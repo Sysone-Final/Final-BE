@@ -1,0 +1,38 @@
+package org.example.finalbe.domains.monitoring.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.finalbe.domains.monitoring.service.SseService;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+@RestController
+@RequestMapping("/api/monitoring/subscribe")
+@RequiredArgsConstructor
+public class SseController {
+
+    private final SseService sseService;
+
+    /**
+     * 장비 실시간 메트릭 구독
+     * @param equipmentId 장비 ID
+     * @return SseEmitter
+     */
+    @GetMapping(value = "/equipment/{equipmentId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeToEquipment(@PathVariable Long equipmentId) {
+        return sseService.subscribeEquipment(equipmentId);
+    }
+
+    /**
+     * 랙 실시간 환경 메트릭 구독
+     * @param rackId 랙 ID
+     * @return SseEmitter
+     */
+    @GetMapping(value = "/rack/{rackId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeToRack(@PathVariable Long rackId) {
+        return sseService.subscribeRack(rackId);
+    }
+}

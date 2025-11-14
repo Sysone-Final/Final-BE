@@ -125,6 +125,28 @@ public interface NetworkMetricRepository extends JpaRepository<NetworkMetric, Lo
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
     );
+    /**
+     * 1일 단위 집계
+     */
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('1 day', generate_time) AS bucket, " +
+                    "  SUM(in_bytes_per_sec) AS total_in_bps, " +
+                    "  SUM(out_bytes_per_sec) AS total_out_bps, " +
+                    "  AVG(rx_usage) AS avg_rx_usage, " +
+                    "  AVG(tx_usage) AS avg_tx_usage, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM network_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getNetworkAggregatedStats1Day(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
 
     // ==================== 일괄 조회 (Batch) ====================
 

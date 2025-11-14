@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,9 +21,13 @@ import java.util.List;
 public class PrometheusMemoryMetricQueryService {
 
     private final PrometheusMemoryMetricRepository prometheusMemoryMetricRepository;
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
     public MemoryMetricsResponse getMemoryMetrics(Instant startTime, Instant endTime) {
-        log.info("메모리 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
+        ZonedDateTime startKst = startTime.atZone(KST_ZONE);
+        ZonedDateTime endKst = endTime.atZone(KST_ZONE);
+
+        log.info("메모리 메트릭 조회 시작 (KST) - startTime: {}, endTime: {}", startKst, endKst);
 
         Double currentMemoryUsagePercent = getCurrentMemoryUsage();
         List<MemoryUsageResponse> memoryUsageTrend = getMemoryUsageTrend(startTime, endTime);
@@ -53,10 +59,13 @@ public class PrometheusMemoryMetricQueryService {
         try {
             List<Object[]> rows = prometheusMemoryMetricRepository.getMemoryUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 Double total = row[1] != null ? ((Number) row[1]).doubleValue() : 0.0;
                 Double available = row[2] != null ? ((Number) row[2]).doubleValue() : 0.0;
                 result.add(MemoryUsageResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .totalMemory(total)
                         .availableMemory(available)
                         .usedMemory(total - available)
@@ -74,8 +83,11 @@ public class PrometheusMemoryMetricQueryService {
         try {
             List<Object[]> rows = prometheusMemoryMetricRepository.getMemoryComposition(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(MemoryCompositionResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .active(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
                         .inactive(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
                         .buffers(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
@@ -94,8 +106,11 @@ public class PrometheusMemoryMetricQueryService {
         try {
             List<Object[]> rows = prometheusMemoryMetricRepository.getSwapUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(SwapUsageResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .totalSwap(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
                         .freeSwap(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
                         .usedSwap(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)

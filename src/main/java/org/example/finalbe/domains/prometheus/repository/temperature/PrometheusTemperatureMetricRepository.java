@@ -25,7 +25,7 @@ public class PrometheusTemperatureMetricRepository {
                 AVG(value)::double precision as avg_temperature,
                 MAX(value)::double precision as max_temperature,
                 MIN(value)::double precision as min_temperature
-            FROM prom_metric.node_hwmon_temp_celsius
+            FROM prom_metric."node_hwmon_temp_celsius"
             WHERE time BETWEEN :startTime AND :endTime
             GROUP BY time
             ORDER BY time ASC
@@ -40,15 +40,15 @@ public class PrometheusTemperatureMetricRepository {
     /**
      * 현재 온도 (Gauge용)
      */
-    public Object[] getCurrentTemperature() {
+    public Double getCurrentTemperature() {
         String query = """
-            SELECT 
-                AVG(value)::double precision as current_temperature
-            FROM prom_metric.node_hwmon_temp_celsius
-            WHERE time = (SELECT MAX(time) FROM prom_metric.node_hwmon_temp_celsius)
-            """;
+        SELECT 
+            AVG(value)::double precision as current_temperature
+        FROM prom_metric."node_hwmon_temp_celsius"
+        WHERE time = (SELECT MAX(time) FROM prom_metric."node_hwmon_temp_celsius")
+        """;
 
-        List<Object[]> results = entityManager.createNativeQuery(query).getResultList();
-        return results.isEmpty() ? null : results.get(0);
+        List<Double> results = entityManager.createNativeQuery(query).getResultList();
+        return results.isEmpty() ? 0.0 : results.get(0);
     }
 }

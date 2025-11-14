@@ -254,4 +254,96 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
             @Param("equipmentIds") List<Long> equipmentIds,
             @Param("limit") int limit
     );
+
+    /**
+     * 시간대별 메모리 평균 사용률 (1분 단위 집계)
+     */
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('1 minute', generate_time) AS bucket, " +
+                    "  AVG(used_memory_percentage) AS avg_mem_usage, " +
+                    "  MAX(used_memory_percentage) AS max_mem_usage, " +
+                    "  MIN(used_memory_percentage) AS min_mem_usage, " +
+                    "  AVG(used_swap_percentage) AS avg_swap_usage, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM system_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getMemoryAggregatedStats1Minute(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    /**
+     * 시간대별 메모리 평균 사용률 (5분 단위 집계)
+     */
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('5 minutes', generate_time) AS bucket, " +
+                    "  AVG(used_memory_percentage) AS avg_mem_usage, " +
+                    "  MAX(used_memory_percentage) AS max_mem_usage, " +
+                    "  MIN(used_memory_percentage) AS min_mem_usage, " +
+                    "  AVG(used_swap_percentage) AS avg_swap_usage, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM system_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getMemoryAggregatedStats5Minutes(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    /**
+     * 시간대별 메모리 평균 사용률 (1시간 단위 집계)
+     */
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('1 hour', generate_time) AS bucket, " +
+                    "  AVG(used_memory_percentage) AS avg_mem_usage, " +
+                    "  MAX(used_memory_percentage) AS max_mem_usage, " +
+                    "  MIN(used_memory_percentage) AS min_mem_usage, " +
+                    "  AVG(used_swap_percentage) AS avg_swap_usage, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM system_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getMemoryAggregatedStats1Hour(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    /**
+     * 여러 장비의 최근 N개 데이터로 메모리 통계 일괄 계산
+     */
+    @Query(value =
+            "SELECT " +
+                    "  equipment_id, " +
+                    "  AVG(used_memory_percentage) AS avg_mem, " +
+                    "  MAX(used_memory_percentage) AS max_mem, " +
+                    "  MIN(used_memory_percentage) AS min_mem " +
+                    "FROM (" +
+                    "  SELECT *, ROW_NUMBER() OVER (PARTITION BY equipment_id ORDER BY generate_time DESC) AS rn " +
+                    "  FROM system_metrics " +
+                    "  WHERE equipment_id IN (:equipmentIds) " +
+                    ") AS ranked " +
+                    "WHERE rn <= :limit " +
+                    "GROUP BY equipment_id",
+            nativeQuery = true)
+    List<Object[]> getMemoryUsageStatsBatch(
+            @Param("equipmentIds") List<Long> equipmentIds,
+            @Param("limit") int limit
+    );
+
 }

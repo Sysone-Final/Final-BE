@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,9 +21,13 @@ import java.util.List;
 public class PrometheusCpuMetricQueryService {
 
     private final PrometheusCpuMetricRepository prometheusCpuMetricRepository;
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
     public CpuMetricsResponse getCpuMetrics(Instant startTime, Instant endTime) {
-        log.info("CPU 메트릭 조회 시작 - startTime: {}, endTime: {}", startTime, endTime);
+        ZonedDateTime startKst = startTime.atZone(KST_ZONE);
+        ZonedDateTime endKst = endTime.atZone(KST_ZONE);
+
+        log.info("CPU 메트릭 조회 시작 (KST) - startTime: {}, endTime: {}", startKst, endKst);
 
         Double currentCpuUsage = getCurrentCpuUsage();
         List<CpuUsageResponse> cpuUsageTrend = getCpuUsageTrend(startTime, endTime);
@@ -40,9 +46,9 @@ public class PrometheusCpuMetricQueryService {
 
     private Double getCurrentCpuUsage() {
         try {
-            Object[] result = prometheusCpuMetricRepository.getCurrentCpuUsage();
-            if (result != null && result.length > 0) {
-                return ((Number) result[0]).doubleValue();
+            Double result = prometheusCpuMetricRepository.getCurrentCpuUsage();
+            if (result != null) {
+                return result;
             }
         } catch (Exception e) {
             log.error("현재 CPU 사용률 조회 실패", e);
@@ -55,8 +61,11 @@ public class PrometheusCpuMetricQueryService {
         try {
             List<Object[]> rows = prometheusCpuMetricRepository.getCpuUsageTrend(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(CpuUsageResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .cpuUsagePercent(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
                         .build());
             }
@@ -71,8 +80,11 @@ public class PrometheusCpuMetricQueryService {
         try {
             List<Object[]> rows = prometheusCpuMetricRepository.getCpuModeDistribution(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(CpuModeDistributionResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .userMode(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
                         .systemMode(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
                         .iowaitMode(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
@@ -91,8 +103,11 @@ public class PrometheusCpuMetricQueryService {
         try {
             List<Object[]> rows = prometheusCpuMetricRepository.getLoadAverage(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(LoadAverageResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .load1(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
                         .load5(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
                         .load15(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
@@ -109,8 +124,11 @@ public class PrometheusCpuMetricQueryService {
         try {
             List<Object[]> rows = prometheusCpuMetricRepository.getContextSwitchTrend(startTime, endTime);
             for (Object[] row : rows) {
+                Instant instant = (Instant) row[0];
+                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
+
                 result.add(ContextSwitchResponse.builder()
-                        .time((Instant) row[0])
+                        .time(timeKst)
                         .contextSwitchesPerSec(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
                         .build());
             }

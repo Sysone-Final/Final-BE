@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomCreateRequest;
+import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomGroupedByDataCenterResponse;
 import org.example.finalbe.domains.companyserverroom.dto.CompanyServerRoomResponse;
 import org.example.finalbe.domains.companyserverroom.service.CompanyServerRoomService;
 import org.example.finalbe.domains.common.dto.CommonResDto;
@@ -53,18 +54,18 @@ public class CompanyServerRoomController {
     }
 
     /**
-     * 특정 회사의 서버실 매핑 목록 조회
+     * 특정 회사의 서버실 매핑 목록 조회 (데이터센터별 그룹화)
      * GET /api/company-serverrooms/company/{companyId}
      *
      * @param companyId 회사 ID
-     * @return 회사에 매핑된 서버실 목록
+     * @return 데이터센터별로 그룹화된 서버실 목록
      */
     @GetMapping("/company/{companyId}")
     public ResponseEntity<CommonResDto> getMappingsByCompany(
             @PathVariable @Min(value = 1, message = "유효하지 않은 회사 ID입니다.") Long companyId) {
 
-        List<CompanyServerRoomResponse> mappings =
-                companyServerRoomService.getCompanyServerRoomsByCompanyId(companyId);
+        List<CompanyServerRoomGroupedByDataCenterResponse> mappings =
+                companyServerRoomService.getCompanyServerRoomsGroupedByDataCenter(companyId);
 
         CommonResDto response = new CommonResDto(
                 HttpStatus.OK,

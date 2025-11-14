@@ -154,10 +154,10 @@ public class PrometheusCpuMetricRepository {
     /**
      * 현재 CPU 사용률 (최신값)
      */
-    public Object[] getCurrentCpuUsage() {
+    public Double getCurrentCpuUsage() {
         String query = """
             WITH latest_cpu AS (
-                SELECT 
+                SELECT
                     mode_id,
                     value,
                     time,
@@ -165,15 +165,15 @@ public class PrometheusCpuMetricRepository {
                 FROM prom_metric.node_cpu_seconds_total
                 WHERE time >= NOW() - INTERVAL '1 minute'
             )
-            SELECT 
-                (100 - (SUM(CASE WHEN mode_id = 1 AND prev_value IS NOT NULL 
-                    THEN (value - prev_value) ELSE 0 END) * 100.0 / 
-                    NULLIF(SUM(CASE WHEN prev_value IS NOT NULL 
+            SELECT
+                (100 - (SUM(CASE WHEN mode_id = 1 AND prev_value IS NOT NULL
+                    THEN (value - prev_value) ELSE 0 END) * 100.0 /
+                    NULLIF(SUM(CASE WHEN prev_value IS NOT NULL
                     THEN (value - prev_value) ELSE 0 END), 0)))::double precision as current_cpu_usage
             FROM latest_cpu
             """;
 
-        List<Object[]> results = entityManager.createNativeQuery(query).getResultList();
+        List<Double> results = entityManager.createNativeQuery(query).getResultList();
         return results.isEmpty() ? null : results.get(0);
     }
 }

@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -410,5 +411,73 @@ public class ServerRoomService {
                 .humidityMax(original.getHumidityMax())
                 .dataCenter(original.getDataCenter())
                 .build();
+    }
+
+    /**
+     * CompanyServerRoom 매핑 테이블로 접근 가능한 서버실 목록 조회 (데이터센터별 그룹화)
+     */
+    public List<ServerRoomGroupedByDataCenterResponse> getAccessibleServerRoomsGroupedByDataCenter() {
+        Member currentMember = getCurrentMember();
+        log.info("Fetching accessible server rooms grouped by datacenter for user: {} (role: {}, company: {})",
+                currentMember.getId(), currentMember.getRole(), currentMember.getCompany().getId());
+
+        List<ServerRoom> serverRooms;
+
+        if (currentMember.getRole() == Role.ADMIN) {
+            // ADMIN은 모든 서버실 조회
+            serverRooms = serverRoomRepository.findByDelYn(DelYN.N);
+            log.info("Admin user - returning all {} server rooms", serverRooms.size());
+        } else {
+            // 일반 사용자: CompanyServerRoom 매핑을 통해 접근 가능한 서버실만 조회
+            List<CompanyServerRoom> mappings = companyServerRoomRepository
+                    .findByCompanyId(currentMember.getCompany().getId());
+
+            serverRooms = mappings.stream()
+                    .map(CompanyServerRoom::getServerRoom)
+                    .collect(Collectors.toList());
+
+            log.info("Non-admin user - returning {} accessible server rooms", serverRooms.size());
+        }
+
+        // 데이터센터별로 그룹화
+        Map<Long, List<ServerRoom>> groupedByDataCenter = serverRooms.stream()
+                .filter(sr -> sr.getDataCenter() != null)
+                .collect(Collectors.groupingBy(
+                        sr -> sr.getDataCenter().getId()
+                ));
+
+        // 응답 DTO 생성
+        List<ServerRoomGroupedByDataCenterResponse> result = groupedByDataCenter.entrySet().stream()
+                .map(entry -> {
+                    // 첫 번째 서버실에서 데이터센터 정보 추출
+                    DataCenter dataCenter = entry.getValue().get(0).getDataCenter();
+
+                    // 서버실 정보 리스트 생성
+                    List<ServerRoomGroupedByDataCenterResponse.ServerRoomInfo> serverRoomInfos =
+                            entry.getValue().stream()
+                                    .map(sr -> ServerRoomGroupedByDataCenterResponse.ServerRoomInfo.builder()
+                                            .id(sr.getId())
+                                            .name(sr.getName())
+                                            .code(sr.getCode())
+                                            .location(sr.getLocation())
+                                            .floor(sr.getFloor())
+                                            .status(sr.getStatus())
+                                            .description(sr.getDescription())
+                                            .build())
+                                    .collect(Collectors.toList());
+
+                    // 데이터센터별 응답 DTO 생성
+                    return ServerRoomGroupedByDataCenterResponse.builder()
+                            .dataCenterId(dataCenter.getId())
+                            .dataCenterName(dataCenter.getName())
+                            .dataCenterCode(dataCenter.getCode())
+                            .dataCenterAddress(dataCenter.getAddress())
+                            .serverRooms(serverRoomInfos)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        log.info("Found {} datacenters with server rooms", result.size());
+        return result;
     }
 }

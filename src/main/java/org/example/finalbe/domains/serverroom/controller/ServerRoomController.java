@@ -32,21 +32,18 @@ public class ServerRoomController {
     private final ServerRoomService serverRoomService;
 
     /**
-     * 접근 가능한 서버실 목록 조회
+     * 접근 가능한 서버실 목록 조회 (데이터센터별 그룹화)
      * GET /api/serverrooms
      *
-     * @return 서버실 목록
+     * @return 데이터센터별로 그룹화된 서버실 목록
      */
     @GetMapping
     public ResponseEntity<CommonResDto> getAccessibleServerRooms() {
-        List<ServerRoomListResponse> serverRooms = serverRoomService.getAccessibleServerRooms();
+        List<ServerRoomGroupedByDataCenterResponse> serverRooms = serverRoomService.getAccessibleServerRoomsGroupedByDataCenter();
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "서버실 목록 조회 완료", serverRooms));
     }
 
-    // ===== 상세 조회 엔드포인트 제거 =====
-    // GET /api/serverrooms/{id} 삭제됨
-    // 대신 /api/company-serverrooms/company/{companyId} 사용
 
     /**
      * 서버실 생성

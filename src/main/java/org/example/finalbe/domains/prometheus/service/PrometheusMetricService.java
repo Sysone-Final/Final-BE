@@ -10,7 +10,6 @@ import org.example.finalbe.domains.prometheus.dto.serverroom.ServerRoomMetricsRe
 import org.example.finalbe.domains.prometheus.dto.temperature.TemperatureMetricsResponse;
 import org.springframework.stereotype.Service;
 
-
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -32,49 +31,57 @@ public class PrometheusMetricService {
 
         log.info("전체 메트릭 조회 시작 (KST) - startTime: {}, endTime: {}", startKst, endKst);
 
-        // 각 메트릭을 독립적으로 조회하여 일부 실패해도 다른 메트릭은 반환
-        CpuMetricsResponse cpu = null;
-        MemoryMetricsResponse memory = null;
-        NetworkMetricsResponse network = null;
-        DiskMetricsResponse disk = null;
-        TemperatureMetricsResponse temperature = null;
+        return new ServerRoomMetricsResponse(
+                getCpuMetrics(startTime, endTime),
+                getMemoryMetrics(startTime, endTime),
+                getNetworkMetrics(startTime, endTime),
+                getDiskMetrics(startTime, endTime),
+                getTemperatureMetrics(startTime, endTime)
+        );
+    }
 
+    private CpuMetricsResponse getCpuMetrics(Instant startTime, Instant endTime) {
         try {
-            cpu = prometheusCpuMetricQueryService.getCpuMetrics(startTime, endTime);
+            return prometheusCpuMetricQueryService.getCpuMetrics(startTime, endTime);
         } catch (Exception e) {
             log.error("CPU 메트릭 조회 실패", e);
+            return null;
         }
+    }
 
+    private MemoryMetricsResponse getMemoryMetrics(Instant startTime, Instant endTime) {
         try {
-            memory = prometheusMemoryMetricQueryService.getMemoryMetrics(startTime, endTime);
+            return prometheusMemoryMetricQueryService.getMemoryMetrics(startTime, endTime);
         } catch (Exception e) {
             log.error("Memory 메트릭 조회 실패", e);
+            return null;
         }
+    }
 
+    private NetworkMetricsResponse getNetworkMetrics(Instant startTime, Instant endTime) {
         try {
-            network = prometheusNetworkMetricQueryService.getNetworkMetrics(startTime, endTime);
+            return prometheusNetworkMetricQueryService.getNetworkMetrics(startTime, endTime);
         } catch (Exception e) {
             log.error("Network 메트릭 조회 실패", e);
+            return null;
         }
+    }
 
+    private DiskMetricsResponse getDiskMetrics(Instant startTime, Instant endTime) {
         try {
-            disk = prometheusDiskMetricQueryService.getDiskMetrics(startTime, endTime);
+            return prometheusDiskMetricQueryService.getDiskMetrics(startTime, endTime);
         } catch (Exception e) {
             log.error("Disk 메트릭 조회 실패", e);
+            return null;
         }
+    }
 
+    private TemperatureMetricsResponse getTemperatureMetrics(Instant startTime, Instant endTime) {
         try {
-            temperature = prometheusTemperatureMetricQueryService.getTemperatureMetrics(startTime, endTime);
+            return prometheusTemperatureMetricQueryService.getTemperatureMetrics(startTime, endTime);
         } catch (Exception e) {
             log.error("Temperature 메트릭 조회 실패", e);
+            return null;
         }
-
-        return ServerRoomMetricsResponse.builder()
-                .cpu(cpu)
-                .memory(memory)
-                .network(network)
-                .disk(disk)
-                .temperature(temperature)
-                .build();
     }
 }

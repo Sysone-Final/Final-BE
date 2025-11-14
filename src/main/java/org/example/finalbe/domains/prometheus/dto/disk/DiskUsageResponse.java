@@ -1,11 +1,9 @@
 package org.example.finalbe.domains.prometheus.dto.disk;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-/**
- * 디스크 사용률 응답 DTO
- * 그래프 4.1: 디스크 사용률 추이
- */
 public record DiskUsageResponse(
         ZonedDateTime time,
         Double totalBytes,
@@ -13,44 +11,18 @@ public record DiskUsageResponse(
         Double usedBytes,
         Double usagePercent
 ) {
-    public static Builder builder() {
-        return new Builder();
-    }
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static class Builder {
-        private ZonedDateTime time;
-        private Double totalBytes;
-        private Double freeBytes;
-        private Double usedBytes;
-        private Double usagePercent;
+    public static DiskUsageResponse from(Object[] row) {
+        Instant instant = (Instant) row[0];
+        ZonedDateTime timeKst = instant.atZone(KST_ZONE);
 
-        public Builder time(ZonedDateTime time) {
-            this.time = time;
-            return this;
-        }
-
-        public Builder totalBytes(Double totalBytes) {
-            this.totalBytes = totalBytes;
-            return this;
-        }
-
-        public Builder freeBytes(Double freeBytes) {
-            this.freeBytes = freeBytes;
-            return this;
-        }
-
-        public Builder usedBytes(Double usedBytes) {
-            this.usedBytes = usedBytes;
-            return this;
-        }
-
-        public Builder usagePercent(Double usagePercent) {
-            this.usagePercent = usagePercent;
-            return this;
-        }
-
-        public DiskUsageResponse build() {
-            return new DiskUsageResponse(time, totalBytes, freeBytes, usedBytes, usagePercent);
-        }
+        return new DiskUsageResponse(
+                timeKst,
+                row[1] != null ? ((Number) row[1]).doubleValue() : 0.0,
+                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0,
+                row[3] != null ? ((Number) row[3]).doubleValue() : 0.0,
+                row[4] != null ? ((Number) row[4]).doubleValue() : 0.0
+        );
     }
 }

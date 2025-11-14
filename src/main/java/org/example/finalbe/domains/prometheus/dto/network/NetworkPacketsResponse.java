@@ -1,41 +1,24 @@
 package org.example.finalbe.domains.prometheus.dto.network;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-/**
- * 네트워크 패킷 응답 DTO
- */
 public record NetworkPacketsResponse(
         ZonedDateTime time,
         Double totalRxPackets,
         Double totalTxPackets
 ) {
-    public static Builder builder() {
-        return new Builder();
-    }
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static class Builder {
-        private ZonedDateTime time;
-        private Double totalRxPackets;
-        private Double totalTxPackets;
+    public static NetworkPacketsResponse from(Object[] row) {
+        Instant instant = (Instant) row[0];
+        ZonedDateTime timeKst = instant.atZone(KST_ZONE);
 
-        public Builder time(ZonedDateTime time) {
-            this.time = time;
-            return this;
-        }
-
-        public Builder totalRxPackets(Double totalRxPackets) {
-            this.totalRxPackets = totalRxPackets;
-            return this;
-        }
-
-        public Builder totalTxPackets(Double totalTxPackets) {
-            this.totalTxPackets = totalTxPackets;
-            return this;
-        }
-
-        public NetworkPacketsResponse build() {
-            return new NetworkPacketsResponse(time, totalRxPackets, totalTxPackets);
-        }
+        return new NetworkPacketsResponse(
+                timeKst,
+                row[1] != null ? ((Number) row[1]).doubleValue() : 0.0,
+                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0
+        );
     }
 }

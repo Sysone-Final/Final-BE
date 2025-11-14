@@ -1,42 +1,24 @@
 package org.example.finalbe.domains.prometheus.dto.network;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-/**
- * 네트워크 누적 바이트 응답 DTO
- * 그래프 3.5, 3.6: 총 수신/송신 바이트
- */
 public record NetworkBytesResponse(
         ZonedDateTime time,
         Double totalReceiveBytes,
         Double totalTransmitBytes
 ) {
-    public static Builder builder() {
-        return new Builder();
-    }
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static class Builder {
-        private ZonedDateTime time;
-        private Double totalReceiveBytes;
-        private Double totalTransmitBytes;
+    public static NetworkBytesResponse from(Object[] row) {
+        Instant instant = (Instant) row[0];
+        ZonedDateTime timeKst = instant.atZone(KST_ZONE);
 
-        public Builder time(ZonedDateTime time) {
-            this.time = time;
-            return this;
-        }
-
-        public Builder totalReceiveBytes(Double totalReceiveBytes) {
-            this.totalReceiveBytes = totalReceiveBytes;
-            return this;
-        }
-
-        public Builder totalTransmitBytes(Double totalTransmitBytes) {
-            this.totalTransmitBytes = totalTransmitBytes;
-            return this;
-        }
-
-        public NetworkBytesResponse build() {
-            return new NetworkBytesResponse(time, totalReceiveBytes, totalTransmitBytes);
-        }
+        return new NetworkBytesResponse(
+                timeKst,
+                row[1] != null ? ((Number) row[1]).doubleValue() : 0.0,
+                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0
+        );
     }
 }

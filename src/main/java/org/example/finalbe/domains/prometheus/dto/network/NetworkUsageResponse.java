@@ -1,42 +1,24 @@
 package org.example.finalbe.domains.prometheus.dto.network;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-/**
- * 네트워크 사용량 응답 DTO
- * 그래프 3.1, 3.2, 3.7: RX/TX 사용률 및 대역폭
- */
 public record NetworkUsageResponse(
         ZonedDateTime time,
         Double rxBytesPerSec,
         Double txBytesPerSec
 ) {
-    public static Builder builder() {
-        return new Builder();
-    }
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static class Builder {
-        private ZonedDateTime time;
-        private Double rxBytesPerSec;
-        private Double txBytesPerSec;
+    public static NetworkUsageResponse from(Object[] row) {
+        Instant instant = (Instant) row[0];
+        ZonedDateTime timeKst = instant.atZone(KST_ZONE);
 
-        public Builder time(ZonedDateTime time) {
-            this.time = time;
-            return this;
-        }
-
-        public Builder rxBytesPerSec(Double rxBytesPerSec) {
-            this.rxBytesPerSec = rxBytesPerSec;
-            return this;
-        }
-
-        public Builder txBytesPerSec(Double txBytesPerSec) {
-            this.txBytesPerSec = txBytesPerSec;
-            return this;
-        }
-
-        public NetworkUsageResponse build() {
-            return new NetworkUsageResponse(time, rxBytesPerSec, txBytesPerSec);
-        }
+        return new NetworkUsageResponse(
+                timeKst,
+                row[1] != null ? ((Number) row[1]).doubleValue() : 0.0,
+                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0
+        );
     }
 }

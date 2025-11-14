@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -34,21 +33,15 @@ public class PrometheusNetworkMetricQueryService {
         Double currentTxBps = currentUsage != null && currentUsage[1] != null ?
                 ((Number) currentUsage[1]).doubleValue() : 0.0;
 
-        List<NetworkUsageResponse> networkUsageTrend = getNetworkUsageTrend(startTime, endTime);
-        List<NetworkPacketsResponse> networkPacketsTrend = getNetworkPacketsTrend(startTime, endTime);
-        List<NetworkBytesResponse> networkBytesTrend = getNetworkBytesTrend(startTime, endTime);
-        List<NetworkErrorsResponse> networkErrorsTrend = getNetworkErrorsTrend(startTime, endTime);
-        List<NetworkInterfaceStatusResponse> interfaceStatus = getNetworkInterfaceStatus(endTime);
-
-        return NetworkMetricsResponse.builder()
-                .currentRxBytesPerSec(currentRxBps)
-                .currentTxBytesPerSec(currentTxBps)
-                .networkUsageTrend(networkUsageTrend)
-                .networkPacketsTrend(networkPacketsTrend)
-                .networkBytesTrend(networkBytesTrend)
-                .networkErrorsTrend(networkErrorsTrend)
-                .interfaceStatus(interfaceStatus)
-                .build();
+        return new NetworkMetricsResponse(
+                currentRxBps,
+                currentTxBps,
+                getNetworkUsageTrend(startTime, endTime),
+                getNetworkPacketsTrend(startTime, endTime),
+                getNetworkBytesTrend(startTime, endTime),
+                getNetworkErrorsTrend(startTime, endTime),
+                getNetworkInterfaceStatus(endTime)
+        );
     }
 
     private Object[] getCurrentNetworkUsage() {
@@ -61,105 +54,62 @@ public class PrometheusNetworkMetricQueryService {
     }
 
     private List<NetworkUsageResponse> getNetworkUsageTrend(Instant startTime, Instant endTime) {
-        List<NetworkUsageResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkUsageTrend(startTime, endTime);
-            for (Object[] row : rows) {
-                Instant instant = (Instant) row[0];
-                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
-
-                result.add(NetworkUsageResponse.builder()
-                        .time(timeKst)
-                        .rxBytesPerSec(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
-                        .txBytesPerSec(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
-                        .build());
-            }
+            return prometheusNetworkMetricRepository.getNetworkUsageTrend(startTime, endTime)
+                    .stream()
+                    .map(NetworkUsageResponse::from)
+                    .toList();
         } catch (Exception e) {
             log.error("네트워크 사용량 추이 조회 실패", e);
+            return List.of();
         }
-        return result;
     }
 
     private List<NetworkPacketsResponse> getNetworkPacketsTrend(Instant startTime, Instant endTime) {
-        List<NetworkPacketsResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkPacketsTrend(startTime, endTime);
-            for (Object[] row : rows) {
-                Instant instant = (Instant) row[0];
-                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
-
-                result.add(NetworkPacketsResponse.builder()
-                        .time(timeKst)
-                        .totalRxPackets(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
-                        .totalTxPackets(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
-                        .build());
-            }
+            return prometheusNetworkMetricRepository.getNetworkPacketsTrend(startTime, endTime)
+                    .stream()
+                    .map(NetworkPacketsResponse::from)
+                    .toList();
         } catch (Exception e) {
             log.error("네트워크 패킷 추이 조회 실패", e);
+            return List.of();
         }
-        return result;
     }
 
     private List<NetworkBytesResponse> getNetworkBytesTrend(Instant startTime, Instant endTime) {
-        List<NetworkBytesResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkBytesTrend(startTime, endTime);
-            for (Object[] row : rows) {
-                Instant instant = (Instant) row[0];
-                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
-
-                result.add(NetworkBytesResponse.builder()
-                        .time(timeKst)
-                        .totalReceiveBytes(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
-                        .totalTransmitBytes(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
-                        .build());
-            }
+            return prometheusNetworkMetricRepository.getNetworkBytesTrend(startTime, endTime)
+                    .stream()
+                    .map(NetworkBytesResponse::from)
+                    .toList();
         } catch (Exception e) {
             log.error("네트워크 바이트 추이 조회 실패", e);
+            return List.of();
         }
-        return result;
     }
 
     private List<NetworkErrorsResponse> getNetworkErrorsTrend(Instant startTime, Instant endTime) {
-        List<NetworkErrorsResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkErrorsAndDrops(startTime, endTime);
-            for (Object[] row : rows) {
-                Instant instant = (Instant) row[0];
-                ZonedDateTime timeKst = instant.atZone(KST_ZONE);
-
-                result.add(NetworkErrorsResponse.builder()
-                        .time(timeKst)
-                        .rxErrors(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
-                        .txErrors(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
-                        .rxDrops(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
-                        .txDrops(row[4] != null ? ((Number) row[4]).doubleValue() : 0.0)
-                        .build());
-            }
+            return prometheusNetworkMetricRepository.getNetworkErrorsAndDrops(startTime, endTime)
+                    .stream()
+                    .map(NetworkErrorsResponse::from)
+                    .toList();
         } catch (Exception e) {
             log.error("네트워크 에러 추이 조회 실패", e);
+            return List.of();
         }
-        return result;
     }
 
     private List<NetworkInterfaceStatusResponse> getNetworkInterfaceStatus(Instant time) {
-        List<NetworkInterfaceStatusResponse> result = new ArrayList<>();
         try {
-            List<Object[]> rows = prometheusNetworkMetricRepository.getNetworkInterfaceStatus(time);
-            for (Object[] row : rows) {
-                String deviceName = (String) row[0];
-                Integer operStatus = row[1] != null ? ((Number) row[1]).intValue() : 0;
-                String statusText = (operStatus == 1) ? "UP" : "DOWN";
-
-                result.add(NetworkInterfaceStatusResponse.builder()
-                        .device(deviceName)
-                        .operStatus(operStatus)
-                        .statusText(statusText)
-                        .build());
-            }
+            return prometheusNetworkMetricRepository.getNetworkInterfaceStatus(time)
+                    .stream()
+                    .map(NetworkInterfaceStatusResponse::from)
+                    .toList();
         } catch (Exception e) {
             log.error("네트워크 인터페이스 상태 조회 실패", e);
+            return List.of();
         }
-        return result;
     }
 }

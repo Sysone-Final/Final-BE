@@ -1,11 +1,9 @@
 package org.example.finalbe.domains.prometheus.dto.network;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-/**
- * 네트워크 에러 응답 DTO
- * 그래프 3.8: 에러 및 드롭 패킷
- */
 public record NetworkErrorsResponse(
         ZonedDateTime time,
         Double rxErrors,
@@ -13,44 +11,18 @@ public record NetworkErrorsResponse(
         Double rxDrops,
         Double txDrops
 ) {
-    public static Builder builder() {
-        return new Builder();
-    }
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static class Builder {
-        private ZonedDateTime time;
-        private Double rxErrors;
-        private Double txErrors;
-        private Double rxDrops;
-        private Double txDrops;
+    public static NetworkErrorsResponse from(Object[] row) {
+        Instant instant = (Instant) row[0];
+        ZonedDateTime timeKst = instant.atZone(KST_ZONE);
 
-        public Builder time(ZonedDateTime time) {
-            this.time = time;
-            return this;
-        }
-
-        public Builder rxErrors(Double rxErrors) {
-            this.rxErrors = rxErrors;
-            return this;
-        }
-
-        public Builder txErrors(Double txErrors) {
-            this.txErrors = txErrors;
-            return this;
-        }
-
-        public Builder rxDrops(Double rxDrops) {
-            this.rxDrops = rxDrops;
-            return this;
-        }
-
-        public Builder txDrops(Double txDrops) {
-            this.txDrops = txDrops;
-            return this;
-        }
-
-        public NetworkErrorsResponse build() {
-            return new NetworkErrorsResponse(time, rxErrors, txErrors, rxDrops, txDrops);
-        }
+        return new NetworkErrorsResponse(
+                timeKst,
+                row[1] != null ? ((Number) row[1]).doubleValue() : 0.0,
+                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0,
+                row[3] != null ? ((Number) row[3]).doubleValue() : 0.0,
+                row[4] != null ? ((Number) row[4]).doubleValue() : 0.0
+        );
     }
 }

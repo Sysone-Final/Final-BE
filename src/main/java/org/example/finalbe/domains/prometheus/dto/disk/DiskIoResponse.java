@@ -1,11 +1,9 @@
 package org.example.finalbe.domains.prometheus.dto.disk;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-/**
- * 디스크 I/O 응답 DTO
- * 그래프 4.2, 4.3, 4.4: 디스크 I/O (읽기/쓰기 속도, IOPS, 사용률)
- */
 public record DiskIoResponse(
         ZonedDateTime time,
         Double readBytesPerSec,
@@ -14,57 +12,19 @@ public record DiskIoResponse(
         Double writeIops,
         Double ioUtilizationPercent
 ) {
-    public static Builder builder() {
-        return new Builder();
-    }
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
-    public static class Builder {
-        private ZonedDateTime time;
-        private Double readBytesPerSec;
-        private Double writeBytesPerSec;
-        private Double readIops;
-        private Double writeIops;
-        private Double ioUtilizationPercent;
+    public static DiskIoResponse from(Object[] ioSpeed, Object[] iops, Object[] utilization) {
+        Instant instant = (Instant) ioSpeed[0];
+        ZonedDateTime timeKst = instant.atZone(KST_ZONE);
 
-        public Builder time(ZonedDateTime time) {
-            this.time = time;
-            return this;
-        }
-
-        public Builder readBytesPerSec(Double readBytesPerSec) {
-            this.readBytesPerSec = readBytesPerSec;
-            return this;
-        }
-
-        public Builder writeBytesPerSec(Double writeBytesPerSec) {
-            this.writeBytesPerSec = writeBytesPerSec;
-            return this;
-        }
-
-        public Builder readIops(Double readIops) {
-            this.readIops = readIops;
-            return this;
-        }
-
-        public Builder writeIops(Double writeIops) {
-            this.writeIops = writeIops;
-            return this;
-        }
-
-        public Builder ioUtilizationPercent(Double ioUtilizationPercent) {
-            this.ioUtilizationPercent = ioUtilizationPercent;
-            return this;
-        }
-
-        public DiskIoResponse build() {
-            return new DiskIoResponse(
-                    time,
-                    readBytesPerSec,
-                    writeBytesPerSec,
-                    readIops,
-                    writeIops,
-                    ioUtilizationPercent
-            );
-        }
+        return new DiskIoResponse(
+                timeKst,
+                ioSpeed[1] != null ? ((Number) ioSpeed[1]).doubleValue() : 0.0,
+                ioSpeed[2] != null ? ((Number) ioSpeed[2]).doubleValue() : 0.0,
+                iops != null && iops[1] != null ? ((Number) iops[1]).doubleValue() : 0.0,
+                iops != null && iops[2] != null ? ((Number) iops[2]).doubleValue() : 0.0,
+                utilization != null && utilization[1] != null ? ((Number) utilization[1]).doubleValue() : 0.0
+        );
     }
 }

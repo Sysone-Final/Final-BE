@@ -32,5 +32,10 @@ public enum AggregationLevel {
      * - 24시간 ~ 30일 조회 시 권장
      * - 장기 추세 분석용
      */
-    HOUR
+    HOUR,
+
+    /**
+     * 1일 단위 집계 (새로 추가)
+     */
+    DAY
 }

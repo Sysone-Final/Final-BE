@@ -111,6 +111,25 @@ public interface EnvironmentMetricRepository extends JpaRepository<EnvironmentMe
             @Param("endTime") LocalDateTime endTime
     );
 
+    @Query(value =
+            "SELECT " +
+                    "  time_bucket('1 day', generate_time) AS bucket, " +
+                    "  AVG(temperature) AS avg_temp, " +
+                    "  MAX(temperature) AS max_temp, " +
+                    "  MIN(temperature) AS min_temp, " +
+                    "  AVG(humidity) AS avg_humidity, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM environment_metrics " +
+                    "WHERE rack_id = :rackId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
+            nativeQuery = true)
+    List<Object[]> getEnvironmentAggregatedStats1Day(
+            @Param("rackId") Long rackId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
     // ==================== 일괄 조회 (Batch, rackId 기준) ====================
 
     @Query(value =

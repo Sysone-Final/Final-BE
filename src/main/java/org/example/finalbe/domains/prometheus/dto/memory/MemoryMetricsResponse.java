@@ -6,6 +6,7 @@ public record MemoryMetricsResponse(
         Double currentMemoryUsagePercent,
         List<MemoryUsageResponse> memoryUsageTrend,
         List<MemoryCompositionResponse> memoryComposition,
-        List<SwapUsageResponse> swapUsageTrend
+        List<SwapUsageResponse> swapUsageTrend,
+        List<TopNMemoryUsageResponse> topNMemoryUsage
 ) {
 }

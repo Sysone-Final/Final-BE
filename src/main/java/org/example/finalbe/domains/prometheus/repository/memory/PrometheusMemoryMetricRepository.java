@@ -113,4 +113,45 @@ public class PrometheusMemoryMetricRepository {
         List<Object[]> results = entityManager.createNativeQuery(query).getResultList();
         return results.isEmpty() ? null : results.get(0);
     }
+
+    /**
+     * 메모리 사용량 Top N (그래프 2.4)
+     * 현재 시점 기준 메모리 사용률이 높은 서버 순위
+     */
+    public List<Object[]> getTopNMemoryUsage(int limit) {
+        String query = """
+            WITH latest_time AS (
+                SELECT MAX(time) as max_time
+                FROM prom_metric."node_memory_MemTotal_bytes"
+            ),
+            memory_usage AS (
+                SELECT 
+                    mt.instance_id,
+                    mt.time,
+                    mt.value as total_memory,
+                    ma.value as available_memory,
+                    (mt.value - ma.value) as used_memory,
+                    (((mt.value - ma.value) / mt.value * 100)::double precision) as memory_usage_percent
+                FROM prom_metric."node_memory_MemTotal_bytes" mt
+                JOIN prom_metric."node_memory_MemAvailable_bytes" ma 
+                    ON mt.instance_id = ma.instance_id AND mt.time = ma.time
+                WHERE mt.time = (SELECT max_time FROM latest_time)
+            )
+            SELECT 
+                mu.instance_id,
+                i.instance as instance_name,
+                mu.time,
+                mu.total_memory,
+                mu.used_memory,
+                mu.memory_usage_percent
+            FROM memory_usage mu
+            JOIN prom_metric.instance i ON mu.instance_id = i.id
+            ORDER BY mu.memory_usage_percent DESC
+            LIMIT :limit
+            """;
+
+        return entityManager.createNativeQuery(query)
+                .setParameter("limit", limit)
+                .getResultList();
+    }
 }

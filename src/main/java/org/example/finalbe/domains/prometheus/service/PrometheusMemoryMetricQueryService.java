@@ -20,6 +20,7 @@ public class PrometheusMemoryMetricQueryService {
 
     private final PrometheusMemoryMetricRepository prometheusMemoryMetricRepository;
     private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
+    private static final int DEFAULT_TOP_N_LIMIT = 10;
 
     public MemoryMetricsResponse getMemoryMetrics(Instant startTime, Instant endTime) {
         ZonedDateTime startKst = startTime.atZone(KST_ZONE);
@@ -31,7 +32,8 @@ public class PrometheusMemoryMetricQueryService {
                 getCurrentMemoryUsage(),
                 getMemoryUsageTrend(startTime, endTime),
                 getMemoryComposition(startTime, endTime),
-                getSwapUsageTrend(startTime, endTime)
+                getSwapUsageTrend(startTime, endTime),
+                getTopNMemoryUsage(DEFAULT_TOP_N_LIMIT)
         );
     }
 
@@ -79,6 +81,18 @@ public class PrometheusMemoryMetricQueryService {
                     .toList();
         } catch (Exception e) {
             log.error("SWAP 메모리 추이 조회 실패", e);
+            return List.of();
+        }
+    }
+
+    private List<TopNMemoryUsageResponse> getTopNMemoryUsage(int limit) {
+        try {
+            return prometheusMemoryMetricRepository.getTopNMemoryUsage(limit)
+                    .stream()
+                    .map(TopNMemoryUsageResponse::from)
+                    .toList();
+        } catch (Exception e) {
+            log.error("메모리 사용량 Top N 조회 실패", e);
             return List.of();
         }
     }

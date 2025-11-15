@@ -136,13 +136,14 @@ public class PrometheusNetworkMetricRepository {
      */
     public List<Object[]> getNetworkInterfaceStatus(Instant time) {
         String query = """
-            SELECT 
-                d.device as device_name,
+            SELECT\s
+                d.value as device_name,
                 nu.value::integer as oper_status
             FROM prom_metric.node_network_up nu
-            JOIN prom_metric.device d ON nu.device_id = d.id
+            LEFT JOIN prom_metric.node_network_device_id d  
+                ON nu.device_id = d.device_id AND nu.time = d.time
             WHERE nu.time = :time
-            ORDER BY d.device
+            ORDER BY d.value
             """;
 
         return entityManager.createNativeQuery(query)

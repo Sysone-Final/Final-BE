@@ -140,7 +140,7 @@ public class PrometheusNetworkMetricRepository {
                 d.value as device_name,
                 nu.value::integer as oper_status
             FROM prom_metric.node_network_up nu
-            LEFT JOIN prom_metric.node_network_device_id d  
+            LEFT JOIN prom_metric.node_network_device_id d
                 ON nu.device_id = d.device_id AND nu.time = d.time
             WHERE nu.time = :time
             ORDER BY d.value

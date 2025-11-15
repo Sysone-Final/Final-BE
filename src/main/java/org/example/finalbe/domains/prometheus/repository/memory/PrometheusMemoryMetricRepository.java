@@ -118,6 +118,7 @@ public class PrometheusMemoryMetricRepository {
      * 메모리 사용량 Top N (그래프 2.4)
      * 현재 시점 기준 메모리 사용률이 높은 서버 순위
      */
+    // PrometheusMemoryMetricRepository.java
     public List<Object[]> getTopNMemoryUsage(int limit) {
         String query = """
             WITH latest_time AS (
@@ -139,13 +140,12 @@ public class PrometheusMemoryMetricRepository {
             )
             SELECT 
                 mu.instance_id,
-                i.instance as instance_name,
+                CAST(mu.instance_id AS VARCHAR) as instance_name,
                 mu.time,
                 mu.total_memory,
                 mu.used_memory,
                 mu.memory_usage_percent
             FROM memory_usage mu
-            JOIN prom_metric.instance i ON mu.instance_id = i.id
             ORDER BY mu.memory_usage_percent DESC
             LIMIT :limit
             """;

@@ -185,4 +185,75 @@ public class PrometheusNetworkMetricRepository {
         List<Object[]> results = entityManager.createNativeQuery(query).getResultList();
         return results.isEmpty() ? null : results.get(0);
     }
+    /**
+     * 모든 네트워크 디바이스의 최신 사용률 조회
+     */
+    public List<Object[]> getLatestNetworkUsageAllDevices() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric.node_network_receive_bytes_total
+        )
+        SELECT 
+            rx.instance_id,
+            rx.device_id,
+            rx.value as total_rx_bytes,
+            tx.value as total_tx_bytes,
+            rxp.value as total_rx_packets,
+            txp.value as total_tx_packets
+        FROM prom_metric.node_network_receive_bytes_total rx
+        JOIN prom_metric.node_network_transmit_bytes_total tx 
+            ON rx.time = tx.time 
+            AND rx.instance_id = tx.instance_id
+            AND rx.device_id = tx.device_id
+        JOIN prom_metric.node_network_receive_packets_total rxp
+            ON rx.time = rxp.time 
+            AND rx.instance_id = rxp.instance_id
+            AND rx.device_id = rxp.device_id
+        JOIN prom_metric.node_network_transmit_packets_total txp
+            ON rx.time = txp.time 
+            AND rx.instance_id = txp.instance_id
+            AND rx.device_id = txp.device_id
+        CROSS JOIN latest_time lt
+        WHERE rx.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
+
+    /**
+     * 모든 네트워크 디바이스의 최신 에러 조회
+     */
+    public List<Object[]> getLatestNetworkErrorsAllDevices() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric.node_network_receive_errs_total
+        )
+        SELECT 
+            re.instance_id,
+            re.device_id,
+            re.value as total_rx_errors,
+            te.value as total_tx_errors,
+            rd.value as total_rx_dropped,
+            td.value as total_tx_dropped
+        FROM prom_metric.node_network_receive_errs_total re
+        JOIN prom_metric.node_network_transmit_errs_total te 
+            ON re.time = te.time 
+            AND re.instance_id = te.instance_id
+            AND re.device_id = te.device_id
+        JOIN prom_metric.node_network_receive_drop_total rd
+            ON re.time = rd.time 
+            AND re.instance_id = rd.instance_id
+            AND re.device_id = rd.device_id
+        JOIN prom_metric.node_network_transmit_drop_total td
+            ON re.time = td.time 
+            AND re.instance_id = td.instance_id
+            AND re.device_id = td.device_id
+        CROSS JOIN latest_time lt
+        WHERE re.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
 }

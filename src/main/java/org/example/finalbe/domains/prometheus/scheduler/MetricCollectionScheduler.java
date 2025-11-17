@@ -2,27 +2,24 @@ package org.example.finalbe.domains.prometheus.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.finalbe.domains.prometheus.dto.serverroom.ServerRoomMetricsResponse;
-import org.example.finalbe.domains.prometheus.service.PrometheusMetricService;
+import org.example.finalbe.domains.prometheus.service.PrometheusRealtimeMetricService;
 import org.example.finalbe.domains.prometheus.service.PrometheusSSEBroadcastService;
+import org.example.finalbe.domains.prometheus.dto.serverroom.ServerRoomMetricsResponse;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class MetricCollectionScheduler {
 
-    private final PrometheusMetricService prometheusMetricService;
+    private final PrometheusRealtimeMetricService prometheusRealtimeMetricService;
     private final PrometheusSSEBroadcastService prometheusSseBroadcastService;
 
     /**
-     * 5초마다 메트릭 수집 및 브로드캐스트
+     * 15초마다 최신 메트릭 브로드캐스트 (새 테이블에서 조회)
      */
-    @Scheduled(fixedRateString = "${monitoring.scheduler.metric-collection.fixed-rate:5000}")
+    @Scheduled(fixedRateString = "${monitoring.scheduler.metric-collection.fixed-rate:15000}")
     public void collectAndBroadcastMetrics() {
         try {
             if (prometheusSseBroadcastService.getTotalConnections() == 0) {
@@ -30,12 +27,10 @@ public class MetricCollectionScheduler {
                 return;
             }
 
-            log.debug("메트릭 수집 시작 - 연결 수: {}", prometheusSseBroadcastService.getTotalConnections());
+            log.debug("메트릭 브로드캐스트 시작 - 연결 수: {}", prometheusSseBroadcastService.getTotalConnections());
 
-            Instant endTime = Instant.now();
-            Instant startTime = endTime.minus(5, ChronoUnit.MINUTES);
-
-            ServerRoomMetricsResponse metrics = prometheusMetricService.getAllMetrics(startTime, endTime);
+            // ✅ 새 테이블에서 최신 1개만 조회 (초고속)
+            ServerRoomMetricsResponse metrics = prometheusRealtimeMetricService.getLatestMetrics();
 
             prometheusSseBroadcastService.broadcast("metrics", metrics);
 

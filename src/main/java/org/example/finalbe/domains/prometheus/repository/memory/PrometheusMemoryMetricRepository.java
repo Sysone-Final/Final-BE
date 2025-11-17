@@ -154,4 +154,84 @@ public class PrometheusMemoryMetricRepository {
                 .setParameter("limit", limit)
                 .getResultList();
     }
+    /**
+     * 모든 인스턴스의 최신 메모리 사용률 조회
+     */
+    public List<Object[]> getLatestMemoryUsageAllInstances() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric."node_memory_MemTotal_bytes"
+        )
+        SELECT 
+            mt.instance_id,
+            mt.value as total_memory,
+            ma.value as available_memory,
+            (((mt.value - ma.value) / mt.value * 100)::double precision) as memory_usage_percent
+        FROM prom_metric."node_memory_MemTotal_bytes" mt
+        JOIN prom_metric."node_memory_MemAvailable_bytes" ma 
+            ON mt.instance_id = ma.instance_id AND mt.time = ma.time
+        CROSS JOIN latest_time lt
+        WHERE mt.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
+
+    /**
+     * 모든 인스턴스의 최신 메모리 구성 조회
+     */
+    public List<Object[]> getLatestMemoryCompositionAllInstances() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric."node_memory_Active_bytes"
+        )
+        SELECT 
+            ma.instance_id,
+            ma.value as active,
+            mi.value as inactive,
+            mb.value as buffers,
+            mc.value as cached,
+            mf.value as free
+        FROM prom_metric."node_memory_Active_bytes" ma
+        JOIN prom_metric."node_memory_Inactive_bytes" mi 
+            ON ma.time = mi.time AND ma.instance_id = mi.instance_id
+        JOIN prom_metric."node_memory_Buffers_bytes" mb 
+            ON ma.time = mb.time AND ma.instance_id = mb.instance_id
+        JOIN prom_metric."node_memory_Cached_bytes" mc 
+            ON ma.time = mc.time AND ma.instance_id = mc.instance_id
+        JOIN prom_metric."node_memory_MemFree_bytes" mf 
+            ON ma.time = mf.time AND ma.instance_id = mf.instance_id
+        CROSS JOIN latest_time lt
+        WHERE ma.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
+
+    /**
+     * 모든 인스턴스의 최신 SWAP 메모리 조회
+     */
+    public List<Object[]> getLatestSwapUsageAllInstances() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric."node_memory_SwapTotal_bytes"
+        )
+        SELECT 
+            st.instance_id,
+            st.value as total_swap,
+            sf.value as free_swap,
+            (st.value - sf.value) as used_swap,
+            (((st.value - sf.value) / NULLIF(st.value, 0) * 100)::double precision) as swap_usage_percent
+        FROM prom_metric."node_memory_SwapTotal_bytes" st
+        JOIN prom_metric."node_memory_SwapFree_bytes" sf 
+            ON st.time = sf.time AND st.instance_id = sf.instance_id
+        CROSS JOIN latest_time lt
+        WHERE st.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
 }

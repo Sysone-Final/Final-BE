@@ -176,4 +176,70 @@ public class PrometheusCpuMetricRepository {
         List<Double> results = entityManager.createNativeQuery(query).getResultList();
         return results.isEmpty() ? null : results.get(0);
     }
+    /**
+     * 모든 인스턴스의 최신 CPU 데이터 조회
+     */
+    public List<Object[]> getLatestCpuUsageAllInstances() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time
+            FROM prom_metric.node_cpu_seconds_total
+        )
+        SELECT 
+            cpu.instance_id,
+            100 - AVG(CASE WHEN cpu.mode_id = (SELECT id FROM prom_metric.mode WHERE mode = 'idle') 
+                THEN cpu.value * 100 ELSE 0 END) as cpu_usage_percent
+        FROM prom_metric.node_cpu_seconds_total cpu
+        CROSS JOIN latest_time lt
+        WHERE cpu.time = lt.max_time
+        GROUP BY cpu.instance_id
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
+
+    /**
+     * 모든 인스턴스의 최신 Load Average 조회
+     */
+    public List<Object[]> getLatestLoadAverageAllInstances() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time FROM prom_metric.node_load1
+        )
+        SELECT 
+            l1.instance_id,
+            l1.value as load1,
+            l5.value as load5,
+            l15.value as load15
+        FROM prom_metric.node_load1 l1
+        JOIN prom_metric.node_load5 l5 
+            ON l1.time = l5.time AND l1.instance_id = l5.instance_id
+        JOIN prom_metric.node_load15 l15 
+            ON l1.time = l15.time AND l1.instance_id = l15.instance_id
+        CROSS JOIN latest_time lt
+        WHERE l1.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
+
+    /**
+     * 모든 인스턴스의 최신 컨텍스트 스위치 조회
+     */
+    public List<Object[]> getLatestContextSwitchesAllInstances() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric.node_context_switches_total
+        )
+        SELECT 
+            instance_id,
+            value as context_switches
+        FROM prom_metric.node_context_switches_total
+        CROSS JOIN latest_time lt
+        WHERE time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
 }

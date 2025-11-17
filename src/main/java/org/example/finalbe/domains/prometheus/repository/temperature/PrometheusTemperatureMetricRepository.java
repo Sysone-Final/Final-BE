@@ -51,4 +51,25 @@ public class PrometheusTemperatureMetricRepository {
         List<Double> results = entityManager.createNativeQuery(query).getResultList();
         return results.isEmpty() ? 0.0 : results.get(0);
     }
+    /**
+     * 모든 센서의 최신 온도 조회
+     */
+    public List<Object[]> getLatestTemperatureAllSensors() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric.node_hwmon_temp_celsius
+        )
+        SELECT 
+            instance_id,
+            chip_id,
+            sensor_id,
+            value as celsius
+        FROM prom_metric.node_hwmon_temp_celsius
+        CROSS JOIN latest_time lt
+        WHERE time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
 }

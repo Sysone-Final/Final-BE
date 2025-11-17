@@ -224,4 +224,88 @@ public class PrometheusDiskMetricRepository {
                 .setParameter("endTime", endTime)
                 .getResultList();
     }
+    /**
+     * 모든 디바이스의 최신 디스크 사용률 조회
+     */
+    public List<Object[]> getLatestDiskUsageAllDevices() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric.node_filesystem_size_bytes
+        )
+        SELECT 
+            fs.instance_id,
+            fs.device_id,
+            fs.mountpoint_id,
+            fs.value as total_bytes,
+            ff.value as free_bytes,
+            (((fs.value - ff.value) / NULLIF(fs.value, 0) * 100)::double precision) as usage_percent
+        FROM prom_metric.node_filesystem_size_bytes fs
+        JOIN prom_metric.node_filesystem_free_bytes ff 
+            ON fs.time = ff.time 
+            AND fs.instance_id = ff.instance_id
+            AND fs.device_id = ff.device_id 
+            AND fs.mountpoint_id = ff.mountpoint_id
+        CROSS JOIN latest_time lt
+        WHERE fs.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
+
+    /**
+     * 모든 디바이스의 최신 디스크 I/O 조회
+     */
+    public List<Object[]> getLatestDiskIoAllDevices() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric.node_disk_read_bytes_total
+        )
+        SELECT 
+            r.instance_id,
+            r.device_id,
+            r.time,
+            r.value as read_bytes,
+            w.value as write_bytes
+        FROM prom_metric.node_disk_read_bytes_total r
+        JOIN prom_metric.node_disk_written_bytes_total w 
+            ON r.time = w.time 
+            AND r.instance_id = w.instance_id
+            AND r.device_id = w.device_id
+        CROSS JOIN latest_time lt
+        WHERE r.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
+
+    /**
+     * 모든 디바이스의 최신 Inode 사용률 조회
+     */
+    public List<Object[]> getLatestInodeUsageAllDevices() {
+        String query = """
+        WITH latest_time AS (
+            SELECT MAX(time) as max_time 
+            FROM prom_metric.node_filesystem_files
+        )
+        SELECT 
+            fi.instance_id,
+            fi.device_id,
+            fi.mountpoint_id,
+            fi.value as total_inodes,
+            ff.value as free_inodes,
+            (((fi.value - ff.value) / NULLIF(fi.value, 0) * 100)::double precision) as inode_usage_percent
+        FROM prom_metric.node_filesystem_files fi
+        JOIN prom_metric.node_filesystem_files_free ff 
+            ON fi.time = ff.time
+            AND fi.instance_id = ff.instance_id
+            AND fi.device_id = ff.device_id 
+            AND fi.mountpoint_id = ff.mountpoint_id
+        CROSS JOIN latest_time lt
+        WHERE fi.time = lt.max_time
+        """;
+
+        return entityManager.createNativeQuery(query).getResultList();
+    }
 }

@@ -18,6 +18,23 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Prometheus 실시간 메트릭 서비스
+ *
+ * Phase 2에서 생성된 실시간 테이블(prometheus_xxx_realtime)에서 데이터를 조회하여
+ * DTO로 변환하여 반환합니다.
+ *
+ * 주요 기능:
+ * 1. 최신 메트릭 조회 (SSE용)
+ * 2. 시간 범위 메트릭 조회 (HTTP API용)
+ *
+ * 사용하는 Repository:
+ * - PrometheusCpuRealtimeRepository
+ * - PrometheusMemoryRealtimeRepository
+ * - PrometheusDiskRealtimeRepository
+ * - PrometheusNetworkRealtimeRepository
+ * - PrometheusTemperatureRealtimeRepository
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -34,6 +51,7 @@ public class PrometheusRealtimeMetricService {
 
     /**
      * 최신 메트릭 조회 (SSE용)
+     * 각 테이블에서 가장 최근 1개의 레코드만 조회
      */
     public ServerRoomMetricsResponse getLatestMetrics() {
         log.debug("최신 메트릭 조회 시작");
@@ -49,6 +67,10 @@ public class PrometheusRealtimeMetricService {
 
     /**
      * 시간 범위 메트릭 조회 (HTTP API용)
+     * 지정된 시간 범위 내의 모든 데이터를 조회
+     *
+     * @param startTime 시작 시간 (Instant)
+     * @param endTime 종료 시간 (Instant)
      */
     public ServerRoomMetricsResponse getMetricsByTimeRange(Instant startTime, Instant endTime) {
         log.debug("시간 범위 메트릭 조회 - start: {}, end: {}", startTime, endTime);
@@ -543,6 +565,7 @@ public class PrometheusRealtimeMetricService {
                 List.of()   // interfaceStatus
         );
     }
+
     private TemperatureMetricsResponse createEmptyTemperatureMetrics() {
         return new TemperatureMetricsResponse(
                 0.0,

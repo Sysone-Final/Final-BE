@@ -2,6 +2,7 @@ package org.example.finalbe.domains.prometheus.repository.realtime;
 
 import org.example.finalbe.domains.prometheus.domain.PrometheusNetworkRealtime;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -33,4 +34,11 @@ public interface PrometheusNetworkRealtimeRepository extends JpaRepository<Prome
             @Param("startTime") Instant startTime,
             @Param("endTime") Instant endTime
     );
+
+    /**
+     * 특정 시간 이전의 오래된 데이터 삭제 (정리용)
+     */
+    @Modifying
+    @Query("DELETE FROM PrometheusNetworkRealtime n WHERE n.time < :cutoffTime")
+    int deleteByTimeBefore(@Param("cutoffTime") Instant cutoffTime);
 }

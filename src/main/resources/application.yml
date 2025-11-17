@@ -32,7 +32,7 @@ spring:
           batch_size: 50
         order_inserts: true
         order_updates: true
-#        default_schema: public
+    #        default_schema: public
     open-in-view: false
 
   task:
@@ -54,8 +54,28 @@ monitoring:
     interval-seconds: 5
     device-count: 9
 
+# Prometheus Realtime Metric 설정
+
+prometheus:
+  realtime:
+    # 실시간 메트릭 수집 활성화
+    collection:
+      enabled: true
+      interval-seconds: 15  # 15초마다 수집
+
+    # 데이터 보관 정책
+    retention:
+      days: 7  # 7일 보관 (약 40,320개 레코드/테이블)
+      cleanup-cron: "0 0 2 * * *"  # 매일 새벽 2시에 오래된 데이터 정리
+
+    # 배치 처리 설정
+    batch:
+      size: 100  # 한 번에 처리할 메트릭 개수
+
+
 
 #logging:
 #  level:
 #    org.hibernate.SQL: DEBUG
 #    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+#    com.kosa.chanzipup.scheduler: DEBUG  # 스케줄러 로그 활성화

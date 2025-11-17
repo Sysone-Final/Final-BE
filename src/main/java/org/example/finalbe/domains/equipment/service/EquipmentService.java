@@ -45,6 +45,7 @@ public class EquipmentService {
     private final MemberRepository memberRepository;
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final EquipmentHistoryRecorder equipmentHistoryRecorder;
+    private final org.example.finalbe.domains.monitoring.service.ServerRoomDataSimulator serverRoomDataSimulator;
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
@@ -210,6 +211,7 @@ public class EquipmentService {
                     throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
                 }
             }
+
         }
 
         if (request.equipmentCode() != null && !request.equipmentCode().trim().isEmpty()) {
@@ -227,6 +229,15 @@ public class EquipmentService {
         }
 
         equipmentHistoryRecorder.recordCreate(savedEquipment, currentMember);
+
+
+        if (savedEquipment.getType() == EquipmentType.SERVER || savedEquipment.getType() == EquipmentType.STORAGE) {
+            try {
+                serverRoomDataSimulator.addEquipment(savedEquipment);
+            } catch (Exception e) {
+                log.error("⚠️ 시뮬레이터 등록 실패 (모니터링 데이터 생성 안됨): {}", e.getMessage());
+            }
+        }
 
         log.info("Equipment created successfully with id: {}", savedEquipment.getId());
         return EquipmentDetailResponse.from(savedEquipment);

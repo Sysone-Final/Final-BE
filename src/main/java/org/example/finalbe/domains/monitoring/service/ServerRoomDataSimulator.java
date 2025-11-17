@@ -152,37 +152,41 @@ public class ServerRoomDataSimulator {
         }
 
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        long startTime = System.currentTimeMillis(); // 실행 시간 측정 시작
+
+        // 1. 저장할 데이터들을 모아둘 리스트 생성
+        List<SystemMetric> systemMetricsToSave = new ArrayList<>();
+        List<DiskMetric> diskMetricsToSave = new ArrayList<>();
+        List<NetworkMetric> networkMetricsToSave = new ArrayList<>();
+        List<EnvironmentMetric> environmentMetricsToSave = new ArrayList<>();
 
         try {
-            // 1. 장비별 메트릭 생성
+            // 1. 장비별 메트릭 생성 (DB 저장 X, 리스트 추가 O)
             for (Equipment equipment : activeEquipments) {
                 Long equipmentId = equipment.getId();
                 EquipmentType type = equipment.getType();
 
-                // System 메트릭 - SERVER, STORAGE만
+                // System 메트릭
                 if (hasSystemMetric(type)) {
                     SystemMetric sysMetric = generateSystemMetric(equipmentId, now);
-                    systemMetricRepository.save(sysMetric);
-
-                    sseService.sendToEquipment(equipmentId, "system", sysMetric);
+                    systemMetricsToSave.add(sysMetric); // 리스트에 추가
+                    sseService.sendToEquipment(equipmentId, "system", sysMetric); // SSE는 바로 전송 (빠름)
                 }
 
-                // Disk 메트릭 - SERVER, STORAGE만
+                // Disk 메트릭
                 if (hasDiskMetric(type)) {
                     DiskMetric diskMetric = generateDiskMetric(equipmentId, now);
-                    diskMetricRepository.save(diskMetric);
-
+                    diskMetricsToSave.add(diskMetric);
                     sseService.sendToEquipment(equipmentId, "disk", diskMetric);
                 }
 
-                // Network 메트릭 - SERVER, SWITCH, ROUTER, FIREWALL, LOAD_BALANCER
+                // Network 메트릭
                 if (hasNetworkMetric(type)) {
                     List<String> nics = EQUIPMENT_NICS.get(equipmentId);
                     if (nics != null) {
                         for (String nic : nics) {
                             NetworkMetric nicMetric = generateNetworkMetric(equipmentId, nic, now);
-                            networkMetricRepository.save(nicMetric);
-
+                            networkMetricsToSave.add(nicMetric);
                             sseService.sendToEquipment(equipmentId, "network", nicMetric);
                         }
                     }
@@ -191,13 +195,22 @@ public class ServerRoomDataSimulator {
 
             // 2. 랙별 환경 메트릭 생성
             for (Rack rack : activeRacks) {
-                EnvironmentMetric envMetric = generateEnvironmentMetric(rack.getId(), now);
-                environmentMetricRepository.save(envMetric);
-
-                sseService.sendToRack(rack.getId(), "environment", envMetric);
+                Long rackId = rack.getId();
+                EnvironmentMetric envMetric = generateEnvironmentMetric(rackId, now);
+                environmentMetricsToSave.add(envMetric);
+                sseService.sendToRack(rackId, "environment", envMetric);
             }
 
+            // 3.  DB에 한 번에 저장 (Batch Insert)
+            if (!systemMetricsToSave.isEmpty()) systemMetricRepository.saveAll(systemMetricsToSave);
+            if (!diskMetricsToSave.isEmpty()) diskMetricRepository.saveAll(diskMetricsToSave);
+            if (!networkMetricsToSave.isEmpty()) networkMetricRepository.saveAll(networkMetricsToSave);
+            if (!environmentMetricsToSave.isEmpty()) environmentMetricRepository.saveAll(environmentMetricsToSave);
+
             maybeUpdateAnomalies();
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("⏱️ 메트릭 생성 및 저장 완료: {}ms 소요 (장비 {}대)", duration, activeEquipments.size());
 
         } catch (Exception e) {
             log.error("❌ 메트릭 생성 중 오류 발생", e);

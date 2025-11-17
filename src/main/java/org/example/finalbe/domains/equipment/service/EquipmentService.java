@@ -48,18 +48,19 @@ public class EquipmentService {
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
-     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=
+     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=&onlyUnassigned=
      */
     public EquipmentPageResponse getEquipmentsWithFilters(
-            int page, int size, String keyword, EquipmentType type, EquipmentStatus status, Long serverRoomId) {
+            int page, int size, String keyword, EquipmentType type, EquipmentStatus status,
+            Long serverRoomId, Boolean onlyUnassigned) {
 
-        log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, serverRoomId: {}",
-                page, size, keyword, type, status, serverRoomId);
+        log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, serverRoomId: {}, onlyUnassigned: {}",
+                page, size, keyword, type, status, serverRoomId, onlyUnassigned);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
         Page<Equipment> equipmentPage = equipmentRepository.searchEquipmentsWithFilters(
-                keyword, type, status, serverRoomId, DelYN.N, pageable);
+                keyword, type, status, serverRoomId, onlyUnassigned, DelYN.N, pageable);
 
         Page<EquipmentListResponse> responsePage = equipmentPage.map(EquipmentListResponse::from);
 

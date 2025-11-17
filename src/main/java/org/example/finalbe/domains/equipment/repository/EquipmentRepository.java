@@ -26,7 +26,11 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     Optional<Equipment> findActiveById(@Param("id") Long id);
 
     /**
-     * 페이지네이션 조회 (전체 필터 + 서버실 필터 포함)
+     * 페이지네이션 조회 (전체 필터 + 서버실 필터 + rackId null 필터 포함)
+     *
+     * onlyUnassigned 동작:
+     * - null 또는 false: 전체 조회 (rack 있는 것 + 없는 것 모두)
+     * - true: rack이 null인 것만
      */
     @Query(value = "SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
@@ -39,7 +43,8 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "AND (:type IS NULL OR e.type = :type) " +
             "AND (:status IS NULL OR e.status = :status) " +
-            "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId)",
+            "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId) " +
+            "AND (:onlyUnassigned IS NULL OR :onlyUnassigned = false OR (:onlyUnassigned = true AND r IS NULL))",
             countQuery = "SELECT COUNT(DISTINCT e) FROM Equipment e " +
                     "LEFT JOIN e.rack r " +
                     "LEFT JOIN r.serverRoom sr " +
@@ -51,12 +56,14 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
                     "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
                     "AND (:type IS NULL OR e.type = :type) " +
                     "AND (:status IS NULL OR e.status = :status) " +
-                    "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId)")
+                    "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId) " +
+                    "AND (:onlyUnassigned IS NULL OR :onlyUnassigned = false OR (:onlyUnassigned = true AND r IS NULL))")
     Page<Equipment> searchEquipmentsWithFilters(
             @Param("keyword") String keyword,
             @Param("type") EquipmentType type,
             @Param("status") EquipmentStatus status,
             @Param("serverRoomId") Long serverRoomId,
+            @Param("onlyUnassigned") Boolean onlyUnassigned,
             @Param("delYn") DelYN delYn,
             Pageable pageable
     );

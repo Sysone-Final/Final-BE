@@ -142,7 +142,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    Boolean existsByRackIdAndDelYn(Long rackId, DelYN delYn);
 
     /**
      * 활성 장비 전체 조회 (delYn = 'N', Rack도 활성)

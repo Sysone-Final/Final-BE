@@ -13,6 +13,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +30,11 @@ public class PrometheusMetricScheduler {
     private final PrometheusMetricQueryService queryService;
     private final PrometheusSSEService sseService;
 
+    // ✅ 한국 시간대 포맷터 추가
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss")
+            .withZone(ZoneId.of("Asia/Seoul"));
+
     /**
      * 메트릭 수집 스케줄러 (15초마다 실행 - fixedDelay)
      * 이전 실행이 완료된 후 15초 대기
@@ -40,7 +47,8 @@ public class PrometheusMetricScheduler {
         Instant collectionStart = Instant.now();
 
         log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        log.info("🚀 Prometheus 메트릭 수집 시작: {}", collectionStart);
+        // ✅ 한국 시간으로 포맷팅
+        log.info("🚀 Prometheus 메트릭 수집 시작: {}", FORMATTER.format(collectionStart));
 
         // 최근 15초간 데이터 수집
         Instant end = Instant.now();

@@ -162,6 +162,27 @@ public class PrometheusMetricsController {
     }
 
     /**
+     * Temperature 메트릭 조회
+     * GET /api/prometheus/metrics/temperature?range=1h
+     */
+    @GetMapping("/temperature")
+    public ResponseEntity<List<TemperatureMetricResponse>> getTemperatureMetrics(
+            @RequestParam(required = false) String range,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime) {
+
+        Instant end = endTime != null ? endTime : Instant.now();
+        Instant start = (range != null) ? parseRange(range, end)
+                : (startTime != null) ? startTime
+                : end.minus(1, ChronoUnit.HOURS);
+
+        log.info("Temperature 메트릭 조회 - startTime: {}, endTime: {}", start, end);
+
+        List<TemperatureMetricResponse> response = queryService.getTemperatureMetrics(start, end);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * SSE 연결 상태 조회
      * GET /api/prometheus/metrics/sse/status
      */

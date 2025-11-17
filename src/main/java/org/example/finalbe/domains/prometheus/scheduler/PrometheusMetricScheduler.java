@@ -30,7 +30,6 @@ public class PrometheusMetricScheduler {
     private final PrometheusMetricQueryService queryService;
     private final PrometheusSSEService sseService;
 
-    // ✅ 한국 시간대 포맷터 추가
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.of("Asia/Seoul"));
@@ -47,7 +46,6 @@ public class PrometheusMetricScheduler {
         Instant collectionStart = Instant.now();
 
         log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        // ✅ 한국 시간으로 포맷팅
         log.info("🚀 Prometheus 메트릭 수집 시작: {}", FORMATTER.format(collectionStart));
 
         // 최근 15초간 데이터 수집
@@ -62,9 +60,10 @@ public class PrometheusMetricScheduler {
             CompletableFuture<Integer> memoryFuture = collector.collectMemoryMetrics(start, end);
             CompletableFuture<Integer> networkFuture = collector.collectNetworkMetrics(start, end);
             CompletableFuture<Integer> diskFuture = collector.collectDiskMetrics(start, end);
+            CompletableFuture<Integer> temperatureFuture = collector.collectTemperatureMetrics(start, end);
 
             // 모든 작업 완료 대기
-            CompletableFuture.allOf(cpuFuture, memoryFuture, networkFuture, diskFuture).join();
+            CompletableFuture.allOf(cpuFuture, memoryFuture, networkFuture, diskFuture, temperatureFuture).join();
 
             // 결과 수집
             Instant collectEnd = Instant.now();
@@ -72,6 +71,7 @@ public class PrometheusMetricScheduler {
             results.add(CollectionResultResponse.success("Memory", start, collectEnd, memoryFuture.get()));
             results.add(CollectionResultResponse.success("Network", start, collectEnd, networkFuture.get()));
             results.add(CollectionResultResponse.success("Disk", start, collectEnd, diskFuture.get()));
+            results.add(CollectionResultResponse.success("Temperature", start, collectEnd, temperatureFuture.get()));
 
             // 요약 출력
             CollectionSummaryResponse summary = CollectionSummaryResponse.of(collectionStart, results);
@@ -89,7 +89,6 @@ public class PrometheusMetricScheduler {
             log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
         }
     }
-
     /**
      * SSE 브로드캐스트 (수집 직후)
      */

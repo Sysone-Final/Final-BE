@@ -25,6 +25,8 @@ public class PrometheusMetricCollector {
     private final PrometheusMemoryMetricRepository memoryMetricRepository;
     private final PrometheusNetworkMetricRepository networkMetricRepository;
     private final PrometheusDiskMetricRepository diskMetricRepository;
+    private final PrometheusTemperatureMetricRepository temperatureMetricRepository;
+
 
     private static final String STEP = "15s";
 
@@ -36,7 +38,7 @@ public class PrometheusMetricCollector {
     public CompletableFuture<Integer> collectCpuMetrics(Instant start, Instant end) {
         Instant collectStart = Instant.now();
         try {
-            log.debug("🔵 CPU 메트릭 수집 시작: {} ~ {}", start, end);
+            log.debug("CPU 메트릭 수집 시작: {} ~ {}", start, end);
 
             Map<String, Map<Long, PrometheusCpuMetric.PrometheusCpuMetricBuilder>> builderMap = new HashMap<>();
 
@@ -79,7 +81,7 @@ public class PrometheusMetricCollector {
             if (!metrics.isEmpty()) {
                 cpuMetricRepository.saveAll(metrics);
                 long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
-                log.info("✅ CPU 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
+                log.info("CPU 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
                 return CompletableFuture.completedFuture(metrics.size());
             }
 
@@ -87,7 +89,7 @@ public class PrometheusMetricCollector {
 
         } catch (Exception e) {
             long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
-            log.error("❌ CPU 메트릭 수집 실패 ({}ms)", duration, e);
+            log.error("CPU 메트릭 수집 실패 ({}ms)", duration, e);
             return CompletableFuture.completedFuture(0);
         }
     }
@@ -100,7 +102,7 @@ public class PrometheusMetricCollector {
     public CompletableFuture<Integer> collectMemoryMetrics(Instant start, Instant end) {
         Instant collectStart = Instant.now();
         try {
-            log.debug("🟢 Memory 메트릭 수집 시작: {} ~ {}", start, end);
+            log.debug("Memory 메트릭 수집 시작: {} ~ {}", start, end);
 
             Map<String, Map<Long, PrometheusMemoryMetric.PrometheusMemoryMetricBuilder>> builderMap = new HashMap<>();
 
@@ -152,7 +154,7 @@ public class PrometheusMetricCollector {
             if (!metrics.isEmpty()) {
                 memoryMetricRepository.saveAll(metrics);
                 long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
-                log.info("✅ Memory 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
+                log.info("Memory 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
                 return CompletableFuture.completedFuture(metrics.size());
             }
 
@@ -160,7 +162,7 @@ public class PrometheusMetricCollector {
 
         } catch (Exception e) {
             long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
-            log.error("❌ Memory 메트릭 수집 실패 ({}ms)", duration, e);
+            log.error("Memory 메트릭 수집 실패 ({}ms)", duration, e);
             return CompletableFuture.completedFuture(0);
         }
     }
@@ -173,7 +175,7 @@ public class PrometheusMetricCollector {
     public CompletableFuture<Integer> collectNetworkMetrics(Instant start, Instant end) {
         Instant collectStart = Instant.now();
         try {
-            log.debug("🟡 Network 메트릭 수집 시작: {} ~ {}", start, end);
+            log.debug("Network 메트릭 수집 시작: {} ~ {}", start, end);
 
             Map<String, PrometheusNetworkMetric.PrometheusNetworkMetricBuilder> builderMap = new HashMap<>();
 
@@ -257,7 +259,7 @@ public class PrometheusMetricCollector {
             if (!metrics.isEmpty()) {
                 networkMetricRepository.saveAll(metrics);
                 long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
-                log.info("✅ Network 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
+                log.info("Network 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
                 return CompletableFuture.completedFuture(metrics.size());
             }
 
@@ -265,7 +267,7 @@ public class PrometheusMetricCollector {
 
         } catch (Exception e) {
             long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
-            log.error("❌ Network 메트릭 수집 실패 ({}ms)", duration, e);
+            log.error("Network 메트릭 수집 실패 ({}ms)", duration, e);
             return CompletableFuture.completedFuture(0);
         }
     }
@@ -278,11 +280,11 @@ public class PrometheusMetricCollector {
     public CompletableFuture<Integer> collectDiskMetrics(Instant start, Instant end) {
         Instant collectStart = Instant.now();
         try {
-            log.debug("🟠 Disk 메트릭 수집 시작: {} ~ {}", start, end);
+            log.debug("Disk 메트릭 수집 시작: {} ~ {}", start, end);
 
             Map<String, PrometheusDiskMetric.PrometheusDiskMetricBuilder> builderMap = new HashMap<>();
 
-            // ✅ 1. 디스크 용량 - mountpoint 필터 추가
+            // 1. 디스크 용량 - mountpoint 필터 추가
             PrometheusQueryResponse totalBytes = prometheusClient.queryRange(
                     "node_filesystem_size_bytes{fstype!~\"tmpfs|fuse.*\",mountpoint!=\"\"}",
                     start, end, STEP
@@ -340,7 +342,7 @@ public class PrometheusMetricCollector {
             processDiskIoField(writeTime, builderMap,
                     PrometheusDiskMetric.PrometheusDiskMetricBuilder::writeTimePercent);
 
-            // ✅ 5. inode - mountpoint 필터 추가
+            // 5. inode - mountpoint 필터 추가
             PrometheusQueryResponse totalInodes = prometheusClient.queryRange(
                     "node_filesystem_files{fstype!~\"tmpfs|fuse.*\",mountpoint!=\"\"}",
                     start, end, STEP
@@ -363,7 +365,7 @@ public class PrometheusMetricCollector {
             if (!metrics.isEmpty()) {
                 diskMetricRepository.saveAll(metrics);
                 long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
-                log.info("✅ Disk 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
+                log.info("Disk 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
                 return CompletableFuture.completedFuture(metrics.size());
             }
 
@@ -565,9 +567,7 @@ public class PrometheusMetricCollector {
         }
     }
 
-    /**
-     * ✅ 새로 추가: Disk I/O 필드 처리 (정확한 키 매칭)
-     */
+
     private void processDiskIoField(PrometheusQueryResponse response,
                                     Map<String, PrometheusDiskMetric.PrometheusDiskMetricBuilder> builderMap,
                                     java.util.function.BiConsumer<PrometheusDiskMetric.PrometheusDiskMetricBuilder, Double> setter) {
@@ -575,7 +575,6 @@ public class PrometheusMetricCollector {
             String device = result.getDevice();
             if (device == null) continue;
 
-            // ✅ 정확한 키 매칭 (contains 대신 get 사용)
             String key = result.getInstance() + "_" + result.timestamp() + "_" + device;
 
             PrometheusDiskMetric.PrometheusDiskMetricBuilder builder = builderMap.get(key);
@@ -596,9 +595,7 @@ public class PrometheusMetricCollector {
         }
     }
 
-    /**
-     * ✅ 새로 추가: Disk 계산 필드 (모든 필드 계산)
-     */
+
     private void calculateDiskFields(PrometheusDiskMetric metric) {
         // 용량 계산
         if (metric.getTotalBytes() != null && metric.getFreeBytes() != null) {
@@ -617,6 +614,66 @@ public class PrometheusMetricCollector {
             if (metric.getTotalInodes() > 0) {
                 metric.setInodeUsagePercent((double) metric.getUsedInodes() / metric.getTotalInodes() * 100);
             }
+        }
+    }
+
+    /**
+     * Temperature 메트릭 수집 (병렬)
+     */
+    @Async("prometheusExecutor")
+    @Transactional
+    public CompletableFuture<Integer> collectTemperatureMetrics(Instant start, Instant end) {
+        Instant collectStart = Instant.now();
+        try {
+            log.debug("🌡️ Temperature 메트릭 수집 시작: {} ~ {}", start, end);
+
+            Map<String, PrometheusTemperatureMetric.PrometheusTemperatureMetricBuilder> builderMap = new HashMap<>();
+
+            // 온도 메트릭 수집
+            PrometheusQueryResponse tempResponse = prometheusClient.queryRange(
+                    "node_hwmon_temp_celsius", start, end, STEP
+            );
+
+            for (PrometheusQueryResponse.Result result : tempResponse.results()) {
+                String instance = result.getInstance();
+                String chip = result.metric() != null ? result.metric().get("chip") : null;
+                String sensor = result.metric() != null ? result.metric().get("sensor") : null;
+
+                String key = instance + "_" + result.timestamp() + "_" +
+                        (chip != null ? chip : "unknown") + "_" +
+                        (sensor != null ? sensor : "unknown");
+
+                PrometheusTemperatureMetric.PrometheusTemperatureMetricBuilder builder =
+                        builderMap.computeIfAbsent(key, k ->
+                                PrometheusTemperatureMetric.builder()
+                                        .time(Instant.ofEpochSecond(result.timestamp()))
+                                        .instance(instance)
+                                        .chip(chip)
+                                        .sensor(sensor)
+                                        .createdAt(Instant.now())
+                        );
+
+                builder.tempCelsius(result.value());
+            }
+
+            // 데이터 저장
+            List<PrometheusTemperatureMetric> metrics = builderMap.values().stream()
+                    .map(PrometheusTemperatureMetric.PrometheusTemperatureMetricBuilder::build)
+                    .collect(Collectors.toList());
+
+            if (!metrics.isEmpty()) {
+                temperatureMetricRepository.saveAll(metrics);
+                long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
+                log.info("✅ Temperature 메트릭 저장 완료: {} rows ({}ms)", metrics.size(), duration);
+                return CompletableFuture.completedFuture(metrics.size());
+            }
+
+            return CompletableFuture.completedFuture(0);
+
+        } catch (Exception e) {
+            long duration = Instant.now().toEpochMilli() - collectStart.toEpochMilli();
+            log.error("❌ Temperature 메트릭 수집 실패 ({}ms)", duration, e);
+            return CompletableFuture.completedFuture(0);
         }
     }
 }

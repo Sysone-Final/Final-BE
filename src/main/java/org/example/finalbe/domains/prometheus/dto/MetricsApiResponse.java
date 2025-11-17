@@ -10,6 +10,7 @@ public record MetricsApiResponse(
         MemoryMetricsData memory,
         NetworkMetricsData network,
         DiskMetricsData disk,
+        TemperatureMetricsData temperature,
         Integer totalRecords
 ) {
     public record CpuMetricsData(
@@ -48,12 +49,22 @@ public record MetricsApiResponse(
         }
     }
 
+    public record TemperatureMetricsData(
+            List<TemperatureMetricResponse> metrics,
+            Integer count
+    ) {
+        public static TemperatureMetricsData of(List<TemperatureMetricResponse> metrics) {
+            return new TemperatureMetricsData(metrics, metrics.size());
+        }
+    }
+
     public static MetricsApiResponse of(
             String timeRange,
             List<CpuMetricResponse> cpuMetrics,
             List<MemoryMetricResponse> memoryMetrics,
             List<NetworkMetricResponse> networkMetrics,
-            List<DiskMetricResponse> diskMetrics
+            List<DiskMetricResponse> diskMetrics,
+            List<TemperatureMetricResponse> temperatureMetrics
     ) {
         int total = cpuMetrics.size() + memoryMetrics.size()
                 + networkMetrics.size() + diskMetrics.size();
@@ -65,6 +76,7 @@ public record MetricsApiResponse(
                 MemoryMetricsData.of(memoryMetrics),
                 NetworkMetricsData.of(networkMetrics),
                 DiskMetricsData.of(diskMetrics),
+                TemperatureMetricsData.of(temperatureMetrics),
                 total
         );
     }

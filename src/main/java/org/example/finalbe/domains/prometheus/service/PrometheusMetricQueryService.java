@@ -22,6 +22,7 @@ public class PrometheusMetricQueryService {
     private final PrometheusMemoryMetricRepository memoryMetricRepository;
     private final PrometheusNetworkMetricRepository networkMetricRepository;
     private final PrometheusDiskMetricRepository diskMetricRepository;
+    private final PrometheusTemperatureMetricRepository temperatureMetricRepository;
 
     /**
      * 최근 15초간 데이터 조회 (SSE용)
@@ -73,6 +74,7 @@ public class PrometheusMetricQueryService {
         List<PrometheusMemoryMetric> memoryMetrics = memoryMetricRepository.findByTimeBetween(start, end);
         List<PrometheusNetworkMetric> networkMetrics = networkMetricRepository.findByTimeBetween(start, end);
         List<PrometheusDiskMetric> diskMetrics = diskMetricRepository.findByTimeBetween(start, end);
+        List<PrometheusTemperatureMetric> temperatureMetrics = temperatureMetricRepository.findByTimeBetween(start, end);
 
         String timeRange = start + " ~ " + end;
 
@@ -81,7 +83,8 @@ public class PrometheusMetricQueryService {
                 cpuMetrics.stream().map(CpuMetricResponse::from).collect(Collectors.toList()),
                 memoryMetrics.stream().map(MemoryMetricResponse::from).collect(Collectors.toList()),
                 networkMetrics.stream().map(NetworkMetricResponse::from).collect(Collectors.toList()),
-                diskMetrics.stream().map(DiskMetricResponse::from).collect(Collectors.toList())
+                diskMetrics.stream().map(DiskMetricResponse::from).collect(Collectors.toList()),
+                temperatureMetrics.stream().map(TemperatureMetricResponse::from).collect(Collectors.toList())
         );
     }
 
@@ -122,6 +125,16 @@ public class PrometheusMetricQueryService {
         return diskMetricRepository.findByTimeBetween(start, end)
                 .stream()
                 .map(DiskMetricResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Temperature 메트릭만 조회
+     */
+    public List<TemperatureMetricResponse> getTemperatureMetrics(Instant start, Instant end) {
+        return temperatureMetricRepository.findByTimeBetween(start, end)
+                .stream()
+                .map(TemperatureMetricResponse::from)
                 .collect(Collectors.toList());
     }
 }

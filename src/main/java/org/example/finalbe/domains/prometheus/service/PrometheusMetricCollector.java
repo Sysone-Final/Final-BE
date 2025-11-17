@@ -271,7 +271,7 @@ public class PrometheusMetricCollector {
     }
 
     /**
-     * Disk 메트릭 수집 (병렬)
+     * Disk 메트릭 수집 (병렬) - ✅ 디스크 I/O만 수집 (파티션 제거)
      */
     @Async("prometheusExecutor")
     @Transactional
@@ -280,72 +280,54 @@ public class PrometheusMetricCollector {
         try {
             log.debug("🟠 Disk 메트릭 수집 시작: {} ~ {}", start, end);
 
-            Map<String, PrometheusDiskMetric.PrometheusDiskMetricBuilder> builderMap = new HashMap<>();
+            Map<String, PrometheusDiskMetric.PrometheusDiskMetricBuilder> diskMap = new HashMap<>();
 
-            // 1. 디스크 용량
-            PrometheusQueryResponse totalBytes = prometheusClient.queryRange(
-                    "node_filesystem_size_bytes{fstype!~\"tmpfs|fuse.*\"}", start, end, STEP
-            );
-            processDiskField(totalBytes, builderMap, (b, v) -> b.totalBytes(v.longValue()));
-
-            PrometheusQueryResponse freeBytes = prometheusClient.queryRange(
-                    "node_filesystem_free_bytes{fstype!~\"tmpfs|fuse.*\"}", start, end, STEP
-            );
-            processDiskField(freeBytes, builderMap, (b, v) -> b.freeBytes(v.longValue()));
-
-            // 2. I/O 속도
+            // 1. Read Bytes/sec
             PrometheusQueryResponse readBytesRate = prometheusClient.queryRange(
                     "rate(node_disk_read_bytes_total[1m])", start, end, STEP
             );
-            processDiskIoField(readBytesRate, builderMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::readBytesPerSec);
+            processDiskIoMetric(readBytesRate, diskMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::readBytesPerSec);
 
+            // 2. Write Bytes/sec
             PrometheusQueryResponse writeBytesRate = prometheusClient.queryRange(
                     "rate(node_disk_written_bytes_total[1m])", start, end, STEP
             );
-            processDiskIoField(writeBytesRate, builderMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::writeBytesPerSec);
+            processDiskIoMetric(writeBytesRate, diskMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::writeBytesPerSec);
 
-            // 3. IOPS
+            // 3. Read IOPS
             PrometheusQueryResponse readIops = prometheusClient.queryRange(
                     "rate(node_disk_reads_completed_total[1m])", start, end, STEP
             );
-            processDiskIoField(readIops, builderMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::readIops);
+            processDiskIoMetric(readIops, diskMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::readIops);
 
+            // 4. Write IOPS
             PrometheusQueryResponse writeIops = prometheusClient.queryRange(
                     "rate(node_disk_writes_completed_total[1m])", start, end, STEP
             );
-            processDiskIoField(writeIops, builderMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::writeIops);
+            processDiskIoMetric(writeIops, diskMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::writeIops);
 
-            // 4. I/O 사용률
+            // 5. I/O Utilization
             PrometheusQueryResponse ioUtil = prometheusClient.queryRange(
                     "rate(node_disk_io_time_seconds_total[1m]) * 100", start, end, STEP
             );
-            processDiskIoField(ioUtil, builderMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::ioUtilizationPercent);
+            processDiskIoMetric(ioUtil, diskMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::ioUtilizationPercent);
 
+            // 6. Read Time
             PrometheusQueryResponse readTime = prometheusClient.queryRange(
                     "rate(node_disk_read_time_seconds_total[1m]) * 100", start, end, STEP
             );
-            processDiskIoField(readTime, builderMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::readTimePercent);
+            processDiskIoMetric(readTime, diskMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::readTimePercent);
 
+            // 7. Write Time
             PrometheusQueryResponse writeTime = prometheusClient.queryRange(
                     "rate(node_disk_write_time_seconds_total[1m]) * 100", start, end, STEP
             );
-            processDiskIoField(writeTime, builderMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::writeTimePercent);
+            processDiskIoMetric(writeTime, diskMap, PrometheusDiskMetric.PrometheusDiskMetricBuilder::writeTimePercent);
 
-            // 5. inode
-            PrometheusQueryResponse totalInodes = prometheusClient.queryRange(
-                    "node_filesystem_files{fstype!~\"tmpfs|fuse.*\"}", start, end, STEP
-            );
-            processDiskField(totalInodes, builderMap, (b, v) -> b.totalInodes(v.longValue()));
-
-            PrometheusQueryResponse freeInodes = prometheusClient.queryRange(
-                    "node_filesystem_files_free{fstype!~\"tmpfs|fuse.*\"}", start, end, STEP
-            );
-            processDiskField(freeInodes, builderMap, (b, v) -> b.freeInodes(v.longValue()));
-
-            // 6. 계산 필드 및 저장
-            List<PrometheusDiskMetric> metrics = builderMap.values().stream()
+            // 8. 계산 필드 및 저장
+            List<PrometheusDiskMetric> metrics = diskMap.values().stream()
                     .map(PrometheusDiskMetric.PrometheusDiskMetricBuilder::build)
-                    .peek(this::calculateDiskFields)
+                    .peek(this::calculateDiskIoFields)
                     .collect(Collectors.toList());
 
             if (!metrics.isEmpty()) {
@@ -410,14 +392,39 @@ public class PrometheusMetricCollector {
 
     private void processLoadAvg(PrometheusQueryResponse load1, PrometheusQueryResponse load5, PrometheusQueryResponse load15,
                                 Map<String, Map<Long, PrometheusCpuMetric.PrometheusCpuMetricBuilder>> builderMap) {
+        if (load1 == null || load5 == null || load15 == null) {
+            log.warn("Load average 데이터가 null입니다");
+            return;
+        }
+
         for (PrometheusQueryResponse.Result result : load1.results()) {
-            builderMap.get(result.getInstance()).get(result.timestamp()).loadAvg1(result.value());
+            Map<Long, PrometheusCpuMetric.PrometheusCpuMetricBuilder> instanceMap = builderMap.get(result.getInstance());
+            if (instanceMap != null) {
+                PrometheusCpuMetric.PrometheusCpuMetricBuilder builder = instanceMap.get(result.timestamp());
+                if (builder != null) {
+                    builder.loadAvg1(result.value());
+                }
+            }
         }
+
         for (PrometheusQueryResponse.Result result : load5.results()) {
-            builderMap.get(result.getInstance()).get(result.timestamp()).loadAvg5(result.value());
+            Map<Long, PrometheusCpuMetric.PrometheusCpuMetricBuilder> instanceMap = builderMap.get(result.getInstance());
+            if (instanceMap != null) {
+                PrometheusCpuMetric.PrometheusCpuMetricBuilder builder = instanceMap.get(result.timestamp());
+                if (builder != null) {
+                    builder.loadAvg5(result.value());
+                }
+            }
         }
+
         for (PrometheusQueryResponse.Result result : load15.results()) {
-            builderMap.get(result.getInstance()).get(result.timestamp()).loadAvg15(result.value());
+            Map<Long, PrometheusCpuMetric.PrometheusCpuMetricBuilder> instanceMap = builderMap.get(result.getInstance());
+            if (instanceMap != null) {
+                PrometheusCpuMetric.PrometheusCpuMetricBuilder builder = instanceMap.get(result.timestamp());
+                if (builder != null) {
+                    builder.loadAvg15(result.value());
+                }
+            }
         }
     }
 
@@ -493,23 +500,24 @@ public class PrometheusMetricCollector {
         }
     }
 
-    private void processDiskField(PrometheusQueryResponse response,
-                                  Map<String, PrometheusDiskMetric.PrometheusDiskMetricBuilder> builderMap,
-                                  java.util.function.BiConsumer<PrometheusDiskMetric.PrometheusDiskMetricBuilder, Double> setter) {
+    /**
+     * Disk I/O 메트릭 처리 (단순화)
+     */
+    private void processDiskIoMetric(PrometheusQueryResponse response,
+                                     Map<String, PrometheusDiskMetric.PrometheusDiskMetricBuilder> diskMap,
+                                     java.util.function.BiConsumer<PrometheusDiskMetric.PrometheusDiskMetricBuilder, Double> setter) {
         for (PrometheusQueryResponse.Result result : response.results()) {
             String device = result.getDevice();
-            String mountpoint = result.getMountpoint();
+            if (device == null) continue;
 
-            if (device == null && mountpoint == null) continue;
+            String key = result.getInstance() + "_" + result.timestamp() + "_" + device;
 
-            String key = result.getInstance() + "_" + result.timestamp() + "_" + (device != null ? device : mountpoint);
-
-            PrometheusDiskMetric.PrometheusDiskMetricBuilder builder = builderMap.computeIfAbsent(key, k ->
+            PrometheusDiskMetric.PrometheusDiskMetricBuilder builder = diskMap.computeIfAbsent(key, k ->
                     PrometheusDiskMetric.builder()
                             .time(Instant.ofEpochSecond(result.timestamp()))
                             .instance(result.getInstance())
-                            .device(device != null ? device : "unknown")
-                            .mountpoint(mountpoint != null ? mountpoint : "unknown")
+                            .device(device)
+                            .mountpoint(null)
                             .createdAt(Instant.now())
             );
 
@@ -517,35 +525,23 @@ public class PrometheusMetricCollector {
         }
     }
 
-    private void processDiskIoField(PrometheusQueryResponse response,
-                                    Map<String, PrometheusDiskMetric.PrometheusDiskMetricBuilder> builderMap,
-                                    java.util.function.BiConsumer<PrometheusDiskMetric.PrometheusDiskMetricBuilder, Double> setter) {
-        for (PrometheusQueryResponse.Result result : response.results()) {
-            String device = result.getDevice();
-            if (device == null) continue;
-
-            // I/O 메트릭은 device 기준으로만 매칭
-            String keyPattern = result.getInstance() + "_" + result.timestamp() + "_" + device;
-
-            builderMap.entrySet().stream()
-                    .filter(entry -> entry.getKey().contains(keyPattern))
-                    .forEach(entry -> setter.accept(entry.getValue(), result.value()));
-        }
-    }
-
-    private void calculateDiskFields(PrometheusDiskMetric metric) {
-        if (metric.getTotalBytes() != null && metric.getFreeBytes() != null) {
-            metric.setUsedBytes(metric.getTotalBytes() - metric.getFreeBytes());
-            metric.setUsagePercent((double) metric.getUsedBytes() / metric.getTotalBytes() * 100);
-        }
+    /**
+     * Disk I/O 계산 필드 (단순화)
+     */
+    private void calculateDiskIoFields(PrometheusDiskMetric metric) {
+        // Total I/O Bytes/sec
         if (metric.getReadBytesPerSec() != null && metric.getWriteBytesPerSec() != null) {
             metric.setTotalIoBytesPerSec(metric.getReadBytesPerSec() + metric.getWriteBytesPerSec());
         }
-        if (metric.getTotalInodes() != null && metric.getFreeInodes() != null) {
-            metric.setUsedInodes(metric.getTotalInodes() - metric.getFreeInodes());
-            if (metric.getTotalInodes() > 0) {
-                metric.setInodeUsagePercent((double) metric.getUsedInodes() / metric.getTotalInodes() * 100);
-            }
-        }
+
+        // 용량 관련 필드는 null로 유지
+        metric.setTotalBytes(null);
+        metric.setUsedBytes(null);
+        metric.setFreeBytes(null);
+        metric.setUsagePercent(null);
+        metric.setTotalInodes(null);
+        metric.setUsedInodes(null);
+        metric.setFreeInodes(null);
+        metric.setInodeUsagePercent(null);
     }
 }

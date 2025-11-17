@@ -82,13 +82,13 @@ prometheus:
     heartbeat-interval: 30000  # 30초
 
 # ==================== 로깅 설정 ====================
-logging:
-  level:
-    root: INFO
-    org.example.finalbe.domains.prometheus: INFO  # ✨ 추가
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    com.zaxxer.hikari: DEBUG  # HikariCP 로그
+#logging:
+#  level:
+#    root: INFO
+#    org.example.finalbe.domains.prometheus: INFO  # ✨ 추가
+#    org.hibernate.SQL: DEBUG
+#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+#    com.zaxxer.hikari: DEBUG  # HikariCP 로그
 
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

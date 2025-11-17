@@ -22,7 +22,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: update  # 주의: 프로덕션에서는 validate 사용
     show-sql: false
     properties:
       hibernate:
@@ -32,10 +32,16 @@ spring:
           batch_size: 50
         order_inserts: true
         order_updates: true
-    #        default_schema: public
     open-in-view: false
 
+  # ✨ 추가: Async 설정
   task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 8
+        queue-capacity: 100
+        thread-name-prefix: prometheus-collector-
     scheduling:
       pool:
         size: 5
@@ -54,28 +60,35 @@ monitoring:
     interval-seconds: 5
     device-count: 9
 
-# Prometheus Realtime Metric 설정
-
+# ==================== Prometheus 설정 ====================
 prometheus:
-  realtime:
-    # 실시간 메트릭 수집 활성화
-    collection:
-      enabled: true
-      interval-seconds: 15  # 15초마다 수집
+  server:
+    url: http://112.221.184.61:9090
 
-    # 데이터 보관 정책
-    retention:
-      days: 7  # 7일 보관 (약 40,320개 레코드/테이블)
-      cleanup-cron: "0 0 2 * * *"  # 매일 새벽 2시에 오래된 데이터 정리
+  # 수집 설정
+  collection:
+    enabled: true
+    fixed-delay: 15000      # 15초 (이전 실행 완료 후 15초 대기)
+    initial-delay: 5000     # 시작 후 5초 대기
 
-    # 배치 처리 설정
-    batch:
-      size: 100  # 한 번에 처리할 메트릭 개수
+  # ✨ 추가: API 호출 타임아웃 설정
+  client:
+    connect-timeout: 5000   # 연결 타임아웃 (5초)
+    read-timeout: 10000     # 읽기 타임아웃 (10초)
 
+  # ✨ 추가: SSE 설정
+  sse:
+    timeout: 3600000        # 1시간
+    heartbeat-interval: 30000  # 30초
 
+# ==================== 로깅 설정 ====================
+logging:
+  level:
+    root: INFO
+    org.example.finalbe.domains.prometheus: INFO  # ✨ 추가
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.zaxxer.hikari: DEBUG  # HikariCP 로그
 
-#logging:
-#  level:
-#    org.hibernate.SQL: DEBUG
-#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-#    com.kosa.chanzipup.scheduler: DEBUG  # 스케줄러 로그 활성화
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

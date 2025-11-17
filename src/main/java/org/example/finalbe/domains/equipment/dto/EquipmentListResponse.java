@@ -22,7 +22,9 @@ public record EquipmentListResponse(
         String manufacturer,
         String ipAddress,
         String positionType,
-        BigDecimal powerConsumption
+        BigDecimal powerConsumption,
+        Long rackId,
+        String rackName
 ) {
     public static EquipmentListResponse from(Equipment equipment) {
         return EquipmentListResponse.builder()
@@ -38,6 +40,8 @@ public record EquipmentListResponse(
                 .ipAddress(equipment.getIpAddress())
                 .positionType(equipment.getPositionType() != null ? equipment.getPositionType().name() : null)
                 .powerConsumption(equipment.getPowerConsumption())
+                .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
+                .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
                 .build();
     }
 }

@@ -3,13 +3,18 @@ package org.example.finalbe.domains.member.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.Role;
+import org.example.finalbe.domains.common.exception.AccessDeniedException;
+import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.member.domain.Member;
+import org.example.finalbe.domains.member.dto.MemberDetailResponse;
 import org.example.finalbe.domains.member.dto.MemberListResponse;
+import org.example.finalbe.domains.member.dto.MemberRoleChangeRequest;
+import org.example.finalbe.domains.member.dto.MemberUpdateRequest;
 import org.example.finalbe.domains.member.repository.MemberRepository;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +31,7 @@ import java.util.stream.Collectors;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * 로그인한 사용자가 속한 회사의 회원 목록 조회
@@ -37,7 +43,6 @@ public class MemberService {
         log.info("Fetching members for company: {} by user: {}",
                 companyId, currentMember.getUserName());
 
-        // 회사별 활성 회원 목록 조회
         List<Member> members = memberRepository.findActiveByCompanyId(companyId);
 
         log.info("Found {} members for company: {}", members.size(), companyId);
@@ -50,18 +55,150 @@ public class MemberService {
     /**
      * 회원 상세 조회 (같은 회사 회원만 조회 가능)
      */
-    public MemberListResponse getMemberById(Long memberId) {
+    public MemberDetailResponse getMemberById(Long memberId) {
         Member currentMember = getCurrentMember();
 
         Member member = memberRepository.findActiveById(memberId)
                 .orElseThrow(() -> new EntityNotFoundException("사용자", memberId));
 
         // 같은 회사의 회원만 조회 가능
-        if (!member.getCompany().getId().equals(currentMember.getCompany().getId())) {
-            throw new AccessDeniedException("다른 회사의 회원 정보는 조회할 수 없습니다.");
+        validateSameCompany(currentMember, member);
+
+        return MemberDetailResponse.from(member);
+    }
+
+    /**
+     * 회원 정보 수정
+     * - 로그인 아이디, 이메일, 핸드폰, 주소, 비밀번호 수정 가능
+     * - 본인 정보만 수정 가능
+     */
+    @Transactional
+    public MemberDetailResponse updateMember(Long memberId, MemberUpdateRequest request) {
+        Member currentMember = getCurrentMember();
+
+        log.info("Updating member {} by user {}", memberId, currentMember.getId());
+
+        // === 1단계: 입력값 검증 ===
+        if (memberId == null) {
+            throw new IllegalArgumentException("회원 ID를 입력해주세요.");
         }
 
-        return MemberListResponse.from(member);
+        // === 2단계: 본인 확인 ===
+        if (!currentMember.getId().equals(memberId)) {
+            throw new AccessDeniedException("본인의 정보만 수정할 수 있습니다.");
+        }
+
+        // === 3단계: 수정할 회원 조회 ===
+        Member targetMember = memberRepository.findActiveById(memberId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자", memberId));
+
+        // === 4단계: 아이디 중복 체크 ===
+        if (request.userName() != null && !request.userName().equals(targetMember.getUserName())) {
+            if (memberRepository.existsByUserName(request.userName())) {
+                throw new DuplicateException("아이디", request.userName());
+            }
+        }
+
+        // === 5단계: 이메일 중복 체크 ===
+        if (request.email() != null && !request.email().equals(targetMember.getEmail())) {
+            if (memberRepository.existsByEmail(request.email())) {
+                throw new DuplicateException("이메일", request.email());
+            }
+        }
+
+        // === 6단계: 회원 정보 수정 ===
+        targetMember.updateInfo(
+                request.userName(),
+                request.email(),
+                request.phone()
+        );
+
+        // 주소 수정
+        targetMember.updateAddress(
+                request.city(),
+                request.street(),
+                request.zipcode()
+        );
+
+        // 비밀번호 변경
+        if (request.password() != null && !request.password().trim().isEmpty()) {
+            String encodedPassword = passwordEncoder.encode(request.password());
+            targetMember.changePassword(encodedPassword);
+            log.info("Password changed for member {}", memberId);
+        }
+
+        // === 7단계: JPA Dirty Checking으로 자동 UPDATE ===
+        log.info("Member {} updated successfully", memberId);
+
+        return MemberDetailResponse.from(targetMember);
+    }
+
+    /**
+     * 회원 권한 변경
+     * - OPERATOR가 VIEWER를 OPERATOR로 변경할 수 있음
+     * - ADMIN은 모든 권한 변경 가능
+     */
+    @Transactional
+    public MemberDetailResponse changeRole(Long memberId, MemberRoleChangeRequest request) {
+        Member currentMember = getCurrentMember();
+
+        log.info("Changing role for member {} by user {} to {}",
+                memberId, currentMember.getId(), request.role());
+
+        // === 1단계: 수정할 회원 조회 ===
+        Member targetMember = memberRepository.findActiveById(memberId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자", memberId));
+
+        // === 2단계: 같은 회사 검증 ===
+        validateSameCompany(currentMember, targetMember);
+
+        // === 3단계: 권한 변경 검증 ===
+        validateRoleChangePermission(currentMember, targetMember, request.role());
+
+        // === 4단계: 권한 변경 ===
+        targetMember.updateRole(Role.valueOf(request.role()));
+
+        log.info("Role changed successfully for member {}", memberId);
+
+        return MemberDetailResponse.from(targetMember);
+    }
+
+    /**
+     * 회원 삭제 (Soft Delete)
+     * - ADMIN만 삭제 가능
+     */
+    @Transactional
+    public void deleteMember(Long memberId) {
+        Member currentMember = getCurrentMember();
+
+        log.info("Deleting member {} by user {}", memberId, currentMember.getId());
+
+        // === 1단계: ADMIN 권한 확인 ===
+        if (currentMember.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("회원 삭제는 ADMIN만 가능합니다.");
+        }
+
+        // === 2단계: 입력값 검증 ===
+        if (memberId == null) {
+            throw new IllegalArgumentException("회원 ID를 입력해주세요.");
+        }
+
+        // 자기 자신은 삭제 불가
+        if (currentMember.getId().equals(memberId)) {
+            throw new IllegalArgumentException("자기 자신은 삭제할 수 없습니다.");
+        }
+
+        // === 3단계: 삭제할 회원 조회 ===
+        Member targetMember = memberRepository.findActiveById(memberId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자", memberId));
+
+        // === 4단계: 같은 회사 검증 ===
+        validateSameCompany(currentMember, targetMember);
+
+        // === 5단계: Soft Delete 실행 ===
+        targetMember.softDelete();
+
+        log.info("Member {} soft deleted successfully", memberId);
     }
 
     // === Private Helper Methods ===
@@ -86,5 +223,43 @@ public class MemberService {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
         }
+    }
+
+    /**
+     * 같은 회사 소속 검증
+     */
+    private void validateSameCompany(Member currentMember, Member targetMember) {
+        if (!currentMember.getCompany().getId().equals(targetMember.getCompany().getId())) {
+            throw new AccessDeniedException("다른 회사의 회원 정보는 접근할 수 없습니다.");
+        }
+    }
+
+    /**
+     * 권한 변경 권한 검증
+     * - ADMIN: 모든 권한 변경 가능
+     * - OPERATOR: VIEWER를 OPERATOR로만 변경 가능
+     */
+    private void validateRoleChangePermission(Member currentMember, Member targetMember, String newRole) {
+        Role currentRole = currentMember.getRole();
+        Role targetRole = targetMember.getRole();
+
+        // ADMIN은 모든 권한 변경 가능
+        if (currentRole == Role.ADMIN) {
+            return;
+        }
+
+        // OPERATOR는 VIEWER를 OPERATOR로만 변경 가능
+        if (currentRole == Role.OPERATOR) {
+            if (targetRole != Role.VIEWER) {
+                throw new AccessDeniedException("VIEWER 사용자만 권한을 변경할 수 있습니다.");
+            }
+            if (!"OPERATOR".equals(newRole)) {
+                throw new AccessDeniedException("VIEWER는 OPERATOR 권한으로만 변경 가능합니다.");
+            }
+            return;
+        }
+
+        // VIEWER는 권한 변경 불가
+        throw new AccessDeniedException("권한을 변경할 수 없습니다.");
     }
 }

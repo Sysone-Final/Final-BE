@@ -23,6 +23,7 @@ import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 @Service
@@ -62,7 +63,7 @@ public class ServerRoomDataSimulator {
     private final Map<Long, Double> maxHumidityTracker = new HashMap<>();
 
     // DB에서 조회한 장비/랙 목록 캐시
-    private List<Equipment> activeEquipments = new ArrayList<>();
+    private List<Equipment> activeEquipments = new CopyOnWriteArrayList<>();
     private List<Rack> activeRacks = new ArrayList<>();
 
 
@@ -73,8 +74,8 @@ public class ServerRoomDataSimulator {
         log.info("🚀 서버실 데이터 시뮬레이터 초기화 시작...");
 
 
-        activeEquipments = equipmentRepository.findAll();
-        activeRacks = rackRepository.findAll();
+        activeEquipments = new CopyOnWriteArrayList<>(equipmentRepository.findAll());
+        activeRacks = new CopyOnWriteArrayList<>(rackRepository.findAll());
 
         if (activeEquipments.isEmpty()) {
             log.warn("⚠️  등록된 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
@@ -685,5 +686,26 @@ public class ServerRoomDataSimulator {
         boolean hasHumidityAnomaly = false;
         long humidityAnomalyStartTime = 0;
         long humidityAnomalyDuration = 0;
+    }
+
+    /**
+     * 외부에서 새 장비가 등록되었을 때 시뮬레이터에 즉시 반영하는 메서드
+     */
+    public void addEquipment(Equipment newEquipment) {
+        // 1. 메모리 리스트에 새 장비 추가
+        this.activeEquipments.add(newEquipment);
+
+        // 2. NIC 정보 등 초기화
+        Long equipmentId = newEquipment.getId();
+        EquipmentType type = newEquipment.getType();
+
+        if (hasNetworkMetric(type)) {
+            EQUIPMENT_NICS.put(equipmentId, generateDefaultNics(type));
+        }
+
+        // 3. 이상 징후 상태 초기화
+        anomalyStates.put(equipmentId, new AnomalyState());
+
+        log.info("🆕 새 장비 시뮬레이터 등록 완료: ID={}, Name={}", equipmentId, newEquipment.getName());
     }
 }

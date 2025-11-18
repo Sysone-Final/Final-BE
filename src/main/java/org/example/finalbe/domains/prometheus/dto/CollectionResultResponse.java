@@ -1,52 +1,26 @@
 package org.example.finalbe.domains.prometheus.dto;
 
-import java.time.Duration;
+import lombok.Builder;
+
 import java.time.Instant;
 
+@Builder
 public record CollectionResultResponse(
         String metricType,
+        boolean success,
         Instant startTime,
         Instant endTime,
-        Duration duration,
-        Integer recordsCollected,
-        Boolean success,
+        Integer recordCount,
         String errorMessage
 ) {
-    public static CollectionResultResponse success(
-            String metricType,
-            Instant startTime,
-            Instant endTime,
-            Integer recordsCollected
-    ) {
-        return new CollectionResultResponse(
-                metricType,
-                startTime,
-                endTime,
-                Duration.between(startTime, endTime),
-                recordsCollected,
-                true,
-                null
-        );
+    public static CollectionResultResponse success(String metricType, Instant startTime, Instant endTime, Integer recordCount) {
+        return CollectionResultResponse.builder()
+                .metricType(metricType)
+                .success(true)
+                .startTime(startTime)
+                .endTime(endTime)
+                .recordCount(recordCount)
+                .build();
     }
 
-    public static CollectionResultResponse failure(
-            String metricType,
-            Instant startTime,
-            Instant endTime,
-            String errorMessage
-    ) {
-        return new CollectionResultResponse(
-                metricType,
-                startTime,
-                endTime,
-                Duration.between(startTime, endTime),
-                0,
-                false,
-                errorMessage
-        );
-    }
-
-    public String getDurationMs() {
-        return duration != null ? duration.toMillis() + "ms" : "N/A";
-    }
 }

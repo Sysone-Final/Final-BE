@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.common.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
@@ -227,12 +229,41 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 일반 Exception 처리
+     * ✅ SSE 관련 비동기 에러 처리 (추가)
+     * 이미 연결이 끊긴 상태에서 발생하는 에러이므로 응답 없음
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleAsyncRequestNotUsableException(
+            AsyncRequestNotUsableException ex,
+            HttpServletRequest request) {
+
+        String uri = request.getRequestURI();
+        log.debug("비동기 요청 에러 (무시) - URI: {}, Message: {}", uri, ex.getMessage());
+
+        // SSE 연결이 끊긴 후 발생하는 에러이므로 아무 응답도 하지 않음
+    }
+
+    /**
+     * 일반 Exception 처리 (수정)
      * 예상하지 못한 모든 예외 (500 Internal Server Error)
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<CommonErrorDto> handleException(Exception e) {
-        log.error("Unexpected exception occurred", e);
+    public ResponseEntity<CommonErrorDto> handleException(
+            Exception e,
+            HttpServletRequest request) {
+
+        String uri = request.getRequestURI();
+        String contentType = request.getHeader("Accept");
+
+        // ✅ SSE 요청인 경우 에러 응답을 보낼 수 없으므로 무시
+        if (contentType != null && contentType.contains("text/event-stream")) {
+            log.debug("SSE 요청 에러 (무시) - URI: {}", uri);
+            return null;
+        }
+
+        // 일반 REST API 에러 처리
+        log.error("Unexpected exception occurred - URI: {}", uri, e);
+
         CommonErrorDto errorDto = new CommonErrorDto(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "서버 내부 오류가 발생했습니다."

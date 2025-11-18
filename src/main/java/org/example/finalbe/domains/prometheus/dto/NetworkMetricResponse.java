@@ -1,9 +1,11 @@
 package org.example.finalbe.domains.prometheus.dto;
 
+import lombok.Builder;
 import org.example.finalbe.domains.prometheus.domain.PrometheusNetworkMetric;
 
 import java.time.Instant;
 
+@Builder
 public record NetworkMetricResponse(
         Instant time,
         String instance,
@@ -25,27 +27,27 @@ public record NetworkMetricResponse(
         Long txDroppedTotal,
         Boolean interfaceUp
 ) {
-    public static NetworkMetricResponse from(PrometheusNetworkMetric entity) {
-        return new NetworkMetricResponse(
-                entity.getTime(),
-                entity.getInstance(),
-                entity.getDevice(),
-                entity.getRxUsagePercent(),
-                entity.getTxUsagePercent(),
-                entity.getTotalUsagePercent(),
-                entity.getRxPacketsTotal(),
-                entity.getTxPacketsTotal(),
-                entity.getRxBytesTotal(),
-                entity.getTxBytesTotal(),
-                entity.getRxBytesPerSec(),
-                entity.getTxBytesPerSec(),
-                entity.getRxPacketsPerSec(),
-                entity.getTxPacketsPerSec(),
-                entity.getRxErrorsTotal(),
-                entity.getTxErrorsTotal(),
-                entity.getRxDroppedTotal(),
-                entity.getTxDroppedTotal(),
-                entity.getInterfaceUp()
-        );
+    public static NetworkMetricResponse from(PrometheusNetworkMetric metric) {
+        return NetworkMetricResponse.builder()
+                .time(metric.getTime())
+                .instance(metric.getInstance())
+                .device(metric.getDevice())
+                .rxUsagePercent(metric.getRxUsagePercent())
+                .txUsagePercent(metric.getTxUsagePercent())
+                .totalUsagePercent(metric.getTotalUsagePercent())
+                .rxPacketsTotal(metric.getRxPacketsTotal())
+                .txPacketsTotal(metric.getTxPacketsTotal())
+                .rxBytesTotal(metric.getRxBytesTotal())
+                .txBytesTotal(metric.getTxBytesTotal())
+                .rxBytesPerSec(metric.getRxBytesPerSec())
+                .txBytesPerSec(metric.getTxBytesPerSec())
+                .rxPacketsPerSec(metric.getRxPacketsPerSec())
+                .txPacketsPerSec(metric.getTxPacketsPerSec())
+                .rxErrorsTotal(metric.getRxErrorsTotal())
+                .txErrorsTotal(metric.getTxErrorsTotal())
+                .rxDroppedTotal(metric.getRxDroppedTotal())
+                .txDroppedTotal(metric.getTxDroppedTotal())
+                .interfaceUp(metric.getInterfaceUp())
+                .build();
     }
 }

@@ -22,7 +22,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update  # 주의: 프로덕션에서는 validate 사용
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -34,7 +34,13 @@ spring:
         order_updates: true
     open-in-view: false
 
-  # ✨ 추가: Async 설정
+
+  jackson:
+    time-zone: Asia/Seoul
+    serialization:
+      write-dates-as-timestamps: false
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
+
   task:
     execution:
       pool:
@@ -65,30 +71,27 @@ prometheus:
   server:
     url: http://112.221.184.61:9090
 
-  # 수집 설정
   collection:
     enabled: true
-    fixed-delay: 15000      # 15초 (이전 실행 완료 후 15초 대기)
-    initial-delay: 5000     # 시작 후 5초 대기
+    fixed-delay: 15000
+    initial-delay: 5000
 
-  # ✨ 추가: API 호출 타임아웃 설정
   client:
-    connect-timeout: 5000   # 연결 타임아웃 (5초)
-    read-timeout: 10000     # 읽기 타임아웃 (10초)
+    connect-timeout: 5000
+    read-timeout: 10000
 
-  # ✨ 추가: SSE 설정
   sse:
-    timeout: 3600000        # 1시간
-    heartbeat-interval: 30000  # 30초
+    timeout: 3600000
+    heartbeat-interval: 30000
 
-# ==================== 로깅 설정 ====================
+## ==================== 로깅 설정 ====================
 #logging:
 #  level:
 #    root: INFO
-#    org.example.finalbe.domains.prometheus: INFO  # ✨ 추가
+#    org.example.finalbe.domains.prometheus: INFO
 #    org.hibernate.SQL: DEBUG
 #    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-#    com.zaxxer.hikari: DEBUG  # HikariCP 로그
+#    com.zaxxer.hikari: DEBUG
 
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

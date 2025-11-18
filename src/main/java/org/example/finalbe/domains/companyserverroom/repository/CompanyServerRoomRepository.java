@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.companyserverroom.repository;
 
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.companyserverroom.domain.CompanyServerRoom;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -22,7 +23,7 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     JOIN FETCH csr.company c
     JOIN FETCH csr.serverRoom sr
     WHERE csr.company.id = :companyId 
-    AND csr.delYn = 'N'
+    AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
     """)
     List<CompanyServerRoom> findByCompanyId(@Param("companyId") Long companyId);
 
@@ -34,7 +35,7 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     JOIN FETCH csr.company c
     JOIN FETCH csr.serverRoom sr
     WHERE csr.serverRoom.id = :serverRoomId 
-    AND csr.delYn = 'N'
+    AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
     """)
     List<CompanyServerRoom> findByServerRoomId(@Param("serverRoomId") Long serverRoomId);
 
@@ -47,7 +48,7 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     JOIN FETCH csr.serverRoom sr
     WHERE csr.company.id = :companyId 
     AND csr.serverRoom.id = :serverRoomId 
-    AND csr.delYn = 'N'
+    AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
     """)
     Optional<CompanyServerRoom> findByCompanyIdAndServerRoomId(
             @Param("companyId") Long companyId,
@@ -62,7 +63,7 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     FROM CompanyServerRoom csr 
     WHERE csr.company.id = :companyId 
     AND csr.serverRoom.id = :serverRoomId 
-    AND csr.delYn = 'N'
+    AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
     """)
     boolean existsByCompanyIdAndServerRoomId(
             @Param("companyId") Long companyId,
@@ -72,6 +73,10 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     /**
      * 회사가 관리하는 서버실 ID 목록 조회
      */
-    @Query("SELECT csr.serverRoom.id FROM CompanyServerRoom csr WHERE csr.company.id = :companyId")
+    @Query("""
+    SELECT csr.serverRoom.id FROM CompanyServerRoom csr 
+    WHERE csr.company.id = :companyId 
+    AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    """)
     List<Long> findServerRoomIdsByCompanyId(@Param("companyId") Long companyId);
 }

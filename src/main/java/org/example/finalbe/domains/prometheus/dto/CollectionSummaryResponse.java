@@ -1,19 +1,26 @@
 package org.example.finalbe.domains.prometheus.dto;
 
+import lombok.Builder;
+
 import java.time.Instant;
 import java.util.List;
 
+@Builder
 public record CollectionSummaryResponse(
-        Instant collectionTime,
-        List<CollectionResultResponse> results,
+        Instant collectionStart,
+        Instant collectionEnd,
+        Long totalDuration,
         Integer totalRecords,
         Integer successCount,
         Integer failureCount,
-        String totalDuration
+        List<CollectionResultResponse> results
 ) {
-    public static CollectionSummaryResponse of(Instant collectionTime, List<CollectionResultResponse> results) {
-        int total = results.stream()
-                .mapToInt(r -> r.recordsCollected() != null ? r.recordsCollected() : 0)
+    public static CollectionSummaryResponse of(Instant collectionStart, List<CollectionResultResponse> results) {
+        Instant collectionEnd = Instant.now();
+        long totalDuration = collectionEnd.toEpochMilli() - collectionStart.toEpochMilli();
+
+        int totalRecords = results.stream()
+                .mapToInt(r -> r.recordCount() != null ? r.recordCount() : 0)
                 .sum();
 
         long successCount = results.stream()
@@ -24,22 +31,14 @@ public record CollectionSummaryResponse(
                 .filter(r -> !r.success())
                 .count();
 
-        long totalMs = results.stream()
-                .filter(r -> r.duration() != null)
-                .mapToLong(r -> r.duration().toMillis())
-                .sum();
-
-        return new CollectionSummaryResponse(
-                collectionTime,
-                results,
-                total,
-                (int) successCount,
-                (int) failureCount,
-                totalMs + "ms"
-        );
-    }
-
-    public boolean hasFailures() {
-        return failureCount > 0;
+        return CollectionSummaryResponse.builder()
+                .collectionStart(collectionStart)
+                .collectionEnd(collectionEnd)
+                .totalDuration(totalDuration)
+                .totalRecords(totalRecords)
+                .successCount((int) successCount)
+                .failureCount((int) failureCount)
+                .results(results)
+                .build();
     }
 }

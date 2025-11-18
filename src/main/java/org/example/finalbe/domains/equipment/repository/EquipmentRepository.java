@@ -142,7 +142,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    Boolean existsByRackIdAndDelYn(Long rackId, DelYN delYn);
 
     /**
      * 활성 장비 전체 조회 (delYn = 'N', Rack도 활성)
@@ -161,4 +160,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "LEFT JOIN FETCH r.serverRoom sr " +
             "WHERE e.id = :id")
     Optional<Equipment> findByIdWithRackAndServerRoom(@Param("id") Long id);
+
+    List<Equipment> findByDelYn(DelYN delYN);
 }

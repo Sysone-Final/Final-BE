@@ -2,53 +2,47 @@ package org.example.finalbe.domains.prometheus.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.finalbe.domains.prometheus.dto.CollectionResultResponse;
-import org.example.finalbe.domains.prometheus.dto.CollectionSummaryResponse;
-import org.example.finalbe.domains.prometheus.dto.MetricsResponse;
+import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.prometheus.dto.*;
 import org.example.finalbe.domains.prometheus.service.PrometheusMetricCollector;
 import org.example.finalbe.domains.prometheus.service.PrometheusMetricQueryService;
 import org.example.finalbe.domains.prometheus.service.PrometheusSSEService;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "prometheus.collection.enabled", havingValue = "true", matchIfMissing = true)
 public class PrometheusMetricScheduler {
 
     private final PrometheusMetricCollector collector;
     private final PrometheusMetricQueryService queryService;
     private final PrometheusSSEService sseService;
+    private final EquipmentRepository equipmentRepository;
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter
-            .ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.of("Asia/Seoul"));
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     /**
-     * 메트릭 수집 스케줄러 (15초마다 실행 - fixedDelay)
-     * 이전 실행이 완료된 후 15초 대기
+     * 15초마다 메트릭 수집 및 SSE 브로드캐스트
      */
-    @Scheduled(
-            fixedDelayString = "${prometheus.collection.fixed-delay:15000}",
-            initialDelayString = "${prometheus.collection.initial-delay:5000}"
-    )
-    public void collectMetrics() {
+    @Scheduled(fixedRate = 15000, initialDelay = 5000)
+    public void collectAndBroadcastMetrics() {
         Instant collectionStart = Instant.now();
+        LocalDateTime collectionStartTime = LocalDateTime.ofInstant(collectionStart, ZoneId.systemDefault());
 
-        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        log.info("🚀 Prometheus 메트릭 수집 시작: {}", FORMATTER.format(collectionStart));
+        log.info("=========================================");
+        log.info("Prometheus 메트릭 수집 시작: {}", FORMATTER.format(collectionStartTime));
 
-        // 최근 15초간 데이터 수집
         Instant end = Instant.now();
         Instant start = end.minus(15, ChronoUnit.SECONDS);
 
@@ -62,10 +56,8 @@ public class PrometheusMetricScheduler {
             CompletableFuture<Integer> diskFuture = collector.collectDiskMetrics(start, end);
             CompletableFuture<Integer> temperatureFuture = collector.collectTemperatureMetrics(start, end);
 
-            // 모든 작업 완료 대기
             CompletableFuture.allOf(cpuFuture, memoryFuture, networkFuture, diskFuture, temperatureFuture).join();
 
-            // 결과 수집
             Instant collectEnd = Instant.now();
             results.add(CollectionResultResponse.success("CPU", start, collectEnd, cpuFuture.get()));
             results.add(CollectionResultResponse.success("Memory", start, collectEnd, memoryFuture.get()));
@@ -73,43 +65,47 @@ public class PrometheusMetricScheduler {
             results.add(CollectionResultResponse.success("Disk", start, collectEnd, diskFuture.get()));
             results.add(CollectionResultResponse.success("Temperature", start, collectEnd, temperatureFuture.get()));
 
-            // 요약 출력
             CollectionSummaryResponse summary = CollectionSummaryResponse.of(collectionStart, results);
-            log.info("📊 수집 완료 - 총 {} rows, 성공: {}, 실패: {}, 소요시간: {}",
+            log.info("수집 완료 - 총 {} rows, 성공: {}, 실패: {}, 소요시간: {}ms",
                     summary.totalRecords(), summary.successCount(), summary.failureCount(), summary.totalDuration());
 
-            // SSE 브로드캐스트 (최근 15초 데이터)
-            broadcastMetrics(start);
+            // SSE 브로드캐스트 (장비별만)
+            broadcastEquipmentMetrics();
 
         } catch (Exception e) {
-            log.error("❌ 메트릭 수집 중 오류 발생", e);
+            log.error("메트릭 수집 중 오류 발생", e);
         } finally {
             long totalDuration = Instant.now().toEpochMilli() - collectionStart.toEpochMilli();
-            log.info("⏱️ 전체 실행 시간: {}ms", totalDuration);
-            log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            log.info("전체 실행 시간: {}ms", totalDuration);
+            log.info("=========================================\n");
         }
     }
+
     /**
-     * SSE 브로드캐스트 (수집 직후)
+     * 장비별 메트릭 브로드캐스트 (SSEService가 자동으로 집계 처리)
      */
-    private void broadcastMetrics(Instant since) {
-        try {
-            int connections = sseService.getTotalConnections();
-            if (connections == 0) {
-                log.debug("📭 활성 SSE 연결 없음 - 브로드캐스트 스킵");
-                return;
-            }
-
-            log.debug("📡 SSE 브로드캐스트 시작 - 연결 수: {}", connections);
-
-            MetricsResponse metrics = queryService.getRecentMetrics(since);
-            sseService.broadcast("metrics", metrics);
-
-            log.debug("✅ SSE 브로드캐스트 완료 - {} records", metrics.totalRecords());
-
-        } catch (Exception e) {
-            log.error("❌ SSE 브로드캐스트 실패", e);
+    private void broadcastEquipmentMetrics() {
+        int connections = sseService.getTotalConnections();
+        if (connections == 0) {
+            log.debug("활성 SSE 연결 없음 - 브로드캐스트 스킵");
+            return;
         }
+
+        log.debug("SSE 브로드캐스트 시작 - 연결 수: {}", connections);
+
+        List<Equipment> equipments = equipmentRepository.findByDelYn(DelYN.N);
+
+        for (Equipment equipment : equipments) {
+            try {
+                EquipmentMetricsResponse metrics = queryService.getLatestMetricsByEquipment(equipment.getId());
+                // SSEService가 equipmentId를 보고 자동으로 집계 대상 구독자에게도 전달
+                sseService.broadcastEquipmentMetrics(equipment.getId(), metrics);
+            } catch (Exception e) {
+                log.error("장비 {} 메트릭 브로드캐스트 실패", equipment.getId(), e);
+            }
+        }
+
+        log.debug("SSE 브로드캐스트 완료");
     }
 
     /**
@@ -121,10 +117,10 @@ public class PrometheusMetricScheduler {
             int connections = sseService.getTotalConnections();
             if (connections > 0) {
                 sseService.sendHeartbeat();
-                log.debug("💓 Heartbeat 전송 완료 - 연결 수: {}", connections);
+                log.debug("Heartbeat 전송 완료 - 연결 수: {}", connections);
             }
         } catch (Exception e) {
-            log.error("❌ Heartbeat 전송 실패", e);
+            log.error("Heartbeat 전송 실패", e);
         }
     }
 
@@ -135,10 +131,9 @@ public class PrometheusMetricScheduler {
     public void logConnectionStatus() {
         int connections = sseService.getTotalConnections();
         if (connections > 0) {
-            log.info("📊 SSE 연결 상태 - 총 {} 연결", connections);
-            sseService.getConnectionStatus().forEach((clientId, count) ->
-                    log.info("   └─ {}: {} 연결", clientId, count)
-            );
+            log.info("SSE 연결 상태 - 총 {} 연결", connections);
+            Map<String, Object> status = sseService.getConnectionStatus();
+            log.info("상세: {}", status);
         }
     }
 }

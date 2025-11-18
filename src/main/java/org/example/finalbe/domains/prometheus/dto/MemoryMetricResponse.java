@@ -1,9 +1,11 @@
 package org.example.finalbe.domains.prometheus.dto;
 
+import lombok.Builder;
 import org.example.finalbe.domains.prometheus.domain.PrometheusMemoryMetric;
 
 import java.time.Instant;
 
+@Builder
 public record MemoryMetricResponse(
         Instant time,
         String instance,
@@ -21,23 +23,23 @@ public record MemoryMetricResponse(
         Long swapFreeBytes,
         Double swapUsagePercent
 ) {
-    public static MemoryMetricResponse from(PrometheusMemoryMetric entity) {
-        return new MemoryMetricResponse(
-                entity.getTime(),
-                entity.getInstance(),
-                entity.getTotalBytes(),
-                entity.getUsedBytes(),
-                entity.getFreeBytes(),
-                entity.getAvailableBytes(),
-                entity.getUsagePercent(),
-                entity.getBuffersBytes(),
-                entity.getCachedBytes(),
-                entity.getActiveBytes(),
-                entity.getInactiveBytes(),
-                entity.getSwapTotalBytes(),
-                entity.getSwapUsedBytes(),
-                entity.getSwapFreeBytes(),
-                entity.getSwapUsagePercent()
-        );
+    public static MemoryMetricResponse from(PrometheusMemoryMetric metric) {
+        return MemoryMetricResponse.builder()
+                .time(metric.getTime())
+                .instance(metric.getInstance())
+                .totalBytes(metric.getTotalBytes())
+                .usedBytes(metric.getUsedBytes())
+                .freeBytes(metric.getFreeBytes())
+                .availableBytes(metric.getAvailableBytes())
+                .usagePercent(metric.getUsagePercent())
+                .buffersBytes(metric.getBuffersBytes())
+                .cachedBytes(metric.getCachedBytes())
+                .activeBytes(metric.getActiveBytes())
+                .inactiveBytes(metric.getInactiveBytes())
+                .swapTotalBytes(metric.getSwapTotalBytes())
+                .swapUsedBytes(metric.getSwapUsedBytes())
+                .swapFreeBytes(metric.getSwapFreeBytes())
+                .swapUsagePercent(metric.getSwapUsagePercent())
+                .build();
     }
 }

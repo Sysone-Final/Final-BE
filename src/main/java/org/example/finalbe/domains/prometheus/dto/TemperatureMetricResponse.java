@@ -1,9 +1,11 @@
 package org.example.finalbe.domains.prometheus.dto;
 
+import lombok.Builder;
 import org.example.finalbe.domains.prometheus.domain.PrometheusTemperatureMetric;
 
 import java.time.Instant;
 
+@Builder
 public record TemperatureMetricResponse(
         Instant time,
         String instance,
@@ -11,13 +13,13 @@ public record TemperatureMetricResponse(
         String sensor,
         Double tempCelsius
 ) {
-    public static TemperatureMetricResponse from(PrometheusTemperatureMetric entity) {
-        return new TemperatureMetricResponse(
-                entity.getTime(),
-                entity.getInstance(),
-                entity.getChip(),
-                entity.getSensor(),
-                entity.getTempCelsius()
-        );
+    public static TemperatureMetricResponse from(PrometheusTemperatureMetric metric) {
+        return TemperatureMetricResponse.builder()
+                .time(metric.getTime())
+                .instance(metric.getInstance())
+                .chip(metric.getChip())
+                .sensor(metric.getSensor())
+                .tempCelsius(metric.getTempCelsius())
+                .build();
     }
 }

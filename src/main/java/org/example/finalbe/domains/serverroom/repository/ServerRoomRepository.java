@@ -67,4 +67,6 @@ public interface ServerRoomRepository extends JpaRepository<ServerRoom, Long> {
      */
     @Query("SELECT sr FROM ServerRoom sr WHERE sr.dataCenter.id = :dataCenterId AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
     List<ServerRoom> findByDataCenterIdAndDelYn(@Param("dataCenterId") Long dataCenterId);
+
+
 }

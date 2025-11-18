@@ -42,4 +42,5 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
         ORDER BY dc.name
     """)
     List<DataCenter> searchByName(@Param("keyword") String keyword);
+
 }

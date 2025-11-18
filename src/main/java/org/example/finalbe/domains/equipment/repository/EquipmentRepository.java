@@ -160,4 +160,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "LEFT JOIN FETCH r.serverRoom sr " +
             "WHERE e.id = :id")
     Optional<Equipment> findByIdWithRackAndServerRoom(@Param("id") Long id);
+
+    List<Equipment> findByDelYn(DelYN delYN);
 }

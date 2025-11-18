@@ -18,11 +18,6 @@ import java.util.Optional;
 @Repository
 public interface RackRepository extends JpaRepository<Rack, Long> {
 
-    /**
-     * ID로 활성 랙 조회 (delYn = N)
-     */
-    @Query("SELECT r FROM Rack r WHERE r.id = :id AND r.delYn = 'N'")
-    Optional<Rack> findActiveById(@Param("id") Long id);
 
     /**
      * 서버실별 랙 목록 조회
@@ -101,4 +96,15 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     @Query("SELECT e FROM Equipment e WHERE e.delYn = 'N'")
     List<Equipment> findAllActive();
 
+    /**
+     * 활성 랙 목록 조회
+     */
+    List<Rack> findByDelYn(DelYN delYn);
+
+
+    /**
+     * 활성 랙 단건 조회
+     */
+    @Query("SELECT r FROM Rack r WHERE r.id = :id AND r.delYn = 'N'")
+    Optional<Rack> findActiveById(@Param("id") Long id);
 }

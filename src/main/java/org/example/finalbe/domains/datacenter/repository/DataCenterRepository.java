@@ -28,12 +28,18 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
     List<DataCenter> findByDelYn(DelYN delYn);
 
     /**
+     * 회사별 활성 데이터센터 조회
+     */
+    @Query("SELECT dc FROM DataCenter dc WHERE dc.company.id = :companyId AND dc.delYn = :delYn")
+    List<DataCenter> findByCompanyIdAndDelYn(@Param("companyId") Long companyId, @Param("delYn") DelYN delYn);
+
+    /**
      * 데이터센터 코드 중복 체크
      */
     boolean existsByCodeAndDelYn(String code, DelYN delYn);
 
     /**
-     * 데이터센터명으로 검색
+     * 데이터센터명으로 검색 (전체)
      */
     @Query("""
         SELECT dc FROM DataCenter dc
@@ -43,4 +49,15 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
     """)
     List<DataCenter> searchByName(@Param("keyword") String keyword);
 
+    /**
+     * 데이터센터명으로 검색 (회사별)
+     */
+    @Query("""
+        SELECT dc FROM DataCenter dc
+        WHERE dc.name LIKE %:keyword%
+        AND dc.company.id = :companyId
+        AND dc.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+        ORDER BY dc.name
+    """)
+    List<DataCenter> searchByNameAndCompanyId(@Param("keyword") String keyword, @Param("companyId") Long companyId);
 }

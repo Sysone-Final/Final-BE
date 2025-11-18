@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.DelYN;
+import org.example.finalbe.domains.company.domain.Company;
 
 /**
  * 데이터센터 엔티티
@@ -18,7 +19,8 @@ import org.example.finalbe.domains.common.enumdir.DelYN;
 @Table(name = "datacenter",
         indexes = {
                 @Index(name = "idx_datacenter_name", columnList = "name"),
-                @Index(name = "idx_datacenter_code", columnList = "code")
+                @Index(name = "idx_datacenter_code", columnList = "code"),
+                @Index(name = "idx_datacenter_company", columnList = "company_id")
         })
 @NoArgsConstructor
 @AllArgsConstructor
@@ -40,10 +42,13 @@ public class DataCenter extends BaseTimeEntity {
     @Column(name = "address", length = 500)
     private String address; // 주소
 
-    @Lob
     @Column(name = "description", columnDefinition = "TEXT")
     private String description; // 설명
 
+    // 회사 연관관계 추가
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company; // 소속 회사
 
     @Enumerated(EnumType.STRING)
     @Column(name = "del_yn", length = 1)
@@ -67,6 +72,13 @@ public class DataCenter extends BaseTimeEntity {
         if (description != null) {
             this.description = description;
         }
+    }
+
+    /**
+     * 회사 설정
+     */
+    public void setCompany(Company company) {
+        this.company = company;
     }
 
     /**

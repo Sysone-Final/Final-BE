@@ -1,3 +1,5 @@
+// src/main/java/org/example/finalbe/domains/serverroom/repository/ServerRoomRepository.java
+
 package org.example.finalbe.domains.serverroom.repository;
 
 import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
@@ -16,57 +18,73 @@ import java.util.Optional;
 public interface ServerRoomRepository extends JpaRepository<ServerRoom, Long> {
 
     /**
-     * ★ 수정: 활성 전산실 목록 조회 (LEFT JOIN FETCH 제거)
+     * 활성 서버실 목록 조회
      */
     @Query("""
-        SELECT dc FROM ServerRoom dc
-        WHERE dc.delYn = :delYn
-        ORDER BY dc.name
+        SELECT sr FROM ServerRoom sr
+        WHERE sr.delYn = :delYn
+        ORDER BY sr.name
     """)
     List<ServerRoom> findByDelYn(@Param("delYn") DelYN delYn);
 
     /**
-     * ★ 수정: ID로 활성 전산실 조회 (LEFT JOIN FETCH 제거)
+     * ID로 활성 서버실 조회
      */
     @Query("""
-        SELECT dc FROM ServerRoom dc
-        WHERE dc.id = :id 
-        AND dc.delYn = 'N'
+        SELECT sr FROM ServerRoom sr
+        WHERE sr.id = :id 
+        AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
     """)
     Optional<ServerRoom> findActiveById(@Param("id") Long id);
 
     /**
-     * 전산실 코드 중복 체크
+     * 서버실 코드 중복 체크
      */
     boolean existsByCodeAndDelYn(String code, DelYN delYn);
 
     /**
-     * ★ 수정: 상태별 전산실 조회 (LEFT JOIN FETCH 제거)
+     * 상태별 서버실 조회
      */
     @Query("""
-        SELECT dc FROM ServerRoom dc
-        WHERE dc.status = :status 
-        AND dc.delYn = 'N'
-        ORDER BY dc.name
+        SELECT sr FROM ServerRoom sr
+        WHERE sr.status = :status 
+        AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+        ORDER BY sr.name
     """)
     List<ServerRoom> findByStatus(@Param("status") ServerRoomStatus status);
 
     /**
-     * ★ 수정: 전산실 이름으로 검색 (LEFT JOIN FETCH 제거)
+     * 서버실 이름으로 검색
      */
     @Query("""
-        SELECT dc FROM ServerRoom dc
-        WHERE dc.name LIKE %:name%
-        AND dc.delYn = 'N'
-        ORDER BY dc.name
+        SELECT sr FROM ServerRoom sr
+        WHERE sr.name LIKE %:name%
+        AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+        ORDER BY sr.name
     """)
     List<ServerRoom> searchByName(@Param("name") String name);
 
     /**
-     * 특정 데이터센터에 속한 활성 서버실 목록 조회
+     * 특정 데이터센터에 속한 활성 서버실 목록 조회 (delYn 필터링)
      */
-    @Query("SELECT sr FROM ServerRoom sr WHERE sr.dataCenter.id = :dataCenterId AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N")
-    List<ServerRoom> findByDataCenterIdAndDelYn(@Param("dataCenterId") Long dataCenterId);
+    @Query("""
+        SELECT sr FROM ServerRoom sr 
+        WHERE sr.dataCenter.id = :dataCenterId 
+        AND sr.delYn = :delYn
+        ORDER BY sr.name
+    """)
+    List<ServerRoom> findByDataCenterIdAndDelYn(
+            @Param("dataCenterId") Long dataCenterId,
+            @Param("delYn") DelYN delYn
+    );
 
-
+    /**
+     * 특정 데이터센터의 활성 서버실 개수 조회
+     */
+    @Query("""
+        SELECT COUNT(sr) FROM ServerRoom sr 
+        WHERE sr.dataCenter.id = :dataCenterId 
+        AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    """)
+    long countByDataCenterIdAndDelYn(@Param("dataCenterId") Long dataCenterId);
 }

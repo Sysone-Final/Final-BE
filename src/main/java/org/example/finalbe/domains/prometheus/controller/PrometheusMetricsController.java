@@ -290,7 +290,7 @@ public class PrometheusMetricsController {
         DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 데이터센터입니다: " + dataCenterId));
 
-        return serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId).stream()
+        return serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId,DelYN.N).stream()
                 .flatMap(serverRoom -> rackRepository.findByServerRoomIdAndDelYn(serverRoom.getId(), DelYN.N).stream())
                 .flatMap(rack -> equipmentRepository.findByRackIdAndDelYn(rack.getId(), DelYN.N).stream())
                 .map(equipment -> equipment.getId())

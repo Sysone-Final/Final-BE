@@ -28,14 +28,15 @@ public class PrometheusSSEService {
     private final Map<Long, EquipmentMetricsResponse> latestEquipmentMetrics = new ConcurrentHashMap<>();
 
     /**
-     * SSE 연결 생성
+     * SSE 연결 생성 (과거 데이터 전송 제거 - 실시간 전용)
      */
     public SseEmitter createEmitter(String clientId, SubscriptionInfo subscriptionInfo) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         subscriptionInfo.setEmitter(emitter);
         subscriptions.put(clientId, subscriptionInfo);
 
-        log.info("SSE 연결 생성 - clientId: {}, 구독 타입: {}", clientId, subscriptionInfo.getType());
+        log.info("SSE 연결 생성 - clientId: {}, 구독 타입: {} (실시간 전용)",
+                clientId, subscriptionInfo.getType());
 
         emitter.onCompletion(() -> {
             log.info("SSE 연결 완료 - clientId: {}", clientId);
@@ -52,19 +53,13 @@ public class PrometheusSSEService {
             removeSubscription(clientId);
         });
 
-        // 초기 연결 확인 메시지
-        try {
-            emitter.send(SseEmitter.event()
-                    .name("connected")
-                    .data(Map.of(
-                            "message", "연결 성공",
-                            "clientId", clientId,
-                            "subscriptionType", subscriptionInfo.getType(),
-                            "timestamp", System.currentTimeMillis()
-                    ))
-            );
-        } catch (IOException e) {
-            log.error("초기 메시지 전송 실패 - clientId: {}", clientId, e);
+        // 초기 연결 확인 메시지만 전송 (과거 데이터 전송 제거)
+        if (!safeSend(emitter, "connected", Map.of(
+                "message", "연결 성공 - 실시간 업데이트 시작",
+                "clientId", clientId,
+                "subscriptionType", subscriptionInfo.getType(),
+                "timestamp", System.currentTimeMillis()
+        ))) {
             removeSubscription(clientId);
         }
 
@@ -72,32 +67,48 @@ public class PrometheusSSEService {
     }
 
     /**
-     * 장비별 메트릭 브로드캐스트 (집계 포함)
+     * 안전한 SSE 전송 메서드 (Broken pipe 방지)
+     */
+    private boolean safeSend(SseEmitter emitter, String eventName, Object data) {
+        try {
+            emitter.send(SseEmitter.event()
+                    .name(eventName)
+                    .data(data)
+            );
+            return true;
+        } catch (IOException e) {
+            // Broken pipe 또는 연결 끊김은 디버그 레벨로만 로깅
+            if (e.getMessage() != null && e.getMessage().contains("Broken pipe")) {
+                log.debug("클라이언트 연결 끊김 (Broken pipe) - 정상 동작");
+            } else {
+                log.warn("SSE 전송 실패: {}", e.getMessage());
+            }
+            return false;
+        } catch (Exception e) {
+            log.error("SSE 전송 중 예상치 못한 에러", e);
+            return false;
+        }
+    }
+
+    /**
+     * 장비별 메트릭 브로드캐스트 (실시간 업데이트용)
      */
     public void broadcastEquipmentMetrics(Long equipmentId, EquipmentMetricsResponse metrics) {
         // 최신 메트릭 저장
         latestEquipmentMetrics.put(equipmentId, metrics);
 
         // 1. 해당 장비를 직접 구독 중인 클라이언트에게 전송
-        List<String> equipmentSubscribers = subscriptions.entrySet().stream()
+        subscriptions.entrySet().stream()
                 .filter(entry -> entry.getValue().containsEquipment(equipmentId))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+                .forEach(entry -> {
+                    String clientId = entry.getKey();
+                    SubscriptionInfo info = entry.getValue();
 
-        equipmentSubscribers.forEach(clientId -> {
-            SubscriptionInfo info = subscriptions.get(clientId);
-            if (info != null) {
-                try {
-                    info.getEmitter().send(SseEmitter.event()
-                            .name("equipment_metrics")
-                            .data(metrics)
-                    );
-                } catch (IOException e) {
-                    log.warn("SSE 전송 실패 - clientId: {}, 연결 제거", clientId);
-                    removeSubscription(clientId);
-                }
-            }
-        });
+                    if (!safeSend(info.getEmitter(), "equipment_metrics", metrics)) {
+                        log.debug("실시간 메트릭 전송 실패 - clientId: {}", clientId);
+                        removeSubscription(clientId);
+                    }
+                });
 
         // 2. 랙/서버실/데이터센터 집계 구독자에게 실시간 집계 전송
         broadcastAggregations(equipmentId);
@@ -107,11 +118,17 @@ public class PrometheusSSEService {
      * 집계 브로드캐스트 (랙, 서버실, 데이터센터)
      */
     private void broadcastAggregations(Long equipmentId) {
-        subscriptions.values().stream()
-                .filter(info -> info.getType() != SubscriptionType.EQUIPMENT &&
-                        info.getType() != SubscriptionType.EQUIPMENTS)
-                .filter(info -> info.containsEquipment(equipmentId))
-                .forEach(info -> {
+        subscriptions.entrySet().stream()
+                .filter(entry -> {
+                    SubscriptionInfo info = entry.getValue();
+                    return info.getType() != SubscriptionType.EQUIPMENT &&
+                            info.getType() != SubscriptionType.EQUIPMENTS &&
+                            info.containsEquipment(equipmentId);
+                })
+                .forEach(entry -> {
+                    String clientId = entry.getKey();
+                    SubscriptionInfo info = entry.getValue();
+
                     try {
                         // 해당 구독의 모든 장비 메트릭 수집
                         List<EquipmentMetricsResponse> equipmentMetrics = info.getEquipmentIds().stream()
@@ -127,19 +144,20 @@ public class PrometheusSSEService {
                             );
 
                             String eventName = info.getType().toString().toLowerCase() + "_aggregated_metrics";
-                            info.getEmitter().send(SseEmitter.event()
-                                    .name(eventName)
-                                    .data(aggregated)
-                            );
+                            if (!safeSend(info.getEmitter(), eventName, aggregated)) {
+                                removeSubscription(clientId);
+                            }
                         }
-                    } catch (IOException e) {
-                        log.warn("집계 SSE 전송 실패", e);
+                    } catch (Exception e) {
+                        log.warn("집계 브로드캐스트 실패 - clientId: {}", clientId, e);
                     }
                 });
     }
 
+    // PrometheusSSEService.java
+
     /**
-     * 메트릭 집계 (평균 계산)
+     * 메트릭 집계 (평균 계산) - ✅ NPE 방지 수정
      */
     private AggregatedMetricsResponse aggregateMetrics(
             List<EquipmentMetricsResponse> equipmentMetrics,
@@ -152,33 +170,41 @@ public class PrometheusSSEService {
 
         Double avgCpuUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.cpu().stream())
-                .mapToDouble(CpuMetricResponse::cpuUsagePercent)
+                .map(CpuMetricResponse::cpuUsagePercent)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgMemoryUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.memory().stream())
-                .mapToDouble(MemoryMetricResponse::usagePercent)
+                .map(MemoryMetricResponse::usagePercent)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgNetworkUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.network().stream())
-                .filter(n -> n.totalUsagePercent() != null)
-                .mapToDouble(NetworkMetricResponse::totalUsagePercent)
+                .map(NetworkMetricResponse::totalUsagePercent)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgDiskUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.disk().stream())
-                .filter(d -> d.usagePercent() != null)
-                .mapToDouble(DiskMetricResponse::usagePercent)
+                .map(DiskMetricResponse::usagePercent)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgTemperature = equipmentMetrics.stream()
                 .flatMap(em -> em.temperature().stream())
-                .mapToDouble(TemperatureMetricResponse::tempCelsius)
+                .map(TemperatureMetricResponse::tempCelsius)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
@@ -199,28 +225,41 @@ public class PrometheusSSEService {
      * Heartbeat 전송
      */
     public void sendHeartbeat() {
+        List<String> disconnectedClients = new ArrayList<>();
+
         subscriptions.forEach((clientId, info) -> {
-            try {
-                info.getEmitter().send(SseEmitter.event()
-                        .name("heartbeat")
-                        .data(Map.of(
-                                "timestamp", System.currentTimeMillis(),
-                                "clientId", clientId
-                        ))
-                );
-            } catch (IOException e) {
-                log.warn("Heartbeat 전송 실패 - clientId: {}", clientId);
-                removeSubscription(clientId);
+            if (!safeSend(info.getEmitter(), "heartbeat", Map.of(
+                    "timestamp", System.currentTimeMillis(),
+                    "clientId", clientId
+            ))) {
+                disconnectedClients.add(clientId);
             }
         });
+
+        // 끊긴 연결 정리
+        disconnectedClients.forEach(this::removeSubscription);
     }
 
     /**
      * 구독 제거
      */
     private void removeSubscription(String clientId) {
-        subscriptions.remove(clientId);
-        log.info("구독 제거 - clientId: {}", clientId);
+        SubscriptionInfo removed = subscriptions.remove(clientId);
+        if (removed != null) {
+            try {
+                if (removed.getEmitter() != null) {
+                    removed.getEmitter().complete();
+                }
+            } catch (IllegalStateException e) {
+                // Emitter가 이미 완료되었거나 타임아웃된 경우
+                log.debug("Emitter 이미 완료됨 - clientId: {}", clientId);
+            } catch (Exception e) {
+                // 기타 예외는 조용히 로깅만
+                log.debug("Emitter 완료 처리 중 에러 (무시) - clientId: {}, error: {}",
+                        clientId, e.getMessage());
+            }
+            log.info("구독 제거 - clientId: {}", clientId);
+        }
     }
 
     /**
@@ -249,13 +288,13 @@ public class PrometheusSSEService {
     }
 
     /**
-     * 구독 정보 클래스
+     * 구독 정보 클래스 (since 필드 제거)
      */
     public static class SubscriptionInfo {
         private SseEmitter emitter;
         private final SubscriptionType type;
         private final Set<Long> equipmentIds;
-        private final Long aggregationId; // rackId, serverRoomId, dataCenterId
+        private final Long aggregationId;
 
         public static SubscriptionInfo forEquipment(Long equipmentId) {
             return new SubscriptionInfo(SubscriptionType.EQUIPMENT, Set.of(equipmentId), null);

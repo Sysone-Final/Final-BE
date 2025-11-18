@@ -248,8 +248,10 @@ public class PrometheusMetricQueryService {
         }
     }
 
+    // PrometheusMetricQueryService.java
+
     /**
-     * 메트릭 집계 (평균 계산)
+     * 메트릭 집계 (평균 계산) - ✅ NPE 방지 수정
      */
     private AggregatedMetricsResponse aggregateMetrics(
             List<EquipmentMetricsResponse> equipmentMetrics,
@@ -260,35 +262,44 @@ public class PrometheusMetricQueryService {
             return AggregatedMetricsResponse.empty(aggregationType, aggregationId);
         }
 
+        // ✅ null 필터링 후 평균 계산
         Double avgCpuUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.cpu().stream())
-                .mapToDouble(CpuMetricResponse::cpuUsagePercent)
+                .map(CpuMetricResponse::cpuUsagePercent)
+                .filter(Objects::nonNull)  // ⭐ null 제거
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgMemoryUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.memory().stream())
-                .mapToDouble(MemoryMetricResponse::usagePercent)
+                .map(MemoryMetricResponse::usagePercent)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgNetworkUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.network().stream())
-                .filter(n -> n.totalUsagePercent() != null)
-                .mapToDouble(NetworkMetricResponse::totalUsagePercent)
+                .map(NetworkMetricResponse::totalUsagePercent)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgDiskUsage = equipmentMetrics.stream()
                 .flatMap(em -> em.disk().stream())
-                .filter(d -> d.usagePercent() != null)
-                .mapToDouble(DiskMetricResponse::usagePercent)
+                .map(DiskMetricResponse::usagePercent)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
         Double avgTemperature = equipmentMetrics.stream()
                 .flatMap(em -> em.temperature().stream())
-                .mapToDouble(TemperatureMetricResponse::tempCelsius)
+                .map(TemperatureMetricResponse::tempCelsius)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
                 .average()
                 .orElse(0.0);
 
@@ -842,5 +853,110 @@ public class PrometheusMetricQueryService {
     private List<TemperatureMetricResponse> queryTemperatureFromPromMetricByInstance(String instance, Instant since) {
         log.warn("prom_metric Temperature 조회 미구현 - instance: {}", instance);
         return Collections.emptyList();
+    }
+
+    /**
+     * 특정 장비의 since 기준 과거 데이터 조회 (SSE 초기 전송용)
+     */
+    public EquipmentMetricsResponse getHistoricalMetricsByEquipment(Long equipmentId, Instant since) {
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 장비입니다: " + equipmentId));
+
+        String instance = equipment.getCode();
+
+        return EquipmentMetricsResponse.builder()
+                .equipmentId(equipmentId)
+                .instance(instance)
+                .cpu(getCpuMetricsByInstance(instance, since))
+                .memory(getMemoryMetricsByInstance(instance, since))
+                .network(getNetworkMetricsByInstance(instance, since))
+                .disk(getDiskMetricsByInstance(instance, since))
+                .temperature(getTemperatureMetricsByInstance(instance, since))
+                .timestamp(Instant.now())
+                .build();
+    }
+
+    /**
+     * 여러 장비의 since 기준 과거 데이터 조회 (SSE 초기 전송용)
+     */
+    public List<EquipmentMetricsResponse> getHistoricalMetricsByEquipments(
+            Set<Long> equipmentIds, Instant since) {
+
+        return equipmentIds.stream()
+                .map(id -> getHistoricalMetricsByEquipment(id, since))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * ✅ 집계 과거 데이터 조회 (REST API용) - NPE 방지 수정
+     */
+    public AggregatedMetricsResponse getHistoricalAggregatedMetrics(
+            Set<Long> equipmentIds,
+            String aggregationType,
+            Long aggregationId,
+            Instant since) {
+
+        log.info("집계 과거 데이터 조회 - type: {}, id: {}, since: {}, 장비 수: {}",
+                aggregationType, aggregationId, since, equipmentIds.size());
+
+        List<EquipmentMetricsResponse> equipmentMetrics =
+                getHistoricalMetricsByEquipments(equipmentIds, since);
+
+        if (equipmentMetrics.isEmpty()) {
+            return AggregatedMetricsResponse.empty(aggregationType, aggregationId);
+        }
+
+        // ✅ 집계 계산 - null 필터링 추가
+        Double avgCpuUsage = equipmentMetrics.stream()
+                .flatMap(em -> em.cpu().stream())
+                .map(CpuMetricResponse::cpuUsagePercent)
+                .filter(Objects::nonNull)  // ⭐ 추가
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
+        Double avgMemoryUsage = equipmentMetrics.stream()
+                .flatMap(em -> em.memory().stream())
+                .map(MemoryMetricResponse::usagePercent)
+                .filter(Objects::nonNull)  // ⭐ 추가
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
+        Double avgNetworkUsage = equipmentMetrics.stream()
+                .flatMap(em -> em.network().stream())
+                .map(NetworkMetricResponse::totalUsagePercent)
+                .filter(Objects::nonNull)  // ✅ 이미 있었음
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
+        Double avgDiskUsage = equipmentMetrics.stream()
+                .flatMap(em -> em.disk().stream())
+                .map(DiskMetricResponse::usagePercent)
+                .filter(Objects::nonNull)  // ✅ 이미 있었음
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
+        Double avgTemperature = equipmentMetrics.stream()
+                .flatMap(em -> em.temperature().stream())
+                .map(TemperatureMetricResponse::tempCelsius)
+                .filter(Objects::nonNull)  // ⭐ 추가
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
+        return AggregatedMetricsResponse.builder()
+                .aggregationType(aggregationType)
+                .aggregationId(aggregationId)
+                .equipmentCount(equipmentMetrics.size())
+                .avgCpuUsagePercent(avgCpuUsage)
+                .avgMemoryUsagePercent(avgMemoryUsage)
+                .avgNetworkUsagePercent(avgNetworkUsage)
+                .avgDiskUsagePercent(avgDiskUsage)
+                .avgTemperatureCelsius(avgTemperature)
+                .timestamp(Instant.now())
+                .build();
     }
 }

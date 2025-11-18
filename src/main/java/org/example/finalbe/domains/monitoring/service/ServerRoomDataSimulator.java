@@ -144,7 +144,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedDelay = 15000, initialDelay = 2000)
+    @Scheduled(fixedDelay = 500, initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
         if (activeEquipments.isEmpty()) {

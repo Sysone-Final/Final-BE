@@ -44,14 +44,11 @@ public class MonitoringMetricCache {
 
     public void updateNetworkMetric(NetworkMetric metric) {
         latestNetworkMetrics.compute(metric.getEquipmentId(), (id, current) -> {
-            if (current == null) {
-                current = new ArrayList<>();
-            } else {
-                current = new ArrayList<>(current);
-            }
-            current.removeIf(existing -> existing.getNicName().equals(metric.getNicName()));
-            current.add(metric);
-            return current;
+            List<NetworkMetric> list = current != null ? current : new ArrayList<>();
+            // 동일한 NIC 이름이 있으면 교체, 없으면 추가
+            list.removeIf(existing -> existing.getNicName().equals(metric.getNicName()));
+            list.add(metric);
+            return list;
         });
     }
 

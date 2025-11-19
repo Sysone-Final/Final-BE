@@ -43,21 +43,26 @@ public class SseService {
         String topic = "equipment-" + equipmentId;
         SseEmitter emitter = createEmitter(topic); // Emitter 생성
 
-        // 구독 즉시 최신 데이터 1건 전송 (빈 화면 방지)
-        sendInitialData(equipmentId, emitter);
+        // ✅ 비동기로 초기 데이터 전송 (연결은 즉시 반환)
+        asyncSendInitialData(equipmentId, emitter);
 
         return emitter;
     }
 
     /**
-     * 연결된 클라이언트에게 최신 데이터 1건 즉시 전송
+     * 비동기로 초기 데이터 전송
      */
-    private void sendInitialData(Long equipmentId, SseEmitter emitter) {
-        boolean sentFromCache = sendFromCache(equipmentId, emitter);
-        if (!sentFromCache) {
-            sendFromDatabase(equipmentId, emitter);
+    @Async("taskExecutor")
+    void asyncSendInitialData(Long equipmentId, SseEmitter emitter) {
+        try {
+            boolean sentFromCache = sendFromCache(equipmentId, emitter);
+            if (!sentFromCache) {
+                sendFromDatabase(equipmentId, emitter);
+            }
+            log.info("🚀 [Equipment-{}] 초기 데이터 전송 완료 (cache={} )", equipmentId, sentFromCache);
+        } catch (Exception e) {
+            log.error("❌ [Equipment-{}] 초기 데이터 전송 실패", equipmentId, e);
         }
-        log.info("🚀 [Equipment-{}] 초기 데이터 전송 완료 (cache={} )", equipmentId, sentFromCache);
     }
 
     private boolean sendFromCache(Long equipmentId, SseEmitter emitter) {
@@ -102,15 +107,23 @@ public class SseService {
     public SseEmitter subscribeRack(Long rackId) {
         String topic = "rack-" + rackId;
         SseEmitter emitter = createEmitter(topic);
-        sendRackInitialData(rackId, emitter);
+        asyncSendRackInitialData(rackId, emitter);
         return emitter;
     }
 
-    private void sendRackInitialData(Long rackId, SseEmitter emitter) {
-        monitoringMetricCache.getEnvironmentMetric(rackId)
-                .ifPresent(data -> emitSafely(emitter, "environment", data));
-        environmentMetricRepository.findLatestByRackId(rackId)
-                .ifPresent(data -> emitSafely(emitter, "environment", data));
+    @Async("taskExecutor")
+    void asyncSendRackInitialData(Long rackId, SseEmitter emitter) {
+        try {
+            monitoringMetricCache.getEnvironmentMetric(rackId)
+                    .ifPresent(data -> emitSafely(emitter, "environment", data));
+            if (monitoringMetricCache.getEnvironmentMetric(rackId).isEmpty()) {
+                environmentMetricRepository.findLatestByRackId(rackId)
+                        .ifPresent(data -> emitSafely(emitter, "environment", data));
+            }
+            log.info("🚀 [Rack-{}] 초기 데이터 전송 완료", rackId);
+        } catch (Exception e) {
+            log.error("❌ [Rack-{}] 초기 데이터 전송 실패", rackId, e);
+        }
     }
 
     /**
@@ -134,11 +147,15 @@ public class SseService {
         });
 
         try {
+            // ✅ 즉시 comment를 보내서 연결 수립 (데이터 없이 연결만 열림)
             emitter.send(SseEmitter.event()
-                    .name("connect")
-                    .data("SSE connection established for topic: " + topic));
+                    .comment("connected")
+                    .reconnectTime(5000));
+            log.debug("📡 SSE 연결 수립 완료: [{}]", topic);
         } catch (IOException e) {
             log.error("❌ SSE 초기 연결 오류: [{}]", topic, e);
+            this.emitters.get(topic).remove(emitter);
+            throw new RuntimeException("SSE 연결 실패: " + topic, e);
         }
 
         return emitter;
@@ -166,7 +183,7 @@ public class SseService {
         asyncSend(topic, eventName, data);
     }
 
-    @Async
+    @Async("taskExecutor")
     void asyncSend(String topic, String eventName, Object data) {
         sendData(topic, eventName, data);
     }
@@ -183,30 +200,48 @@ public class SseService {
             return;
         }
 
-        for (SseEmitter emitter : topicEmitters) {
+        topicEmitters.removeIf(emitter -> {
             try {
                 emitter.send(SseEmitter.event()
                         .name(eventName)
                         .data(data));
+                return false; // 전송 성공, 유지
             } catch (IOException e) {
                 log.warn("❌ SSE 데이터 전송 실패: [{}], Emitter 제거", topic);
-                topicEmitters.remove(emitter);
+                return true; // 전송 실패, 제거
             }
+        });
+
+        // 빈 리스트가 된 경우 topic 자체를 제거하여 메모리 누수 방지
+        if (topicEmitters.isEmpty()) {
+            this.emitters.remove(topic);
+            log.debug("🗑️ 구독자가 없어 topic [{}] 제거", topic);
         }
     }
 
     @Scheduled(fixedRate = HEARTBEAT_INTERVAL_MS)
     public void sendHeartbeats() {
         emitters.forEach((topic, topicEmitters) -> {
-            for (SseEmitter emitter : topicEmitters) {
+            int removed = topicEmitters.size();
+            topicEmitters.removeIf(emitter -> {
                 try {
                     emitter.send(SseEmitter.event()
                             .comment("heartbeat")
                             .reconnectTime(5000));
+                    return false;
                 } catch (IOException e) {
-                    log.warn("Heartbeat 실패: {}, emitter 제거", topic);
-                    topicEmitters.remove(emitter);
+                    return true; // 실패한 emitter 제거
                 }
+            });
+            removed -= topicEmitters.size();
+
+            if (removed > 0) {
+                log.warn("⚠️ Heartbeat 실패: {} - {}개 구독자 제거됨", topic, removed);
+            }
+
+            // 빈 리스트가 된 경우 topic 제거
+            if (topicEmitters.isEmpty()) {
+                emitters.remove(topic);
             }
         });
     }

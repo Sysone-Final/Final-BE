@@ -45,4 +45,70 @@ public interface PrometheusCpuMetricRepository extends JpaRepository<PrometheusC
         ORDER BY instance
         """, nativeQuery = true)
     List<PrometheusCpuMetric> findAllLatest();
+
+    /**
+     * ✅ CPU 사용률 시계열 (time_bucket 집계)
+     */
+    @Query(value = """
+    SELECT 
+        time_bucket('1 minute', time) AS bucket,
+        instance,
+        AVG(cpu_usage_percent) AS avg_cpu
+    FROM prometheus_cpu_metrics
+    WHERE instance = :instance
+      AND time BETWEEN :start AND :end
+    GROUP BY bucket, instance
+    ORDER BY bucket ASC
+    """, nativeQuery = true)
+    List<Object[]> getCpuUsageTimeSeries(
+            @Param("instance") String instance,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    /**
+     * ✅ CPU 모드별 분포 (적층 차트용)
+     */
+    @Query(value = """
+    SELECT 
+        time_bucket('1 minute', time) AS bucket,
+        instance,
+        AVG(user_percent) AS user,
+        AVG(system_percent) AS system,
+        AVG(iowait_percent) AS iowait,
+        AVG(irq_percent) AS irq,
+        AVG(softirq_percent) AS softirq,
+        AVG(idle_percent) AS idle
+    FROM prometheus_cpu_metrics
+    WHERE instance = :instance
+      AND time BETWEEN :start AND :end
+    GROUP BY bucket, instance
+    ORDER BY bucket ASC
+    """, nativeQuery = true)
+    List<Object[]> getCpuModeDistribution(
+            @Param("instance") String instance,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    /**
+     * 시스템 부하
+     */
+    @Query(value = """
+    SELECT 
+        time_bucket('1 minute', time) AS bucket,
+        AVG(load_avg1) AS load1,
+        AVG(load_avg5) AS load5,
+        AVG(load_avg15) AS load15
+    FROM prometheus_cpu_metrics
+    WHERE instance = :instance
+      AND time BETWEEN :start AND :end
+    GROUP BY bucket
+    ORDER BY bucket ASC
+    """, nativeQuery = true)
+    List<Object[]> getSystemLoad(
+            @Param("instance") String instance,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
 }

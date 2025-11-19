@@ -45,4 +45,69 @@ public interface PrometheusMemoryMetricRepository extends JpaRepository<Promethe
         ORDER BY instance
         """, nativeQuery = true)
     List<PrometheusMemoryMetric> findAllLatest();
+
+    /**
+     * ✅ 메모리 사용률 시계열
+     */
+    @Query(value = """
+    SELECT 
+        time_bucket('1 minute', time) AS bucket,
+        AVG(usage_percent) AS avg_usage,
+        AVG(used_bytes) AS used_bytes,
+        AVG(available_bytes) AS available_bytes
+    FROM prometheus_memory_metrics
+    WHERE instance = :instance
+      AND time BETWEEN :start AND :end
+    GROUP BY bucket
+    ORDER BY bucket ASC
+    """, nativeQuery = true)
+    List<Object[]> getMemoryUsageTimeSeries(
+            @Param("instance") String instance,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    /**
+     * ✅ 메모리 구성 상세
+     */
+    @Query(value = """
+    SELECT 
+        time_bucket('1 minute', time) AS bucket,
+        AVG(active_bytes) AS active,
+        AVG(inactive_bytes) AS inactive,
+        AVG(buffers_bytes) AS buffers,
+        AVG(cached_bytes) AS cached,
+        AVG(free_bytes) AS free
+    FROM prometheus_memory_metrics
+    WHERE instance = :instance
+      AND time BETWEEN :start AND :end
+    GROUP BY bucket
+    ORDER BY bucket ASC
+    """, nativeQuery = true)
+    List<Object[]> getMemoryComposition(
+            @Param("instance") String instance,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    /**
+     * ✅ 스왑 메모리
+     */
+    @Query(value = """
+    SELECT 
+        time_bucket('1 minute', time) AS bucket,
+        AVG(swap_total_bytes) AS swap_total,
+        AVG(swap_used_bytes) AS swap_used,
+        AVG(swap_usage_percent) AS swap_usage
+    FROM prometheus_memory_metrics
+    WHERE instance = :instance
+      AND time BETWEEN :start AND :end
+    GROUP BY bucket
+    ORDER BY bucket ASC
+    """, nativeQuery = true)
+    List<Object[]> getSwapMemoryUsage(
+            @Param("instance") String instance,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
 }

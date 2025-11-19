@@ -22,6 +22,7 @@ import java.time.ZoneId;
 import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import java.time.LocalDateTime;
 import java.util.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -36,6 +37,10 @@ public class ServerRoomDataSimulator {
     private final EnvironmentMetricRepository environmentMetricRepository;
     private final EquipmentRepository equipmentRepository;
     private final RackRepository rackRepository;
+
+    private final JdbcTemplate jdbcTemplate;
+
+    private final SseService sseService;
 
     private static final Map<Long, List<String>> EQUIPMENT_NICS = new HashMap<>();
 
@@ -67,7 +72,7 @@ public class ServerRoomDataSimulator {
     private List<Rack> activeRacks = new ArrayList<>();
 
 
-    private final SseService sseService;
+
 
     @PostConstruct
     public void init() {
@@ -110,18 +115,18 @@ public class ServerRoomDataSimulator {
         log.info("✅ 초기화 완료! {}개 장비 + {}개 랙 모니터링 시작", activeEquipments.size(), activeRacks.size());
 
         // 장비 타입별 통계
-        Map<EquipmentType, Long> typeCounts = activeEquipments.stream()
-                .collect(java.util.stream.Collectors.groupingBy(Equipment::getType, java.util.stream.Collectors.counting()));
-
-        log.info("📊 장비 타입별 수량:");
-        typeCounts.forEach((type, count) -> {
-            log.info("   - {}: {}개 (System:{}, Disk:{}, Network:{})",
-                    type, count,
-                    hasSystemMetric(type) ? "✅" : "❌",
-                    hasDiskMetric(type) ? "✅" : "❌",
-                    hasNetworkMetric(type) ? "✅" : "❌"
-            );
-        });
+//        Map<EquipmentType, Long> typeCounts = activeEquipments.stream()
+//                .collect(java.util.stream.Collectors.groupingBy(Equipment::getType, java.util.stream.Collectors.counting()));
+//
+//        log.info("📊 장비 타입별 수량:");
+//        typeCounts.forEach((type, count) -> {
+//            log.info("   - {}: {}개 (System:{}, Disk:{}, Network:{})",
+//                    type, count,
+//                    hasSystemMetric(type) ? "✅" : "❌",
+//                    hasDiskMetric(type) ? "✅" : "❌",
+//                    hasNetworkMetric(type) ? "✅" : "❌"
+//            );
+//        });
     }
 
     /**
@@ -144,7 +149,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedDelay = 15000, initialDelay = 2000)
+    @Scheduled(fixedDelay = 1000, initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
         if (activeEquipments.isEmpty()) {
@@ -202,19 +207,141 @@ public class ServerRoomDataSimulator {
             }
 
             // 3.  DB에 한 번에 저장 (Batch Insert)
-            if (!systemMetricsToSave.isEmpty()) systemMetricRepository.saveAll(systemMetricsToSave);
-            if (!diskMetricsToSave.isEmpty()) diskMetricRepository.saveAll(diskMetricsToSave);
-            if (!networkMetricsToSave.isEmpty()) networkMetricRepository.saveAll(networkMetricsToSave);
-            if (!environmentMetricsToSave.isEmpty()) environmentMetricRepository.saveAll(environmentMetricsToSave);
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                long dbStart = System.currentTimeMillis();
+                if (!systemMetricsToSave.isEmpty()) batchInsertSystemMetrics(systemMetricsToSave);
+                if (!diskMetricsToSave.isEmpty()) batchInsertDiskMetrics(diskMetricsToSave);
+                if (!networkMetricsToSave.isEmpty()) batchInsertNetworkMetrics(networkMetricsToSave);
+                if (!environmentMetricsToSave.isEmpty()) batchInsertEnvironmentMetrics(environmentMetricsToSave);
+
+                long dbDuration = System.currentTimeMillis() - dbStart;
+                log.info("💾 DB 저장 완료 (백그라운드): {}ms 소요", dbDuration);
+            });
 
             maybeUpdateAnomalies();
 
             long duration = System.currentTimeMillis() - startTime;
-            log.info("⏱️ 메트릭 생성 및 저장 완료: {}ms 소요 (장비 {}대)", duration, activeEquipments.size());
-
+            log.info("🚀 SSE 전송 완료 & DB 작업 할당 끝: {}ms 소요", duration);
         } catch (Exception e) {
             log.error("❌ 메트릭 생성 중 오류 발생", e);
         }
+    }
+    private void batchInsertSystemMetrics(List<SystemMetric> metrics) {
+        String sql = "INSERT INTO system_metrics (equipment_id, generate_time, " +
+                "cpu_idle, cpu_user, cpu_system, cpu_wait, cpu_nice, cpu_irq, cpu_softirq, cpu_steal, " +
+                "load_avg1, load_avg5, load_avg15, context_switches, " +
+                "total_memory, used_memory, free_memory, used_memory_percentage, " +
+                "memory_buffers, memory_cached, memory_active, memory_inactive, " +
+                "total_swap, used_swap, used_swap_percentage) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getEquipmentId());
+                    ps.setObject(2, metric.getGenerateTime());
+                    ps.setObject(3, metric.getCpuIdle());
+                    ps.setObject(4, metric.getCpuUser());
+                    ps.setObject(5, metric.getCpuSystem());
+                    ps.setObject(6, metric.getCpuWait());
+                    ps.setObject(7, metric.getCpuNice());
+                    ps.setObject(8, metric.getCpuIrq());
+                    ps.setObject(9, metric.getCpuSoftirq());
+                    ps.setObject(10, metric.getCpuSteal());
+                    ps.setObject(11, metric.getLoadAvg1());
+                    ps.setObject(12, metric.getLoadAvg5());
+                    ps.setObject(13, metric.getLoadAvg15());
+                    ps.setObject(14, metric.getContextSwitches());
+                    ps.setObject(15, metric.getTotalMemory());
+                    ps.setObject(16, metric.getUsedMemory());
+                    ps.setObject(17, metric.getFreeMemory());
+                    ps.setObject(18, metric.getUsedMemoryPercentage());
+                    ps.setObject(19, metric.getMemoryBuffers());
+                    ps.setObject(20, metric.getMemoryCached());
+                    ps.setObject(21, metric.getMemoryActive());
+                    ps.setObject(22, metric.getMemoryInactive());
+                    ps.setObject(23, metric.getTotalSwap());
+                    ps.setObject(24, metric.getUsedSwap());
+                    ps.setObject(25, metric.getUsedSwapPercentage());
+                });
+    }
+
+    private void batchInsertDiskMetrics(List<DiskMetric> metrics) {
+        String sql = "INSERT INTO disk_metrics (equipment_id, generate_time, " +
+                "total_bytes, used_bytes, free_bytes, used_percentage, " +
+                "io_read_bps, io_write_bps, io_time_percentage, io_read_count, io_write_count, " +
+                "total_inodes, used_inodes, free_inodes, used_inode_percentage) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getEquipmentId());
+                    ps.setObject(2, metric.getGenerateTime());
+                    ps.setObject(3, metric.getTotalBytes());
+                    ps.setObject(4, metric.getUsedBytes());
+                    ps.setObject(5, metric.getFreeBytes());
+                    ps.setObject(6, metric.getUsedPercentage());
+                    ps.setObject(7, metric.getIoReadBps());
+                    ps.setObject(8, metric.getIoWriteBps());
+                    ps.setObject(9, metric.getIoTimePercentage());
+                    ps.setObject(10, metric.getIoReadCount());
+                    ps.setObject(11, metric.getIoWriteCount());
+                    ps.setObject(12, metric.getTotalInodes());
+                    ps.setObject(13, metric.getUsedInodes());
+                    ps.setObject(14, metric.getFreeInodes());
+                    ps.setObject(15, metric.getUsedInodePercentage());
+                });
+    }
+
+    private void batchInsertNetworkMetrics(List<NetworkMetric> metrics) {
+        String sql = "INSERT INTO network_metrics (equipment_id, nic_name, generate_time, " +
+                "rx_usage, tx_usage, in_pkts_tot, out_pkts_tot, in_bytes_tot, out_bytes_tot, " +
+                "in_bytes_per_sec, out_bytes_per_sec, in_pkts_per_sec, out_pkts_per_sec, " +
+                "in_error_pkts_tot, out_error_pkts_tot, in_discard_pkts_tot, out_discard_pkts_tot, oper_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getEquipmentId());
+                    ps.setString(2, metric.getNicName());
+                    ps.setObject(3, metric.getGenerateTime());
+                    ps.setObject(4, metric.getRxUsage());
+                    ps.setObject(5, metric.getTxUsage());
+                    ps.setObject(6, metric.getInPktsTot());
+                    ps.setObject(7, metric.getOutPktsTot());
+                    ps.setObject(8, metric.getInBytesTot());
+                    ps.setObject(9, metric.getOutBytesTot());
+                    ps.setObject(10, metric.getInBytesPerSec());
+                    ps.setObject(11, metric.getOutBytesPerSec());
+                    ps.setObject(12, metric.getInPktsPerSec());
+                    ps.setObject(13, metric.getOutPktsPerSec());
+                    ps.setObject(14, metric.getInErrorPktsTot());
+                    ps.setObject(15, metric.getOutErrorPktsTot());
+                    ps.setObject(16, metric.getInDiscardPktsTot());
+                    ps.setObject(17, metric.getOutDiscardPktsTot());
+                    ps.setObject(18, metric.getOperStatus());
+                });
+    }
+
+    private void batchInsertEnvironmentMetrics(List<EnvironmentMetric> metrics) {
+        String sql = "INSERT INTO environment_metrics (rack_id, generate_time, " +
+                "temperature, min_temperature, max_temperature, " +
+                "humidity, min_humidity, max_humidity, " +
+                "temperature_warning, humidity_warning) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getRackId());
+                    ps.setObject(2, metric.getGenerateTime());
+                    ps.setObject(3, metric.getTemperature());
+                    ps.setObject(4, metric.getMinTemperature());
+                    ps.setObject(5, metric.getMaxTemperature());
+                    ps.setObject(6, metric.getHumidity());
+                    ps.setObject(7, metric.getMinHumidity());
+                    ps.setObject(8, metric.getMaxHumidity());
+                    ps.setObject(9, metric.getTemperatureWarning());
+                    ps.setObject(10, metric.getHumidityWarning());
+                });
     }
 
     /**

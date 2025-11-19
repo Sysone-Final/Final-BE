@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.prometheus.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.prometheus.dto.AggregatedMetricsResponse;
 import org.example.finalbe.domains.prometheus.dto.EquipmentMetricsResponse;
@@ -19,7 +20,11 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class PrometheusSSEService {
+
+
+    private final PrometheusMetricQueryService queryService;
 
     private final Map<String, SubscriptionInfo> subscriptions = new ConcurrentHashMap<>();
     private static final long SSE_TIMEOUT = 3600000L; // 1시간
@@ -28,14 +33,14 @@ public class PrometheusSSEService {
     private final Map<Long, EquipmentMetricsResponse> latestEquipmentMetrics = new ConcurrentHashMap<>();
 
     /**
-     * SSE 연결 생성 (과거 데이터 전송 제거 - 실시간 전용)
+     * SSE 연결 생성 + 초기 데이터 즉시 전송
      */
     public SseEmitter createEmitter(String clientId, SubscriptionInfo subscriptionInfo) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         subscriptionInfo.setEmitter(emitter);
         subscriptions.put(clientId, subscriptionInfo);
 
-        log.info("SSE 연결 생성 - clientId: {}, 구독 타입: {} (실시간 전용)",
+        log.info("SSE 연결 생성 - clientId: {}, 구독 타입: {}",
                 clientId, subscriptionInfo.getType());
 
         emitter.onCompletion(() -> {
@@ -53,17 +58,87 @@ public class PrometheusSSEService {
             removeSubscription(clientId);
         });
 
-        // 초기 연결 확인 메시지만 전송 (과거 데이터 전송 제거)
+        // 1. 초기 연결 확인 메시지 전송
         if (!safeSend(emitter, "connected", Map.of(
-                "message", "연결 성공 - 실시간 업데이트 시작",
+                "message", "연결 성공",
                 "clientId", clientId,
                 "subscriptionType", subscriptionInfo.getType(),
                 "timestamp", System.currentTimeMillis()
         ))) {
             removeSubscription(clientId);
+            return emitter;
+        }
+
+        // 2. 초기 데이터 즉시 전송
+        try {
+            sendInitialData(emitter, subscriptionInfo);
+        } catch (Exception e) {
+            log.error("초기 데이터 전송 실패 - clientId: {}", clientId, e);
+            // 초기 데이터 전송 실패해도 연결은 유지 (15초 후 스케줄러에서 재시도)
         }
 
         return emitter;
+    }
+
+    /**
+     * 초기 데이터 즉시 전송 (접속 직후)
+     */
+    private void sendInitialData(SseEmitter emitter, SubscriptionInfo subscriptionInfo) {
+        log.info("초기 데이터 전송 시작 - 타입: {}", subscriptionInfo.getType());
+
+        switch (subscriptionInfo.getType()) {
+            case EQUIPMENT -> {
+                // 단일 장비
+                Long equipmentId = subscriptionInfo.getEquipmentIds().iterator().next();
+                try {
+                    EquipmentMetricsResponse metrics = queryService.getLatestMetricsByEquipment(equipmentId);
+                    latestEquipmentMetrics.put(equipmentId, metrics);
+                    safeSend(emitter, "initial_data", metrics);
+                    log.info("초기 데이터 전송 완료 - equipmentId: {}", equipmentId);
+                } catch (Exception e) {
+                    log.error("초기 데이터 조회 실패 - equipmentId: {}", equipmentId, e);
+                }
+            }
+            case EQUIPMENTS -> {
+                // 여러 장비
+                Map<Long, EquipmentMetricsResponse> metricsMap = new HashMap<>();
+                for (Long equipmentId : subscriptionInfo.getEquipmentIds()) {
+                    try {
+                        EquipmentMetricsResponse metrics = queryService.getLatestMetricsByEquipment(equipmentId);
+                        latestEquipmentMetrics.put(equipmentId, metrics);
+                        metricsMap.put(equipmentId, metrics);
+                    } catch (Exception e) {
+                        log.error("초기 데이터 조회 실패 - equipmentId: {}", equipmentId, e);
+                    }
+                }
+                safeSend(emitter, "initial_data", metricsMap);
+                log.info("초기 데이터 전송 완료 - 장비 수: {}", metricsMap.size());
+            }
+            case RACK, SERVER_ROOM, DATA_CENTER -> {
+                // 집계 데이터
+                List<EquipmentMetricsResponse> equipmentMetrics = new ArrayList<>();
+                for (Long equipmentId : subscriptionInfo.getEquipmentIds()) {
+                    try {
+                        EquipmentMetricsResponse metrics = queryService.getLatestMetricsByEquipment(equipmentId);
+                        latestEquipmentMetrics.put(equipmentId, metrics);
+                        equipmentMetrics.add(metrics);
+                    } catch (Exception e) {
+                        log.error("초기 데이터 조회 실패 - equipmentId: {}", equipmentId, e);
+                    }
+                }
+
+                if (!equipmentMetrics.isEmpty()) {
+                    AggregatedMetricsResponse aggregated = aggregateMetrics(
+                            equipmentMetrics,
+                            subscriptionInfo.getType().toString().toLowerCase(),
+                            subscriptionInfo.getAggregationId()
+                    );
+                    safeSend(emitter, "initial_aggregated_data", aggregated);
+                    log.info("초기 집계 데이터 전송 완료 - 타입: {}, 장비 수: {}",
+                            subscriptionInfo.getType(), equipmentMetrics.size());
+                }
+            }
+        }
     }
 
     /**
@@ -154,10 +229,8 @@ public class PrometheusSSEService {
                 });
     }
 
-    // PrometheusSSEService.java
-
     /**
-     * 메트릭 집계 (평균 계산) - ✅ NPE 방지 수정
+     * 메트릭 집계 (평균 계산) - NPE 방지
      */
     private AggregatedMetricsResponse aggregateMetrics(
             List<EquipmentMetricsResponse> equipmentMetrics,
@@ -288,7 +361,7 @@ public class PrometheusSSEService {
     }
 
     /**
-     * 구독 정보 클래스 (since 필드 제거)
+     * 구독 정보 클래스
      */
     public static class SubscriptionInfo {
         private SseEmitter emitter;

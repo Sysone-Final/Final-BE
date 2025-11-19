@@ -28,10 +28,7 @@ public record MemberSignupRequest(
         @Pattern(regexp = "^\\d{2,3}-\\d{3,4}-\\d{4}$", message = "올바른 전화번호 형식이 아닙니다.")
         String phone,
 
-        @Size(max = 100, message = "직급은 최대 100자까지 입력 가능합니다.")
-        String position,
 
-        @NotNull(message = "회사를 선택해주세요.")
         @Min(value = 1, message = "유효하지 않은 회사 ID입니다.")
         Long companyId,
 

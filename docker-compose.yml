@@ -8,6 +8,8 @@ services:
       - "8081"
     env_file:
       - .env
+    environment:
+      - TZ=Asia/Seoul
     # 서버가 재시작되어도 자동으로 컨테이너가 실행되도록 합니다.
     # Ensures the container restarts automatically if the server reboots.
     restart: always

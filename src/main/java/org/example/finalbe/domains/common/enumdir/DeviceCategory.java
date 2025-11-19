@@ -4,10 +4,10 @@ package org.example.finalbe.domains.common.enumdir;
  * 장치 카테고리
  */
 public enum DeviceCategory {
-    COOLING,      // 냉각 장치 (aircon, climatic_chamber)
-    NETWORK,      // 네트워크 장치 (server/rack)
-    SECURITY,     // 보안 장치 (door)
-    SAFETY,       // 안전 장치 (fire_extinguisher)
-    MONITORING,   // 모니터링 장치 (thermometer)
-    OTHER         // 기타
+    SERVER,              // 서버
+    DOOR,                // 출입문
+    CLIMATIC_CHAMBER,    // 항온항습기
+    FIRE_EXTINGUISHER,   // 소화기
+    THERMOMETER,         // 온도계
+    AIRCON               // 에어컨
 }

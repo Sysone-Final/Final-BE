@@ -1,30 +1,107 @@
 package org.example.finalbe.domains.equipment.repository;
 
 import org.example.finalbe.domains.common.enumdir.DelYN;
+import org.example.finalbe.domains.common.enumdir.EquipmentStatus;
+import org.example.finalbe.domains.common.enumdir.EquipmentType;
 import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Equipment 데이터 접근 계층
- */
-@Repository
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     /**
-     * 랙별 활성 장비 조회
+     * ID로 활성 장비 조회 (delYn = N, Rack도 활성)
      */
-    List<Equipment> findByRackIdAndDelYn(Long rackId, DelYN delYn);
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "WHERE e.id = :id " +
+            "AND e.delYn = 'N' " +
+            "AND (r IS NULL OR r.delYn = 'N')")
+    Optional<Equipment> findActiveById(@Param("id") Long id);
 
     /**
-     * 랙별 활성 장비 존재 여부 확인
+     * 페이지네이션 조회 (전체 필터 + 서버실 필터 + rackId null 필터 포함)
+     *
+     * onlyUnassigned 동작:
+     * - null 또는 false: 전체 조회 (rack 있는 것 + 없는 것 모두)
+     * - true: rack이 null인 것만
      */
-    boolean existsByRackIdAndDelYn(Long rackId, DelYN delYn);
+    @Query(value = "SELECT DISTINCT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "WHERE e.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N') " +
+            "AND (:keyword IS NULL OR :keyword = '' OR " +
+            "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:type IS NULL OR e.type = :type) " +
+            "AND (:status IS NULL OR e.status = :status) " +
+            "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId) " +
+            "AND (:onlyUnassigned IS NULL OR :onlyUnassigned = false OR (:onlyUnassigned = true AND r IS NULL))",
+            countQuery = "SELECT COUNT(DISTINCT e) FROM Equipment e " +
+                    "LEFT JOIN e.rack r " +
+                    "LEFT JOIN r.serverRoom sr " +
+                    "WHERE e.delYn = :delYn " +
+                    "AND (r IS NULL OR r.delYn = 'N') " +
+                    "AND (:keyword IS NULL OR :keyword = '' OR " +
+                    "    LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                    "    LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                    "    LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+                    "AND (:type IS NULL OR e.type = :type) " +
+                    "AND (:status IS NULL OR e.status = :status) " +
+                    "AND (:serverRoomId IS NULL OR sr.id = :serverRoomId) " +
+                    "AND (:onlyUnassigned IS NULL OR :onlyUnassigned = false OR (:onlyUnassigned = true AND r IS NULL))")
+    Page<Equipment> searchEquipmentsWithFilters(
+            @Param("keyword") String keyword,
+            @Param("type") EquipmentType type,
+            @Param("status") EquipmentStatus status,
+            @Param("serverRoomId") Long serverRoomId,
+            @Param("onlyUnassigned") Boolean onlyUnassigned,
+            @Param("delYn") DelYN delYn,
+            Pageable pageable
+    );
+
+    /**
+     * 랙별 장비 조회
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "WHERE r.id = :rackId " +
+            "AND e.delYn = :delYn " +
+            "AND r.delYn = 'N'")
+    List<Equipment> findByRackIdAndDelYn(
+            @Param("rackId") Long rackId,
+            @Param("delYn") DelYN delYn
+    );
+
+    /**
+     * 특정 Rack의 활성 장비 조회 (랙 삭제 시 사용)
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "WHERE e.rack.id = :rackId " +
+            "AND e.delYn = 'N'")
+    List<Equipment> findActiveByRackId(@Param("rackId") Long rackId);
+
+    /**
+     * 서버실별 조회
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "WHERE sr.id = :serverRoomId " +
+            "AND e.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N')")
+    List<Equipment> findByServerRoomIdAndDelYn(
+            @Param("serverRoomId") Long serverRoomId,
+            @Param("delYn") DelYN delYn
+    );
 
     /**
      * 장비 코드 중복 체크
@@ -32,52 +109,57 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     boolean existsByCodeAndDelYn(String code, DelYN delYn);
 
     /**
-     * 전산실별 활성 장비 조회
+     * 검색 (키워드)
      */
     @Query("SELECT e FROM Equipment e " +
-            "JOIN e.rack r " +
-            "WHERE r.datacenter.id = :datacenterId " +
-            "AND e.delYn = :delYn")
-    List<Equipment> findByDatacenterIdAndDelYn(
-            @Param("datacenterId") Long datacenterId,
-            @Param("delYn") DelYN delYn);
-
-    /**
-     * 키워드로 장비 검색
-     */
-    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "OR LOWER(e.code) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "OR LOWER(e.manufacturer) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND e.delYn = :delYn")
+            "AND e.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N')")
     List<Equipment> searchByKeywordAndDelYn(
             @Param("keyword") String keyword,
-            @Param("delYn") DelYN delYn);
+            @Param("delYn") DelYN delYn
+    );
 
     /**
-     * 회사별 키워드로 장비 검색
+     * 검색 (키워드 + 회사)
      */
-    @Query("SELECT e FROM Equipment e " +
-            "JOIN e.rack r " +
-            "JOIN CompanyDataCenter cdc ON r.datacenter.id = cdc.dataCenter.id " +
+    @Query("SELECT DISTINCT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "LEFT JOIN CompanyServerRoom csr ON csr.serverRoom.id = sr.id " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "OR LOWER(e.code) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.modelName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "OR LOWER(e.manufacturer) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(e.ipAddress) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND cdc.company.id = :companyId " +
+            "AND csr.company.id = :companyId " +
             "AND e.delYn = :delYn " +
-            "AND cdc.delYn = 'N'")
+            "AND (r IS NULL OR r.delYn = 'N')")
     List<Equipment> searchByKeywordAndCompanyIdAndDelYn(
             @Param("keyword") String keyword,
             @Param("companyId") Long companyId,
-            @Param("delYn") DelYN delYn);
+            @Param("delYn") DelYN delYn
+    );
+
 
     /**
-     * 활성 장비 조회 (ID)
+     * 활성 장비 전체 조회 (delYn = 'N', Rack도 활성)
      */
-    @Query("SELECT e FROM Equipment e WHERE e.id = :id AND e.delYn = 'N'")
-    Optional<Equipment> findActiveById(@Param("id") Long id);
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN e.rack r " +
+            "WHERE e.delYn = 'N' " +
+            "AND (r IS NULL OR r.delYn = 'N')")
+    List<Equipment> findAllActive();
+
+    /**
+     * ID로 장비 조회 (Rack, ServerRoom까지 fetch join)
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "WHERE e.id = :id")
+    Optional<Equipment> findByIdWithRackAndServerRoom(@Param("id") Long id);
+
+    List<Equipment> findByDelYn(DelYN delYN);
 }

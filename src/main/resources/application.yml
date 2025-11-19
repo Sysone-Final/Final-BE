@@ -9,8 +9,8 @@ spring:
     password: ${DB_PASSWORD}
 
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: 20
+      minimum-idle: 10
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
@@ -22,26 +22,76 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
-        format_sql: false
+        format_sql: true
         use_sql_comments: true
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
     open-in-view: false
+
+
+  jackson:
+    time-zone: Asia/Seoul
+    serialization:
+      write-dates-as-timestamps: false
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
+
+  task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 8
+        queue-capacity: 100
+        thread-name-prefix: prometheus-collector-
+    scheduling:
+      pool:
+        size: 5
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-validity: 3600000
+  access-token-validity: 7200000
   refresh-token-validity: 604800000
 
 cookie:
-  secure: false
+  secure: true
 
-logging:
-  level:
-    root: INFO
-    com.finalbe: DEBUG
-    org.hibernate.SQL: WARN
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    com.zaxxer.hikari: WARN
+monitoring:
+  simulator:
+    enabled: true
+    interval-seconds: 5
+    device-count: 9
+
+# ==================== Prometheus 설정 ====================
+prometheus:
+  server:
+    url: http://112.221.184.61:9090
+
+  collection:
+    enabled: true
+    fixed-delay: 15000
+    initial-delay: 5000
+
+  client:
+    connect-timeout: 5000
+    read-timeout: 10000
+
+  sse:
+    timeout: 3600000
+    heartbeat-interval: 30000
+
+## ==================== 로깅 설정 ====================
+#logging:
+#  level:
+#    root: INFO
+#    org.example.finalbe.domains.prometheus: INFO
+#    org.hibernate.SQL: DEBUG
+#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+#    com.zaxxer.hikari: DEBUG
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

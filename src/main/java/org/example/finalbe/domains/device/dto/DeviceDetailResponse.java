@@ -27,9 +27,8 @@ public record DeviceDetailResponse(
         LocalDate purchaseDate,
         LocalDate warrantyEndDate,
         String notes,
-        Long managerId,
-        String datacenterName,
-        Long datacenterId,
+        String serverRoomName,
+        Long serverRoomId,
         String rackName,
         Long rackId,
         LocalDateTime createdAt,
@@ -53,9 +52,8 @@ public record DeviceDetailResponse(
                 .purchaseDate(device.getPurchaseDate())
                 .warrantyEndDate(device.getWarrantyEndDate())
                 .notes(device.getNotes())
-                .managerId(device.getManagerId())
-                .datacenterName(device.getDatacenter().getName())
-                .datacenterId(device.getDatacenter().getId())
+                .serverRoomName(device.getServerRoom().getName())
+                .serverRoomId(device.getServerRoom().getId())
                 .rackName(device.getRack() != null ? device.getRack().getRackName() : null)
                 .rackId(device.getRack() != null ? device.getRack().getId() : null)
                 .createdAt(device.getCreatedAt())

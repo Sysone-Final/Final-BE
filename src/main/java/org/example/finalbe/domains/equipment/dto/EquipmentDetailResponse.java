@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  */
 @Builder
 public record EquipmentDetailResponse(
-        Long equipmentId,
+        Long id,
         String equipmentName,
         String equipmentCode,
         String equipmentType,
@@ -31,20 +31,24 @@ public record EquipmentDetailResponse(
         BigDecimal powerConsumption,
         BigDecimal weight,
         String status,
-        String imageUrl,
         LocalDate installationDate,
         String notes,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        Long managerId,
         Long rackId,
         String rackName,
-        Integer position,
-        Integer height
+        Long serverRoomId,
+        Boolean monitoringEnabled,
+        Integer cpuThresholdWarning,
+        Integer cpuThresholdCritical,
+        Integer memoryThresholdWarning,
+        Integer memoryThresholdCritical,
+        Integer diskThresholdWarning,
+        Integer diskThresholdCritical
 ) {
     public static EquipmentDetailResponse from(Equipment equipment) {
         return EquipmentDetailResponse.builder()
-                .equipmentId(equipment.getId())
+                .id(equipment.getId())
                 .equipmentName(equipment.getName())
                 .equipmentCode(equipment.getCode())
                 .equipmentType(equipment.getType() != null ? equipment.getType().name() : null)
@@ -61,18 +65,22 @@ public record EquipmentDetailResponse(
                 .memorySpec(equipment.getMemorySpec())
                 .diskSpec(equipment.getDiskSpec())
                 .powerConsumption(equipment.getPowerConsumption())
-                .weight(equipment.getWeight())
                 .status(equipment.getStatus() != null ? equipment.getStatus().name() : null)
-                .imageUrl(equipment.getImageUrl())
                 .installationDate(equipment.getInstallationDate())
                 .notes(equipment.getNotes())
                 .createdAt(equipment.getCreatedAt())
                 .updatedAt(equipment.getUpdatedAt())
-                .managerId(equipment.getManagerId())
                 .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
-                .position(equipment.getPosition())
-                .height(equipment.getHeight())
+                .serverRoomId(equipment.getRack() != null && equipment.getRack().getServerRoom() != null
+                        ? equipment.getRack().getServerRoom().getId() : null)
+                .monitoringEnabled(equipment.getMonitoringEnabled())
+                .cpuThresholdWarning(equipment.getCpuThresholdWarning())
+                .cpuThresholdCritical(equipment.getCpuThresholdCritical())
+                .memoryThresholdWarning(equipment.getMemoryThresholdWarning())
+                .memoryThresholdCritical(equipment.getMemoryThresholdCritical())
+                .diskThresholdWarning(equipment.getDiskThresholdWarning())
+                .diskThresholdCritical(equipment.getDiskThresholdCritical())
                 .build();
     }
 }

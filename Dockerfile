@@ -10,15 +10,24 @@ RUN gradle build --no-daemon -x test
 
 # 2단계: 빌드된 결과물만 가져와 최종 실행 이미지 생성
 # Stage 2: Create the final execution image with only the build artifacts
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
+
+# 타임존 설정 - Asia/Seoul로 고정
+# Set timezone to Asia/Seoul
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone && \
+    apk del tzdata
+
+ENV TZ=Asia/Seoul
 
 # build 스테이지의 build/libs 폴더에서 .jar 파일을 app.jar 라는 이름으로 복사해옵니다.
 # Copy the .jar file from the build stage's build/libs folder and rename it to app.jar.
 COPY --from=build /home/gradle/src/build/libs/*.jar app.jar
 
-# 애플리케이션이 8080 포트를 사용함을 명시합니다.
-# Expose port 8080 to indicate which port the application uses.
+# 애플리케이션이 8081 포트를 사용함을 명시합니다.
+# Expose port 8081 to indicate which port the application uses.
 EXPOSE 8081
 
 # 컨테이너가 시작될 때 app.jar 파일을 실행합니다.

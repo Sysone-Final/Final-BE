@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.device.dto;
 
 import lombok.Builder;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.device.domain.Device;
 
 /**
@@ -17,8 +18,11 @@ public record DeviceListResponse(
         Integer gridZ,
         Integer rotation,
         String status,
-        String datacenterName,
-        Long datacenterId,
+        String serverRoomName,
+        Long serverRoomId,
+        Integer serverRoomRows,
+        Integer serverRoomColumns,
+        DelYN delYn,
         String rackName,
         Long rackId
 ) {
@@ -33,8 +37,10 @@ public record DeviceListResponse(
                 .gridZ(device.getGridZ())
                 .rotation(device.getRotation())
                 .status(device.getStatus() != null ? device.getStatus().name() : null)
-                .datacenterName(device.getDatacenter().getName())
-                .datacenterId(device.getDatacenter().getId())
+                .serverRoomName(device.getServerRoom().getName())
+                .serverRoomId(device.getServerRoom().getId())
+                .serverRoomRows(device.getServerRoom().getRows())
+                .serverRoomColumns(device.getServerRoom().getColumns())
                 .rackName(device.getRack() != null ? device.getRack().getRackName() : null)
                 .rackId(device.getRack() != null ? device.getRack().getId() : null)
                 .build();

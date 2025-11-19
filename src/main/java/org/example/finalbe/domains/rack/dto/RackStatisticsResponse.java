@@ -22,9 +22,7 @@ public record RackStatisticsResponse(
         Integer totalUsedUnits,
         Integer totalAvailableUnits,
         List<RackUsageData> rackUsageData,
-        List<RackPowerData> rackPowerData,
-        Map<String, Integer> departmentDistribution,
-        Map<Long, Integer> managerDistribution
+        List<RackPowerData> rackPowerData
 ) {
     public static RackStatisticsResponse from(List<Rack> racks) {
         int totalRacks = racks.size();
@@ -65,19 +63,6 @@ public record RackStatisticsResponse(
                 .map(r -> new RackPowerData(r.getRackName(), r.getCurrentPowerUsage(), r.getMaxPowerCapacity()))
                 .collect(Collectors.toList());
 
-        Map<String, Integer> deptDist = racks.stream()
-                .filter(r -> r.getDepartment() != null)
-                .collect(Collectors.groupingBy(
-                        Rack::getDepartment,
-                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)
-                ));
-
-        Map<Long, Integer> mgrDist = racks.stream()
-                .filter(r -> r.getManagerId() != null)
-                .collect(Collectors.groupingBy(
-                        Rack::getManagerId,
-                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)
-                ));
 
         return RackStatisticsResponse.builder()
                 .totalRacks(totalRacks)
@@ -89,8 +74,6 @@ public record RackStatisticsResponse(
                 .totalAvailableUnits(totalAvailable)
                 .rackUsageData(usageData)
                 .rackPowerData(powerData)
-                .departmentDistribution(deptDist)
-                .managerDistribution(mgrDist)
                 .build();
     }
 

@@ -22,19 +22,63 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     boolean existsByDeviceCodeAndDelYn(String deviceCode, DelYN delYn);
 
     /**
-     * 활성 장치 조회 (ID)
+     * 활성 장치 조회 (ID) - Rack이 없어도 조회 가능
      */
-    @Query("SELECT d FROM Device d WHERE d.id = :id AND d.delYn = 'N'")
+    @Query("SELECT d FROM Device d " +
+            "LEFT JOIN d.rack r " +
+            "WHERE d.id = :id " +
+            "AND d.delYn = 'N' " +
+            "AND (r IS NULL OR r.delYn = 'N')")
     Optional<Device> findActiveById(@Param("id") Long id);
 
     /**
-     * 전산실별 장치 조회 (위치순 정렬)
+     * 서버실별 장치 조회 (위치순 정렬) - Rack 유무 관계없이 조회
      */
     @Query("SELECT d FROM Device d " +
-            "WHERE d.datacenter.id = :datacenterId " +
+            "LEFT JOIN d.rack r " +
+            "WHERE d.serverRoom.id = :serverRoomId " +
             "AND d.delYn = :delYn " +
+            "AND (r IS NULL OR r.delYn = 'N') " +
             "ORDER BY d.gridY, d.gridX")
-    List<Device> findByDatacenterIdOrderByPosition(
-            @Param("datacenterId") Long datacenterId,
+    List<Device> findByServerRoomIdOrderByPosition(
+            @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn);
+
+    /**
+     * 특정 Rack의 활성 장치 조회 (랙 삭제 시 사용)
+     */
+    @Query("SELECT d FROM Device d " +
+            "WHERE d.rack.id = :rackId " +
+            "AND d.delYn = 'N'")
+    List<Device> findActiveByRackId(@Param("rackId") Long rackId);
+
+    /**
+     * 모든 활성 장치 조회 - Rack 유무 관계없이 조회
+     */
+    @Query("SELECT d FROM Device d " +
+            "LEFT JOIN d.rack r " +
+            "WHERE d.delYn = 'N' " +
+            "AND (r IS NULL OR r.delYn = 'N')")
+    List<Device> findAllActive();
+
+    /**
+     * 특정 Rack에 활성 장치가 이미 존재하는지 확인 (1:1 관계 검증용)
+     */
+    @Query("SELECT CASE WHEN COUNT(d) > 0 THEN true ELSE false END " +
+            "FROM Device d " +
+            "WHERE d.rack.id = :rackId " +
+            "AND d.delYn = 'N'")
+    boolean existsActiveDeviceByRackId(@Param("rackId") Long rackId);
+
+    /**
+     * 특정 Rack에 활성 장치가 존재하는지 확인 (특정 장치 제외)
+     */
+    @Query("SELECT CASE WHEN COUNT(d) > 0 THEN true ELSE false END " +
+            "FROM Device d " +
+            "WHERE d.rack.id = :rackId " +
+            "AND d.id != :deviceId " +
+            "AND d.delYn = 'N'")
+    boolean existsActiveDeviceByRackIdExcludingDevice(
+            @Param("rackId") Long rackId,
+            @Param("deviceId") Long deviceId);
 }

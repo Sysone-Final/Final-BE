@@ -6,16 +6,18 @@ import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.DeviceStatus;
 import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.exception.AccessDeniedException;
+import org.example.finalbe.domains.common.exception.BusinessException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
-import org.example.finalbe.domains.companydatacenter.repository.CompanyDataCenterRepository;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
-import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.serverroom.domain.ServerRoom;
+import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.device.domain.Device;
 import org.example.finalbe.domains.device.domain.DeviceType;
 import org.example.finalbe.domains.device.dto.*;
 import org.example.finalbe.domains.device.repository.DeviceRepository;
 import org.example.finalbe.domains.device.repository.DeviceTypeRepository;
+import org.example.finalbe.domains.history.service.DeviceHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
@@ -30,7 +32,7 @@ import java.util.stream.Collectors;
 
 /**
  * 장치 서비스
- * 전산실 내 장치의 생성, 조회, 수정, 삭제 처리
+ * 서버실 내 장치의 생성, 조회, 수정, 삭제 처리
  */
 @Service
 @Slf4j
@@ -40,23 +42,33 @@ public class DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceTypeRepository deviceTypeRepository;
-    private final DataCenterRepository dataCenterRepository;
+    private final ServerRoomRepository serverRoomRepository;
     private final RackRepository rackRepository;
     private final MemberRepository memberRepository;
-    private final CompanyDataCenterRepository companyDataCenterRepository;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
+    private final DeviceHistoryRecorder deviceHistoryRecorder;
 
     /**
-     * 전산실별 장치 목록 조회
+     * 서버실별 장치 목록 조회
      */
-    public List<DeviceListResponse> getDevicesByDatacenter(Long datacenterId) {
-        log.info("Fetching devices for datacenter: {}", datacenterId);
+    public ServerRoomDeviceListResponse getDevicesByServerRoom(Long serverRoomId) {
+        log.info("Fetching devices for serverroom: {}", serverRoomId);
 
-        List<Device> devices = deviceRepository.findByDatacenterIdOrderByPosition(
-                datacenterId, DelYN.N);
+        // 서버실 조회
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(serverRoomId)
+                .orElseThrow(() -> new EntityNotFoundException("서버실", serverRoomId));
 
-        return devices.stream()
-                .map(DeviceListResponse::from)
+        // 장치 목록 조회
+        List<Device> devices = deviceRepository.findByServerRoomIdOrderByPosition(
+                serverRoomId, DelYN.N);
+
+        // DTO 변환
+        ServerRoomInfo serverRoomInfo = ServerRoomInfo.from(serverRoom);
+        List<DeviceSimpleInfo> deviceInfos = devices.stream()
+                .map(DeviceSimpleInfo::from)
                 .collect(Collectors.toList());
+
+        return ServerRoomDeviceListResponse.of(serverRoomInfo, deviceInfos);
     }
 
     /**
@@ -90,15 +102,15 @@ public class DeviceService {
         DeviceType deviceType = deviceTypeRepository.findById(request.deviceTypeId())
                 .orElseThrow(() -> new EntityNotFoundException("장치 타입", request.deviceTypeId()));
 
-        DataCenter datacenter = dataCenterRepository.findActiveById(request.datacenterId())
-                .orElseThrow(() -> new EntityNotFoundException("전산실", request.datacenterId()));
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(request.serverRoomId())
+                .orElseThrow(() -> new EntityNotFoundException("서버실", request.serverRoomId()));
 
         if (currentMember.getRole() != Role.ADMIN) {
-            boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
-                    currentMember.getCompany().getId(), request.datacenterId());
+            boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                    currentMember.getCompany().getId(), request.serverRoomId());
 
             if (!hasAccess) {
-                throw new AccessDeniedException("해당 전산실에 대한 접근 권한이 없습니다.");
+                throw new AccessDeniedException("해당 서버실에 대한 접근 권한이 없습니다.");
             }
         }
 
@@ -106,10 +118,18 @@ public class DeviceService {
         if (request.rackId() != null) {
             rack = rackRepository.findActiveById(request.rackId())
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
+
+            // Rack에 이미 활성 장치가 있는지 확인 (1:1 관계 검증)
+            if (deviceRepository.existsActiveDeviceByRackId(request.rackId())) {
+                throw new BusinessException("이미 다른 장치가 해당 랙에 배치되어 있습니다. 한 랙에는 하나의 장치만 배치할 수 있습니다.");
+            }
         }
 
-        Device device = request.toEntity(deviceType, datacenter, rack, currentMember.getId());
+        Device device = request.toEntity(deviceType, serverRoom, rack);
         Device savedDevice = deviceRepository.save(device);
+
+        // 히스토리 기록
+        deviceHistoryRecorder.recordCreate(savedDevice, currentMember);
 
         log.info("Device created successfully with id: {}", savedDevice.getId());
         return DeviceDetailResponse.from(savedDevice);
@@ -128,6 +148,9 @@ public class DeviceService {
 
         Device device = deviceRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
+
+        // 수정 전 스냅샷 저장 (히스토리용)
+        Device oldDevice = cloneDevice(device);
 
         if (request.deviceName() != null) {
             device.setDeviceName(request.deviceName());
@@ -168,8 +191,20 @@ public class DeviceService {
         if (request.rackId() != null) {
             Rack rack = rackRepository.findActiveById(request.rackId())
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
+
+            // 다른 Rack으로 변경하는 경우, 해당 Rack에 이미 장치가 있는지 확인
+            if (device.getRack() == null || !device.getRack().getId().equals(request.rackId())) {
+                // Rack에 이미 다른 활성 장치가 있는지 확인 (현재 장치 제외)
+                if (deviceRepository.existsActiveDeviceByRackIdExcludingDevice(request.rackId(), id)) {
+                    throw new BusinessException("이미 다른 장치가 해당 랙에 배치되어 있습니다. 한 랙에는 하나의 장치만 배치할 수 있습니다.");
+                }
+            }
+
             device.setRack(rack);
         }
+
+        // 히스토리 기록
+        deviceHistoryRecorder.recordUpdate(oldDevice, device, currentMember);
 
         log.info("Device updated successfully");
         return DeviceDetailResponse.from(device);
@@ -189,12 +224,23 @@ public class DeviceService {
         Device device = deviceRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
+        // 이전 위치 저장
+        String oldPosition = String.format("(%d, %d, %d) rotation: %d",
+                device.getGridY(), device.getGridX(), device.getGridZ(), device.getRotation());
+
         device.updatePosition(
                 request.gridY(),
                 request.gridX(),
                 request.gridZ() != null ? request.gridZ() : 0,
                 request.rotation() != null ? request.rotation() : 0
         );
+
+        // 새 위치
+        String newPosition = String.format("(%d, %d, %d) rotation: %d",
+                device.getGridY(), device.getGridX(), device.getGridZ(), device.getRotation());
+
+        // 히스토리 기록
+        deviceHistoryRecorder.recordMove(device, oldPosition, newPosition, currentMember);
 
         log.info("Device position updated successfully");
         return DeviceDetailResponse.from(device);
@@ -215,7 +261,13 @@ public class DeviceService {
         Device device = deviceRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
+        // 이전 상태 저장
+        String oldStatus = device.getStatus() != null ? device.getStatus().name() : "UNKNOWN";
+
         device.changeStatus(DeviceStatus.valueOf(request.status()), request.reason());
+
+        // 히스토리 기록
+        deviceHistoryRecorder.recordStatusChange(device, oldStatus, request.status(), currentMember);
 
         log.info("Device status changed successfully");
         return DeviceDetailResponse.from(device);
@@ -236,6 +288,9 @@ public class DeviceService {
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
         device.softDelete();
+
+        // 히스토리 기록
+        deviceHistoryRecorder.recordDelete(device, currentMember);
 
         log.info("Device soft deleted successfully");
     }
@@ -277,14 +332,36 @@ public class DeviceService {
         Device device = deviceRepository.findById(deviceId)
                 .orElseThrow(() -> new EntityNotFoundException("장치", deviceId));
 
-        Long datacenterId = device.getDatacenter().getId();
+        Long serverRoomId = device.getServerRoom().getId();
         Long companyId = member.getCompany().getId();
 
-        boolean hasAccess = companyDataCenterRepository.existsByCompanyIdAndDataCenterId(
-                companyId, datacenterId);
+        boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
+                companyId, serverRoomId);
 
         if (!hasAccess) {
             throw new AccessDeniedException("해당 장치에 대한 접근 권한이 없습니다.");
         }
+    }
+
+    private Device cloneDevice(Device device) {
+        return Device.builder()
+                .id(device.getId())
+                .deviceName(device.getDeviceName())
+                .deviceCode(device.getDeviceCode())
+                .gridY(device.getGridY())
+                .gridX(device.getGridX())
+                .gridZ(device.getGridZ())
+                .rotation(device.getRotation())
+                .status(device.getStatus())
+                .modelName(device.getModelName())
+                .manufacturer(device.getManufacturer())
+                .serialNumber(device.getSerialNumber())
+                .purchaseDate(device.getPurchaseDate())
+                .warrantyEndDate(device.getWarrantyEndDate())
+                .notes(device.getNotes())
+                .deviceType(device.getDeviceType())
+                .serverRoom(device.getServerRoom())
+                .rack(device.getRack())
+                .build();
     }
 }

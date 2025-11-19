@@ -26,59 +26,70 @@ public class Member extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "member_id")
-    private Long id; // 회원 ID
+    private Long id;
 
     @Column(name = "user_name", nullable = false, unique = true, length = 100)
-    private String userName; // 로그인 아이디
+    private String userName;
 
     @Column(name = "password", nullable = false, length = 250)
-    private String password; // 암호화된 비밀번호
+    private String password;
 
     @Column(name = "name", nullable = false, length = 100)
-    private String name; // 이름
+    private String name;
 
     @Column(name = "email", length = 100)
-    private String email; // 이메일
+    private String email;
 
     @Column(name = "phone", length = 20)
-    private String phone; // 전화번호
+    private String phone;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     @Builder.Default
-    private UserStatus status = UserStatus.ACTIVE; // 계정 상태 (ACTIVE, INACTIVE, DELETED)
+    private UserStatus status = UserStatus.ACTIVE;
 
     @Embedded
-    private Address address; // 주소 (city, street, zipcode)
+    private Address address;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
     @Builder.Default
-    private Role role = Role.VIEWER; // 권한 (ADMIN, OPERATOR, VIEWER)
+    private Role role = Role.VIEWER;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
-    private Company company; // 소속 회사
-
-    @Column(name = "department", length = 100)
-    private String department; // 부서명
+    private Company company;
 
     @Column(name = "refresh_token", length = 500)
-    private String refreshToken; // 리프레시 토큰
+    private String refreshToken;
 
     @Column(name = "refresh_token_expiry_date")
-    private LocalDateTime refreshTokenExpiryDate; // 리프레시 토큰 만료일시
+    private LocalDateTime refreshTokenExpiryDate;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
 
     /**
-     * Refresh Token 업데이트
+     * 리프레시 토큰 업데이트 (로그인 시)
+     * 로그인 시각도 함께 기록
      */
     public void updateRefreshToken(String refreshToken, LocalDateTime expiryDate) {
+        this.refreshToken = refreshToken;
+        this.refreshTokenExpiryDate = expiryDate;
+        this.lastLoginAt = LocalDateTime.now();
+    }
+
+    /**
+     * 리프레시 토큰만 업데이트 (토큰 갱신 시)
+     * 로그인 시각은 변경하지 않음
+     */
+    public void updateRefreshTokenOnly(String refreshToken, LocalDateTime expiryDate) {
         this.refreshToken = refreshToken;
         this.refreshTokenExpiryDate = expiryDate;
     }
 
     /**
-     * Refresh Token 삭제
+     * 리프레시 토큰 삭제
      */
     public void clearRefreshToken() {
         this.refreshToken = null;
@@ -86,7 +97,7 @@ public class Member extends BaseTimeEntity {
     }
 
     /**
-     * Refresh Token 유효성 검증
+     * 리프레시 토큰 유효성 검증
      */
     public boolean isRefreshTokenValid(String refreshToken) {
         if (this.refreshToken == null || this.refreshTokenExpiryDate == null) {
@@ -97,11 +108,11 @@ public class Member extends BaseTimeEntity {
     }
 
     /**
-     * 회원 정보 수정
+     * 회원 기본 정보 수정 (아이디, 이메일, 전화번호)
      */
-    public void updateInfo(String name, String email, String phone, String department) {
-        if (name != null && !name.trim().isEmpty()) {
-            this.name = name;
+    public void updateInfo(String userName, String email, String phone) {
+        if (userName != null && !userName.trim().isEmpty()) {
+            this.userName = userName;
         }
         if (email != null) {
             this.email = email;
@@ -109,8 +120,27 @@ public class Member extends BaseTimeEntity {
         if (phone != null) {
             this.phone = phone;
         }
-        if (department != null) {
-            this.department = department;
+    }
+
+    /**
+     * 주소 정보 수정
+     */
+    public void updateAddress(String city, String street, String zipcode) {
+        if (city != null || street != null || zipcode != null) {
+            if (this.address == null) {
+                this.address = Address.builder()
+                        .city(city)
+                        .street(street)
+                        .zipcode(zipcode)
+                        .build();
+            } else {
+                // 기존 주소가 있으면 부분 수정
+                this.address = Address.builder()
+                        .city(city != null ? city : this.address.getCity())
+                        .street(street != null ? street : this.address.getStreet())
+                        .zipcode(zipcode != null ? zipcode : this.address.getZipcode())
+                        .build();
+            }
         }
     }
 
@@ -126,5 +156,14 @@ public class Member extends BaseTimeEntity {
      */
     public void updateStatus(UserStatus status) {
         this.status = status;
+    }
+
+    /**
+     * 권한 변경
+     */
+    public void updateRole(Role role) {
+        if (role != null) {
+            this.role = role;
+        }
     }
 }

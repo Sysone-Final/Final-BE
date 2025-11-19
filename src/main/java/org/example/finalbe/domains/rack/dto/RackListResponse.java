@@ -13,8 +13,8 @@ import java.math.BigDecimal;
 public record RackListResponse(
         Long id,
         String rackName,
-        String groupNumber,
-        String rackLocation,
+        BigDecimal gridX,
+        BigDecimal gridY,
         Integer totalUnits,
         Integer usedUnits,
         Integer availableUnits,
@@ -22,16 +22,14 @@ public record RackListResponse(
         BigDecimal usageRate,
         BigDecimal powerUsageRate,
         BigDecimal currentPowerUsage,
-        BigDecimal maxPowerCapacity,
-        String department,
-        Long managerId
+        BigDecimal maxPowerCapacity
 ) {
     public static RackListResponse from(Rack rack) {
         return RackListResponse.builder()
                 .id(rack.getId())
                 .rackName(rack.getRackName())
-                .groupNumber(rack.getGroupNumber())
-                .rackLocation(rack.getRackLocation())
+                .gridX(rack.getGridX())
+                .gridY(rack.getGridY())
                 .totalUnits(rack.getTotalUnits())
                 .usedUnits(rack.getUsedUnits())
                 .availableUnits(rack.getAvailableUnits())
@@ -40,8 +38,6 @@ public record RackListResponse(
                 .powerUsageRate(rack.getPowerUsageRate())
                 .currentPowerUsage(rack.getCurrentPowerUsage())
                 .maxPowerCapacity(rack.getMaxPowerCapacity())
-                .department(rack.getDepartment())
-                .managerId(rack.getManagerId())
                 .build();
     }
 }

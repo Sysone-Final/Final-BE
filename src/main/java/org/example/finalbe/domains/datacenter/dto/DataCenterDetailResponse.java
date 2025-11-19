@@ -1,72 +1,41 @@
 package org.example.finalbe.domains.datacenter.dto;
 
 import lombok.Builder;
-
-import org.example.finalbe.domains.common.enumdir.DataCenterStatus;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
+import org.example.finalbe.domains.serverroom.dto.ServerRoomSimpleResponse;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * 전산실 상세 조회 응답 DTO
+ * 데이터센터 상세 조회 응답 DTO
  */
 @Builder
 public record DataCenterDetailResponse(
         Long id,
-        String name,
         String code,
-        String location,
-        String floor,
-        Integer rows,
-        Integer columns,
-        String backgroundImageUrl,
-        DataCenterStatus status,
+        String name,
+        String address,
         String description,
-        BigDecimal totalArea,
-        BigDecimal totalPowerCapacity,
-        BigDecimal totalCoolingCapacity,
-        Integer maxRackCount,
-        Integer currentRackCount,
-        Integer availableRackCount,
-        BigDecimal temperatureMin,
-        BigDecimal temperatureMax,
-        BigDecimal humidityMin,
-        BigDecimal humidityMax,
-        Long managerId,
-        String managerName,
-        String managerEmail,
+        List<ServerRoomSimpleResponse> serverRooms,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
     /**
      * Entity → DTO 변환
      */
-    public static DataCenterDetailResponse from(DataCenter dataCenter) {
+    public static DataCenterDetailResponse from(DataCenter dataCenter, List<ServerRoomSimpleResponse> serverRooms) {
+        if (dataCenter == null) {
+            throw new IllegalArgumentException("DataCenter 엔티티가 null입니다.");
+        }
+
         return DataCenterDetailResponse.builder()
                 .id(dataCenter.getId())
-                .name(dataCenter.getName())
                 .code(dataCenter.getCode())
-                .location(dataCenter.getLocation())
-                .floor(dataCenter.getFloor())
-                .rows(dataCenter.getRows())
-                .columns(dataCenter.getColumns())
-                .backgroundImageUrl(dataCenter.getBackgroundImageUrl())
-                .status(dataCenter.getStatus())
+                .name(dataCenter.getName())
+                .address(dataCenter.getAddress())
                 .description(dataCenter.getDescription())
-                .totalArea(dataCenter.getTotalArea())
-                .totalPowerCapacity(dataCenter.getTotalPowerCapacity())
-                .totalCoolingCapacity(dataCenter.getTotalCoolingCapacity())
-                .maxRackCount(dataCenter.getMaxRackCount())
-                .currentRackCount(dataCenter.getCurrentRackCount())
-                .availableRackCount(dataCenter.getAvailableRackCount())
-                .temperatureMin(dataCenter.getTemperatureMin())
-                .temperatureMax(dataCenter.getTemperatureMax())
-                .humidityMin(dataCenter.getHumidityMin())
-                .humidityMax(dataCenter.getHumidityMax())
-                .managerId(dataCenter.getManager().getId())
-                .managerName(dataCenter.getManager().getName())
-                .managerEmail(dataCenter.getManager().getEmail())
+                .serverRooms(serverRooms)
                 .createdAt(dataCenter.getCreatedAt())
                 .updatedAt(dataCenter.getUpdatedAt())
                 .build();

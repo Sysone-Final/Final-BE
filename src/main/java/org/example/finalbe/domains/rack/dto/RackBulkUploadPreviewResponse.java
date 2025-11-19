@@ -19,8 +19,8 @@ public record RackBulkUploadPreviewResponse(
     public record PreviewRow(
             Integer rowNumber,
             String rackName,
-            String groupNumber,
-            String rackLocation,
+            String gridX,
+            String gridY,
             Integer totalUnits,
             String status,
             Boolean isValid,

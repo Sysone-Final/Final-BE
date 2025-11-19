@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 
 import java.math.BigDecimal;
@@ -10,35 +11,37 @@ import java.math.BigDecimal;
  */
 @Builder
 public record EquipmentListResponse(
-        Long equipmentId,
+        Long id,
         String equipmentName,
         String equipmentCode,
         String equipmentType,
         String status,
         Integer startUnit,
         Integer unitSize,
-        String rackName,
         String modelName,
         String manufacturer,
         String ipAddress,
+        String positionType,
         BigDecimal powerConsumption,
-        String imageUrl
+        Long rackId,
+        String rackName
 ) {
     public static EquipmentListResponse from(Equipment equipment) {
         return EquipmentListResponse.builder()
-                .equipmentId(equipment.getId())
+                .id(equipment.getId())
                 .equipmentName(equipment.getName())
                 .equipmentCode(equipment.getCode())
                 .equipmentType(equipment.getType() != null ? equipment.getType().name() : null)
                 .status(equipment.getStatus() != null ? equipment.getStatus().name() : null)
                 .startUnit(equipment.getStartUnit())
                 .unitSize(equipment.getUnitSize())
-                .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
                 .modelName(equipment.getModelName())
                 .manufacturer(equipment.getManufacturer())
                 .ipAddress(equipment.getIpAddress())
+                .positionType(equipment.getPositionType() != null ? equipment.getPositionType().name() : null)
                 .powerConsumption(equipment.getPowerConsumption())
-                .imageUrl(equipment.getImageUrl())
+                .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
+                .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
                 .build();
     }
 }

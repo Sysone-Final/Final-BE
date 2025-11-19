@@ -50,12 +50,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
                         .requestMatchers("/api/companies/**").authenticated()
-                        .requestMatchers("/api/datacenters/**").authenticated()
-                        .requestMatchers("/api/company-datacenters/**").authenticated()
+                        .requestMatchers("/api/serverroom/**").authenticated()
+                        .requestMatchers("/api/company-serverroom/**").authenticated()
                         .requestMatchers("/api/equipments/**").authenticated()
-                        .requestMatchers("/api/devices/**").permitAll()
+                        .requestMatchers("/api/devices/**").authenticated()
                         .requestMatchers("/api/device-types/**").authenticated()
                         .requestMatchers("/api/departments/**").authenticated()
+                        .requestMatchers("/api/monitoring/**").authenticated()
+                        .requestMatchers("/api/members/**").authenticated()
+                        .requestMatchers("/api/history/**").authenticated()
+                        .requestMatchers("/api/prometheus/metrics/stream/**").permitAll()
+                        .requestMatchers("/api/prometheus/metrics/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -72,7 +77,8 @@ public class SecurityConfig {
                 "https://serverway.shop",
                 "http://serverway.shop",
                 "https://api.serverway.shop",
-                "http://api.serverway.shop"
+                "http://api.serverway.shop",
+                "http://localhost:4173"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));

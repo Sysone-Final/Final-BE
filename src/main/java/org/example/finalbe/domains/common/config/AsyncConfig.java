@@ -27,9 +27,9 @@ public class AsyncConfig {
     @Bean(name = "taskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);     // 기본 스레드 수
-        executor.setMaxPoolSize(50);      // 최대 스레드 수
-        executor.setQueueCapacity(100);   // 대기 큐 크기
+        executor.setCorePoolSize(20);     // 기본 스레드 수
+        executor.setMaxPoolSize(100);      // 최대 스레드 수
+        executor.setQueueCapacity(1000);   // 대기 큐 크기
         executor.setThreadNamePrefix("SSE-Async-");
         executor.initialize();
         return executor;

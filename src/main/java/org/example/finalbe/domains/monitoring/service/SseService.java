@@ -147,24 +147,34 @@ public class SseService {
     /**
      * 장비 구독자들에게 데이터 전송
      */
-    @Async
     public void sendToEquipment(Long equipmentId, String eventName, Object data) {
         String topic = "equipment-" + equipmentId;
-        sendData(topic, eventName, data);
+        if (!hasSubscribers(topic)) {
+            return;
+        }
+        asyncSend(topic, eventName, data);
     }
 
     /**
      * 랙 구독자들에게 데이터 전송
      */
-    @Async
     public void sendToRack(Long rackId, String eventName, Object data) {
         String topic = "rack-" + rackId;
+        if (!hasSubscribers(topic)) {
+            return;
+        }
+        asyncSend(topic, eventName, data);
+    }
+
+    @Async
+    void asyncSend(String topic, String eventName, Object data) {
         sendData(topic, eventName, data);
     }
 
-    /**
-     * 공통 데이터 전송 로직
-     */
+    private boolean hasSubscribers(String topic) {
+        List<SseEmitter> topicEmitters = this.emitters.get(topic);
+        return topicEmitters != null && !topicEmitters.isEmpty();
+    }
 
     private void sendData(String topic, String eventName, Object data) {
         List<SseEmitter> topicEmitters = this.emitters.get(topic);

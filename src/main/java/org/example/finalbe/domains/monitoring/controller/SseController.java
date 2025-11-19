@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.monitoring.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.finalbe.domains.monitoring.service.SseService;
 import org.springframework.http.MediaType;
@@ -22,7 +23,8 @@ public class SseController {
      * @return SseEmitter
      */
     @GetMapping(value = "/equipment/{equipmentId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeToEquipment(@PathVariable Long equipmentId) {
+    public SseEmitter subscribeToEquipment(@PathVariable Long equipmentId, HttpServletResponse response) {
+        applySseHeaders(response);
         return sseService.subscribeEquipment(equipmentId);
     }
 
@@ -32,7 +34,15 @@ public class SseController {
      * @return SseEmitter
      */
     @GetMapping(value = "/rack/{rackId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeToRack(@PathVariable Long rackId) {
+    public SseEmitter subscribeToRack(@PathVariable Long rackId, HttpServletResponse response) {
+        applySseHeaders(response);
         return sseService.subscribeRack(rackId);
+    }
+
+    private void applySseHeaders(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Connection", "keep-alive");
+        response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
     }
 }

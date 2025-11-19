@@ -6,9 +6,11 @@ import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
 import org.example.finalbe.domains.monitoring.repository.DiskMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.SystemMetricRepository;
+import org.example.finalbe.domains.monitoring.repository.EnvironmentMetricRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -20,15 +22,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @RequiredArgsConstructor
 public class SseService {
 
+    private final MonitoringMetricCache monitoringMetricCache;
+
     // 1. 구독자 관리 맵 (ConcurrentHashMap: 스레드 안전)
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     private static final Long DEFAULT_TIMEOUT = 60L * 60 * 1000; // 1시간
+    private static final long HEARTBEAT_INTERVAL_MS = 30_000;
 
     // 초기 데이터 전송을 위해 Repository 주입
     private final SystemMetricRepository systemMetricRepository;
     private final DiskMetricRepository diskMetricRepository;
     private final NetworkMetricRepository networkMetricRepository;
+    private final EnvironmentMetricRepository environmentMetricRepository;
 
     /**
      * 장비 메트릭 구독 (equipmentId 기준)
@@ -47,41 +53,46 @@ public class SseService {
      * 연결된 클라이언트에게 최신 데이터 1건 즉시 전송
      */
     private void sendInitialData(Long equipmentId, SseEmitter emitter) {
+        boolean sentFromCache = sendFromCache(equipmentId, emitter);
+        if (!sentFromCache) {
+            sendFromDatabase(equipmentId, emitter);
+        }
+        log.info("🚀 [Equipment-{}] 초기 데이터 전송 완료 (cache={} )", equipmentId, sentFromCache);
+    }
+
+    private boolean sendFromCache(Long equipmentId, SseEmitter emitter) {
+        boolean sent = false;
+        if (monitoringMetricCache.getSystemMetric(equipmentId).isPresent()) {
+            sent |= emitSafely(emitter, "system", monitoringMetricCache.getSystemMetric(equipmentId).get());
+        }
+        if (monitoringMetricCache.getDiskMetric(equipmentId).isPresent()) {
+            sent |= emitSafely(emitter, "disk", monitoringMetricCache.getDiskMetric(equipmentId).get());
+        }
+        List<NetworkMetric> networks = monitoringMetricCache.getNetworkMetrics(equipmentId);
+        for (NetworkMetric net : networks) {
+            sent |= emitSafely(emitter, "network", net);
+        }
+        return sent;
+    }
+
+    private void sendFromDatabase(Long equipmentId, SseEmitter emitter) {
+        systemMetricRepository.findLatestByEquipmentId(equipmentId)
+                .ifPresent(data -> emitSafely(emitter, "system", data));
+        diskMetricRepository.findLatestByEquipmentId(equipmentId)
+                .ifPresent(data -> emitSafely(emitter, "disk", data));
+        List<NetworkMetric> networks = networkMetricRepository.findLatestByEquipmentId(equipmentId);
+        for (NetworkMetric net : networks) {
+            emitSafely(emitter, "network", net);
+        }
+    }
+
+    private boolean emitSafely(SseEmitter emitter, String eventName, Object data) {
         try {
-            // 1. SystemMetric 최신값 조회 & 전송
-            systemMetricRepository.findLatestByEquipmentId(equipmentId)
-                    .ifPresent(data -> {
-                        try {
-                            emitter.send(SseEmitter.event().name("system").data(data));
-                        } catch (IOException e) {
-                            log.warn("초기 system 데이터 전송 실패");
-                        }
-                    });
-
-            // 2. DiskMetric 최신값 조회 & 전송
-            diskMetricRepository.findLatestByEquipmentId(equipmentId)
-                    .ifPresent(data -> {
-                        try {
-                            emitter.send(SseEmitter.event().name("disk").data(data));
-                        } catch (IOException e) {
-                            log.warn("초기 disk 데이터 전송 실패");
-                        }
-                    });
-
-            // 3. NetworkMetric 최신값 조회 & 전송 (리스트)
-            List<NetworkMetric> networks = networkMetricRepository.findLatestByEquipmentId(equipmentId);
-            for (NetworkMetric net : networks) {
-                try {
-                    emitter.send(SseEmitter.event().name("network").data(net));
-                } catch (IOException e) {
-                    log.warn("초기 network 데이터 전송 실패");
-                }
-            }
-
-            log.info("🚀 [Equipment-{}] 초기 데이터 전송 완료", equipmentId);
-
-        } catch (Exception e) {
-            log.warn("⚠️ 초기 데이터 전송 중 오류 (무시 가능): {}", e.getMessage());
+            emitter.send(SseEmitter.event().name(eventName).data(data));
+            return true;
+        } catch (IOException e) {
+            log.warn("초기 {} 데이터 전송 실패", eventName, e);
+            return false;
         }
     }
 
@@ -90,7 +101,16 @@ public class SseService {
      */
     public SseEmitter subscribeRack(Long rackId) {
         String topic = "rack-" + rackId;
-        return createEmitter(topic);
+        SseEmitter emitter = createEmitter(topic);
+        sendRackInitialData(rackId, emitter);
+        return emitter;
+    }
+
+    private void sendRackInitialData(Long rackId, SseEmitter emitter) {
+        monitoringMetricCache.getEnvironmentMetric(rackId)
+                .ifPresent(data -> emitSafely(emitter, "environment", data));
+        environmentMetricRepository.findLatestByRackId(rackId)
+                .ifPresent(data -> emitSafely(emitter, "environment", data));
     }
 
     /**
@@ -163,5 +183,21 @@ public class SseService {
                 topicEmitters.remove(emitter);
             }
         }
+    }
+
+    @Scheduled(fixedRate = HEARTBEAT_INTERVAL_MS)
+    public void sendHeartbeats() {
+        emitters.forEach((topic, topicEmitters) -> {
+            for (SseEmitter emitter : topicEmitters) {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .comment("heartbeat")
+                            .reconnectTime(5000));
+                } catch (IOException e) {
+                    log.warn("Heartbeat 실패: {}, emitter 제거", topic);
+                    topicEmitters.remove(emitter);
+                }
+            }
+        });
     }
 }

@@ -42,6 +42,8 @@ public class ServerRoomDataSimulator {
 
     private final SseService sseService;
 
+    private final MonitoringMetricCache monitoringMetricCache;
+
     private static final Map<Long, List<String>> EQUIPMENT_NICS = new HashMap<>();
 
     private final Map<Long, AnomalyState> anomalyStates = new HashMap<>();
@@ -174,7 +176,8 @@ public class ServerRoomDataSimulator {
                 // System 메트릭
                 if (hasSystemMetric(type)) {
                     SystemMetric sysMetric = generateSystemMetric(equipmentId, now);
-                    systemMetricsToSave.add(sysMetric); // 리스트에 추가
+                    systemMetricsToSave.add(sysMetric);
+                    monitoringMetricCache.updateSystemMetric(sysMetric);
                     sseService.sendToEquipment(equipmentId, "system", sysMetric); // SSE는 바로 전송 (빠름)
                 }
 
@@ -182,6 +185,7 @@ public class ServerRoomDataSimulator {
                 if (hasDiskMetric(type)) {
                     DiskMetric diskMetric = generateDiskMetric(equipmentId, now);
                     diskMetricsToSave.add(diskMetric);
+                    monitoringMetricCache.updateDiskMetric(diskMetric);
                     sseService.sendToEquipment(equipmentId, "disk", diskMetric);
                 }
 
@@ -192,6 +196,7 @@ public class ServerRoomDataSimulator {
                         for (String nic : nics) {
                             NetworkMetric nicMetric = generateNetworkMetric(equipmentId, nic, now);
                             networkMetricsToSave.add(nicMetric);
+                            monitoringMetricCache.updateNetworkMetric(nicMetric);
                             sseService.sendToEquipment(equipmentId, "network", nicMetric);
                         }
                     }
@@ -203,6 +208,7 @@ public class ServerRoomDataSimulator {
                 Long rackId = rack.getId();
                 EnvironmentMetric envMetric = generateEnvironmentMetric(rackId, now);
                 environmentMetricsToSave.add(envMetric);
+                monitoringMetricCache.updateEnvironmentMetric(envMetric);
                 sseService.sendToRack(rackId, "environment", envMetric);
             }
 
@@ -849,3 +855,4 @@ public class ServerRoomDataSimulator {
         log.info("🆕 새 장비 시뮬레이터 등록 완료: ID={}, Name={}", equipmentId, newEquipment.getName());
     }
 }
+

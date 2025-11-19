@@ -32,7 +32,7 @@ public class EquipmentController {
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
-     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=
+     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=&onlyUnassigned=
      */
     @GetMapping
     public ResponseEntity<CommonResDto> getEquipments(
@@ -41,10 +41,11 @@ public class EquipmentController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) EquipmentType type,
             @RequestParam(required = false) EquipmentStatus status,
-            @RequestParam(required = false) Long serverRoomId) {
+            @RequestParam(required = false) Long serverRoomId,
+            @RequestParam(required = false) Boolean onlyUnassigned) {
 
         EquipmentPageResponse response = equipmentService.getEquipmentsWithFilters(
-                page, size, keyword, type, status, serverRoomId);
+                page, size, keyword, type, status, serverRoomId, onlyUnassigned);
 
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "장비 목록 조회 완료", response));

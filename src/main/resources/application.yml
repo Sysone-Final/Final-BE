@@ -32,10 +32,22 @@ spring:
           batch_size: 50
         order_inserts: true
         order_updates: true
-#        default_schema: public
     open-in-view: false
 
+
+  jackson:
+    time-zone: Asia/Seoul
+    serialization:
+      write-dates-as-timestamps: false
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
+
   task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 8
+        queue-capacity: 100
+        thread-name-prefix: prometheus-collector-
     scheduling:
       pool:
         size: 5
@@ -54,8 +66,32 @@ monitoring:
     interval-seconds: 5
     device-count: 9
 
+# ==================== Prometheus 설정 ====================
+prometheus:
+  server:
+    url: http://112.221.184.61:9090
 
+  collection:
+    enabled: true
+    fixed-delay: 15000
+    initial-delay: 5000
+
+  client:
+    connect-timeout: 5000
+    read-timeout: 10000
+
+  sse:
+    timeout: 3600000
+    heartbeat-interval: 30000
+
+## ==================== 로깅 설정 ====================
 #logging:
 #  level:
+#    root: INFO
+#    org.example.finalbe.domains.prometheus: INFO
 #    org.hibernate.SQL: DEBUG
 #    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+#    com.zaxxer.hikari: DEBUG
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

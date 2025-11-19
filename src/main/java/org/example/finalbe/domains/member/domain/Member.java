@@ -60,9 +60,6 @@ public class Member extends BaseTimeEntity {
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
-    @Column(name = "department", length = 100)
-    private String department;
-
     @Column(name = "refresh_token", length = 500)
     private String refreshToken;
 
@@ -111,11 +108,11 @@ public class Member extends BaseTimeEntity {
     }
 
     /**
-     * 회원 정보 수정
+     * 회원 기본 정보 수정 (아이디, 이메일, 전화번호)
      */
-    public void updateInfo(String name, String email, String phone, String department) {
-        if (name != null && !name.trim().isEmpty()) {
-            this.name = name;
+    public void updateInfo(String userName, String email, String phone) {
+        if (userName != null && !userName.trim().isEmpty()) {
+            this.userName = userName;
         }
         if (email != null) {
             this.email = email;
@@ -123,8 +120,27 @@ public class Member extends BaseTimeEntity {
         if (phone != null) {
             this.phone = phone;
         }
-        if (department != null) {
-            this.department = department;
+    }
+
+    /**
+     * 주소 정보 수정
+     */
+    public void updateAddress(String city, String street, String zipcode) {
+        if (city != null || street != null || zipcode != null) {
+            if (this.address == null) {
+                this.address = Address.builder()
+                        .city(city)
+                        .street(street)
+                        .zipcode(zipcode)
+                        .build();
+            } else {
+                // 기존 주소가 있으면 부분 수정
+                this.address = Address.builder()
+                        .city(city != null ? city : this.address.getCity())
+                        .street(street != null ? street : this.address.getStreet())
+                        .zipcode(zipcode != null ? zipcode : this.address.getZipcode())
+                        .build();
+            }
         }
     }
 
@@ -140,5 +156,14 @@ public class Member extends BaseTimeEntity {
      */
     public void updateStatus(UserStatus status) {
         this.status = status;
+    }
+
+    /**
+     * 권한 변경
+     */
+    public void updateRole(Role role) {
+        if (role != null) {
+            this.role = role;
+        }
     }
 }

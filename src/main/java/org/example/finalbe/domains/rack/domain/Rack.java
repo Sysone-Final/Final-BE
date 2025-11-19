@@ -80,7 +80,6 @@ public class Rack extends BaseTimeEntity {
     @Column(name = "rack_type", length = 20)
     private RackType rackType; // 랙 타입
 
-    @Lob
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes; // 비고
 

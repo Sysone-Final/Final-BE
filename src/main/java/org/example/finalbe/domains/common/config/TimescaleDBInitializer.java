@@ -140,49 +140,48 @@ public class TimescaleDBInitializer {
     }
 
     /**
-     * 보관 정책 설정 (30일 지난 데이터 자동 삭제)
+     * 보관 정책 설정 (7일 지난 데이터 자동 삭제)
      */
     private void setupRetentionPolicies() {
         try {
-            setupRetentionForTable("system_metrics");
-            setupRetentionForTable("disk_metrics");
-            setupRetentionForTable("network_metrics");
-            setupRetentionForTable("environment_metrics");
+            setupRetentionForTable("prometheus_cpu_metrics", 7);
+            setupRetentionForTable("prometheus_memory_metrics", 7);
+            setupRetentionForTable("prometheus_network_metrics", 7);
+            setupRetentionForTable("prometheus_disk_metrics", 7);
+            setupRetentionForTable("prometheus_temperature_metrics", 7);
 
-            log.info("✅ 보관 정책 설정 완료 (30일 후 자동 삭제)");
+            log.info("보관 정책 설정 완료 (7일 후 자동 삭제)");
 
         } catch (Exception e) {
-            log.warn("⚠️ 보관 정책 설정 실패: {}", e.getMessage());
+            log.warn("보관 정책 설정 실패: {}", e.getMessage());
         }
     }
 
     /**
      * 특정 테이블에 보관 정책 설정
      */
-    private void setupRetentionForTable(String tableName) {
+    private void setupRetentionForTable(String tableName, int retentionDays) {
         try {
-            // 이미 보관 정책이 있는지 확인
             String checkSql = "SELECT COUNT(*) FROM timescaledb_information.jobs " +
                     "WHERE proc_name = 'policy_retention' " +
                     "AND hypertable_name = ?";
             Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, tableName);
 
             if (count != null && count > 0) {
-                log.info("⏭️  {} - 이미 보관 정책 설정됨 (스킵)", tableName);
+                log.info("{} - 이미 보관 정책 설정됨 (스킵)", tableName);
                 return;
             }
 
-            // 보관 정책 추가 (30일 지난 chunk 자동 삭제)
             String policySql = String.format(
-                    "SELECT add_retention_policy('%s', INTERVAL '30 days')",
-                    tableName
+                    "SELECT add_retention_policy('%s', INTERVAL '%d days')",
+                    tableName, retentionDays
             );
             jdbcTemplate.execute(policySql);
 
-            log.info("✅ {} - 보관 정책 추가 완료 (30일 보관)", tableName);
+            log.info("{} - 보관 정책 추가 완료 ({}일 보관)", tableName, retentionDays);
 
         } catch (Exception e) {
-            log.debug("⚠️ {} - 보관 정책 추가 실패: {}", tableName, e.getMessage());
+            log.debug("{} - 보관 정책 추가 실패: {}", tableName, e.getMessage());
         }
     }
 }

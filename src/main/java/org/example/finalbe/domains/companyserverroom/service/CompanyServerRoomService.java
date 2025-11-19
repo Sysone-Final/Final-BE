@@ -335,8 +335,10 @@ public class CompanyServerRoomService {
         return mappingsToDelete.size();
     }
 
+    // 앞부분은 동일하므로 getCompanyServerRoomsGroupedByDataCenter 메서드만 표시
+
     /**
-     * 회사의 서버실 목록을 데이터센터별로 그룹화하여 조회
+     * 회사의 서버실 목록을 데이터센터별로 그룹화하여 조회 (rows, columns 포함)
      */
     public List<CompanyServerRoomGroupedByDataCenterResponse> getCompanyServerRoomsGroupedByDataCenter(Long companyId) {
         log.info("Fetching server rooms grouped by datacenter for company: {}", companyId);
@@ -361,7 +363,7 @@ public class CompanyServerRoomService {
                     // 첫 번째 서버실에서 데이터센터 정보 추출
                     DataCenter dataCenter = entry.getValue().get(0).getServerRoom().getDataCenter();
 
-                    // 서버실 정보 리스트 생성
+                    // 서버실 정보 리스트 생성 (rows, columns 포함)
                     List<CompanyServerRoomGroupedByDataCenterResponse.ServerRoomInfo> serverRooms =
                             entry.getValue().stream()
                                     .map(mapping -> {
@@ -372,6 +374,8 @@ public class CompanyServerRoomService {
                                                 .code(sr.getCode())
                                                 .location(sr.getLocation())
                                                 .floor(sr.getFloor())
+                                                .rows(sr.getRows())          // 행 정보 추가
+                                                .columns(sr.getColumns())    // 열 정보 추가
                                                 .status(sr.getStatus())
                                                 .description(sr.getDescription())
                                                 .build();

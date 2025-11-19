@@ -58,7 +58,7 @@ public class Company extends BaseTimeEntity {
     @Column(name = "industry", length = 100)
     private String industry; // 업종
 
-    @Lob
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description; // 회사 설명
 

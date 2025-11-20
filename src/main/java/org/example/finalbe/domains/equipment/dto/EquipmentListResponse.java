@@ -1,7 +1,6 @@
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
-import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 
 import java.math.BigDecimal;
@@ -24,7 +23,16 @@ public record EquipmentListResponse(
         String positionType,
         BigDecimal powerConsumption,
         Long rackId,
-        String rackName
+        String rackName,
+
+        // ===== 임계치 필드 추가 =====
+        Boolean monitoringEnabled,
+        Integer cpuThresholdWarning,
+        Integer cpuThresholdCritical,
+        Integer memoryThresholdWarning,
+        Integer memoryThresholdCritical,
+        Integer diskThresholdWarning,
+        Integer diskThresholdCritical
 ) {
     public static EquipmentListResponse from(Equipment equipment) {
         return EquipmentListResponse.builder()
@@ -42,6 +50,16 @@ public record EquipmentListResponse(
                 .powerConsumption(equipment.getPowerConsumption())
                 .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
+
+                // ===== 임계치 값 매핑 =====
+                .monitoringEnabled(equipment.getMonitoringEnabled())
+                .cpuThresholdWarning(equipment.getCpuThresholdWarning())
+                .cpuThresholdCritical(equipment.getCpuThresholdCritical())
+                .memoryThresholdWarning(equipment.getMemoryThresholdWarning())
+                .memoryThresholdCritical(equipment.getMemoryThresholdCritical())
+                .diskThresholdWarning(equipment.getDiskThresholdWarning())
+                .diskThresholdCritical(equipment.getDiskThresholdCritical())
+
                 .build();
     }
 }

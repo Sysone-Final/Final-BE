@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.monitoring.repository;
 
+import org.example.finalbe.domains.monitoring.domain.DiskMetric;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface NetworkMetricRepository extends JpaRepository<NetworkMetric, Long> {
@@ -185,4 +187,14 @@ public interface NetworkMetricRepository extends JpaRepository<NetworkMetric, Lo
             @Param("equipmentIds") List<Long> equipmentIds,
             @Param("limit") int limit
     );
+
+    /**
+     * 특정 장비의 특정 NIC, 특정 시간 메트릭 조회 (UPSERT용)
+     */
+    Optional<NetworkMetric> findByEquipmentIdAndNicNameAndGenerateTime(
+            Long equipmentId,
+            String nicName,
+            LocalDateTime generateTime
+    );
+
 }

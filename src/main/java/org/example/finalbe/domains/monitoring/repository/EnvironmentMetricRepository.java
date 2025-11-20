@@ -158,4 +158,6 @@ public interface EnvironmentMetricRepository extends JpaRepository<EnvironmentMe
             @Param("rackIds") List<Long> rackIds,
             @Param("limit") int limit
     );
+
+    Optional<EnvironmentMetric> findByRackIdAndGenerateTime(Long rackId, LocalDateTime generateTime);
 }

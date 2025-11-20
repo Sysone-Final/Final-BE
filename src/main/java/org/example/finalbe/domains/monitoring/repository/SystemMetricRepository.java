@@ -394,4 +394,8 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
             @Param("limit") int limit
     );
 
+    Optional<SystemMetric> findByEquipmentIdAndGenerateTime(Long equipmentId, LocalDateTime generateTime);
+
+
+
 }

@@ -38,7 +38,6 @@ public class EnvironmentMetric {
     private Double maxTemperature;        // 최고 온도 (°C)
 
     // ==================== 습도 관련 ====================
-    @Column(nullable = false)
     private Double humidity;              // 현재 습도 (%)
 
     private Double minHumidity;           // 최저 습도 (%)

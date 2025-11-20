@@ -107,4 +107,19 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
      */
     @Query("SELECT r FROM Rack r WHERE r.id = :id AND r.delYn = 'N'")
     Optional<Rack> findActiveById(@Param("id") Long id);
+
+    /**
+     * 서버실별 랙 개수 조회
+     */
+    long countByServerRoomIdAndDelYn(Long serverRoomId, DelYN delYn);
+
+    /**
+     * 서버실별 랙 목록 조회 (수정)
+     */
+    List<Rack> findByServerRoom_IdAndDelYn(Long serverRoomId, DelYN delYn);
+
+    /**
+     * 서버실별 랙 개수 조회 (수정)
+     */
+    long countByServerRoom_IdAndDelYn(Long serverRoomId, DelYN delYn);
 }

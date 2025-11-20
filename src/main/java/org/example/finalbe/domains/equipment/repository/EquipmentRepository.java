@@ -176,4 +176,21 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     Optional<Equipment> findByIdWithRackAndServerRoom(@Param("id") Long id);
 
     List<Equipment> findByDelYn(DelYN delYN);
+
+
+    /**
+     * 여러 랙의 장비 목록 조회
+     */
+    @Query("SELECT e FROM Equipment e WHERE e.rack.id IN :rackIds AND e.delYn = :delYn")
+    List<Equipment> findByRackIdInAndDelYn(@Param("rackIds") List<Long> rackIds, @Param("delYn") DelYN delYn);
+
+    /**
+     * 여러 랙의 특정 상태 장비 개수 조회
+     */
+    @Query("SELECT COUNT(e) FROM Equipment e WHERE e.rack.id IN :rackIds AND e.status = :status AND e.delYn = :delYn")
+    long countByRackIdInAndStatusAndDelYn(
+            @Param("rackIds") List<Long> rackIds,
+            @Param("status") EquipmentStatus status,
+            @Param("delYn") DelYN delYn
+    );
 }

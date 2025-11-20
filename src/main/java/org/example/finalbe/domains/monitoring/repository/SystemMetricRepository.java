@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -416,5 +417,48 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
     List<SystemMetric> findRecentMetrics(
             @Param("equipmentId") Long equipmentId,
             @Param("limit") int limit
+    );
+
+
+    /**
+     * 여러 장비의 평균 CPU 통계 조회
+     */
+    @Query(value = """
+        SELECT 
+            AVG(100 - cpu_idle) as avgCpuUsage,
+            MAX(100 - cpu_idle) as maxCpuUsage,
+            MIN(100 - cpu_idle) as minCpuUsage,
+            AVG(load_avg1) as avgLoadAvg1,
+            COUNT(DISTINCT equipment_id) as equipmentCount
+        FROM system_metrics
+        WHERE equipment_id IN :equipmentIds
+        AND generate_time BETWEEN :startTime AND :endTime
+        """, nativeQuery = true)
+    Map<String, Object> getAverageCpuStatsByEquipmentIds(
+            @Param("equipmentIds") List<Long> equipmentIds,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    /**
+     * 여러 장비의 평균 메모리 통계 조회
+     */
+    @Query(value = """
+        SELECT 
+            AVG(used_memory_percentage) as avgMemoryUsage,
+            MAX(used_memory_percentage) as maxMemoryUsage,
+            MIN(used_memory_percentage) as minMemoryUsage,
+            SUM(total_memory) as totalMemory,
+            SUM(used_memory) as totalUsedMemory,
+            AVG(used_swap_percentage) as avgSwapUsage,
+            COUNT(DISTINCT equipment_id) as equipmentCount
+        FROM system_metrics
+        WHERE equipment_id IN :equipmentIds
+        AND generate_time BETWEEN :startTime AND :endTime
+        """, nativeQuery = true)
+    Map<String, Object> getAverageMemoryStatsByEquipmentIds(
+            @Param("equipmentIds") List<Long> equipmentIds,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
     );
 }

@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
+import org.example.finalbe.domains.monitoring.dto.DataCenterStatisticsDto;
+import org.example.finalbe.domains.monitoring.dto.ServerRoomStatisticsDto;
 import org.example.finalbe.domains.monitoring.repository.DiskMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.SystemMetricRepository;
@@ -38,6 +40,9 @@ public class SseService {
     private final NetworkMetricRepository networkMetricRepository;
     private final EnvironmentMetricRepository environmentMetricRepository;
     private final EquipmentRepository equipmentRepository;
+
+    private final ServerRoomMonitoringService serverRoomMonitoringService;
+    private final DataCenterMonitoringService dataCenterMonitoringService;
 
     /**
      * 장비 메트릭 구독 (equipmentId 기준)
@@ -276,5 +281,77 @@ public class SseService {
                 emitters.remove(topic);
             }
         });
+    }
+
+    /**
+     * 서버실 통계 구독 (serverRoomId 기준)
+     */
+    public SseEmitter subscribeServerRoom(Long serverRoomId) {
+        String topic = "serverroom-" + serverRoomId;
+        SseEmitter emitter = createEmitter(topic);
+
+        // 비동기로 초기 데이터 전송
+        asyncSendServerRoomInitialData(serverRoomId, emitter);
+
+        return emitter;
+    }
+
+    @Async("taskExecutor")
+    void asyncSendServerRoomInitialData(Long serverRoomId, SseEmitter emitter) {
+        try {
+            // ServerRoomMonitoringService를 통해 초기 통계 계산
+            ServerRoomStatisticsDto initialStats = serverRoomMonitoringService.calculateServerRoomStatistics(serverRoomId);
+            emitSafely(emitter, "serverroom-statistics", initialStats);
+            log.info("🚀 [ServerRoom-{}] 초기 통계 데이터 전송 완료", serverRoomId);
+        } catch (Exception e) {
+            log.error("❌ [ServerRoom-{}] 초기 통계 데이터 전송 실패", serverRoomId, e);
+        }
+    }
+
+    /**
+     * 데이터센터 통계 구독 (dataCenterId 기준)
+     */
+    public SseEmitter subscribeDataCenter(Long dataCenterId) {
+        String topic = "datacenter-" + dataCenterId;
+        SseEmitter emitter = createEmitter(topic);
+
+        // 비동기로 초기 데이터 전송
+        asyncSendDataCenterInitialData(dataCenterId, emitter);
+
+        return emitter;
+    }
+
+    @Async("taskExecutor")
+    void asyncSendDataCenterInitialData(Long dataCenterId, SseEmitter emitter) {
+        try {
+            // DataCenterMonitoringService를 통해 초기 통계 계산
+            DataCenterStatisticsDto initialStats = dataCenterMonitoringService.calculateDataCenterStatistics(dataCenterId);
+            emitSafely(emitter, "datacenter-statistics", initialStats);
+            log.info("🚀 [DataCenter-{}] 초기 통계 데이터 전송 완료", dataCenterId);
+        } catch (Exception e) {
+            log.error("❌ [DataCenter-{}] 초기 통계 데이터 전송 실패", dataCenterId, e);
+        }
+    }
+
+    /**
+     * 서버실에 통계 데이터 전송
+     */
+    public void sendToServerRoom(Long serverRoomId, String eventName, Object data) {
+        String topic = "serverroom-" + serverRoomId;
+        if (!hasSubscribers(topic)) {
+            return;
+        }
+        asyncSend(topic, eventName, data);
+    }
+
+    /**
+     * 데이터센터에 통계 데이터 전송
+     */
+    public void sendToDataCenter(Long dataCenterId, String eventName, Object data) {
+        String topic = "datacenter-" + dataCenterId;
+        if (!hasSubscribers(topic)) {
+            return;
+        }
+        asyncSend(topic, eventName, data);
     }
 }

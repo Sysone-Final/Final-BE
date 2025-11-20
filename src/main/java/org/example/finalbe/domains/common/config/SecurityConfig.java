@@ -37,18 +37,54 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 인증 실패 시 /login 리다이렉트 방지 - 401 응답 반환
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
+                            String contentType = request.getHeader("Accept");
+
+                            // SSE 요청인 경우 응답 커밋 방지
+                            if (contentType != null && contentType.contains("text/event-stream")) {
+                                if (!response.isCommitted()) {
+                                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                                    response.setContentType("text/event-stream;charset=UTF-8");
+                                    response.getWriter().write("event: error\ndata: {\"error\":\"Unauthorized\"}\n\n");
+                                    response.getWriter().flush();
+                                }
+                                return;
+                            }
+
+                            // 일반 REST API 요청
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json;charset=UTF-8");
                             response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"인증이 필요합니다.\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            String contentType = request.getHeader("Accept");
+
+                            // SSE 요청인 경우
+                            if (contentType != null && contentType.contains("text/event-stream")) {
+                                if (!response.isCommitted()) {
+                                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                                    response.setContentType("text/event-stream;charset=UTF-8");
+                                    response.getWriter().write("event: error\ndata: {\"error\":\"Forbidden\"}\n\n");
+                                    response.getWriter().flush();
+                                }
+                                return;
+                            }
+
+                            // 일반 REST API 요청
+                            response.setStatus(HttpStatus.FORBIDDEN.value());
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"접근 권한이 없습니다.\"}");
                         })
                 )
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
+
+                        .requestMatchers("/api/prometheus/metrics/stream/**").authenticated()
+                        .requestMatchers("/api/monitoring/server-room/stream/**").authenticated()
+
                         .requestMatchers("/api/companies/**").authenticated()
                         .requestMatchers("/api/serverroom/**").authenticated()
                         .requestMatchers("/api/company-serverroom/**").authenticated()
@@ -59,7 +95,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/monitoring/**").authenticated()
                         .requestMatchers("/api/members/**").authenticated()
                         .requestMatchers("/api/history/**").authenticated()
-                        .requestMatchers("/api/prometheus/metrics/stream/**").permitAll()
                         .requestMatchers("/api/prometheus/metrics/**").authenticated()
                         .anyRequest().authenticated()
                 )

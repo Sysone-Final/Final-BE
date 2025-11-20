@@ -5,12 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "environment_metrics", indexes = {
-        @Index(name = "idx_env_rack_time", columnList = "rack_id, generate_time"), // 이름 명확화
+        @Index(name = "idx_env_rack_time", columnList = "rack_id, generate_time"),
         @Index(name = "idx_env_generate_time", columnList = "generate_time")
 })
 @Data
@@ -29,24 +28,30 @@ public class EnvironmentMetric {
     @Column(nullable = false)
     private LocalDateTime generateTime;
 
-    // ==================== 온도 관련 ====================
-    @Column(nullable = false)
-    private Double temperature;           // 현재 온도 (°C)
+    // ==================== 온도 관련 (nullable로 변경) ====================
+    @Column(nullable = true)
+    private Double temperature;
 
-    private Double minTemperature;        // 최저 온도 (°C)
+    @Column(nullable = true)
+    private Double minTemperature;
 
-    private Double maxTemperature;        // 최고 온도 (°C)
+    @Column(nullable = true)
+    private Double maxTemperature;
 
-    // ==================== 습도 관련 ====================
-    @Column(nullable = false)
-    private Double humidity;              // 현재 습도 (%)
+    // ==================== 습도 관련 (이미 nullable) ====================
+    @Column(nullable = true)
+    private Double humidity;
 
-    private Double minHumidity;           // 최저 습도 (%)
+    @Column(nullable = true)
+    private Double minHumidity;
 
-    private Double maxHumidity;           // 최고 습도 (%)
+    @Column(nullable = true)
+    private Double maxHumidity;
 
     // ==================== 알람 상태 ====================
-    private Boolean temperatureWarning;   // 온도 경고 여부
+    @Column(nullable = true)
+    private Boolean temperatureWarning;
 
-    private Boolean humidityWarning;      // 습도 경고 여부
+    @Column(nullable = true)
+    private Boolean humidityWarning;
 }

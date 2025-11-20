@@ -66,29 +66,17 @@ monitoring:
     interval-seconds: 5
     device-count: 9
 
-# ==================== Prometheus 설정 ====================
 prometheus:
-  server:
-    url: http://112.221.184.61:9090
-
+  base-url: http://112.221.184.61:9090
+  timeout: 10s
   collection:
     enabled: true
-    fixed-delay: 15000
-    initial-delay: 5000
+    interval: 5000  # 5초
 
-  client:
-    connect-timeout: 5000
-    read-timeout: 10000
-
-  sse:
-    timeout: 3600000
-    heartbeat-interval: 30000
-
-## ==================== 로깅 설정 ====================
 #logging:
 #  level:
 #    root: INFO
-#    org.example.finalbe.domains.prometheus: INFO
+#    org.example.finalbe.domains.prometheus: DEBUG  # ← 이 줄 추가/수정
 #    org.hibernate.SQL: DEBUG
 #    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 #    com.zaxxer.hikari: DEBUG

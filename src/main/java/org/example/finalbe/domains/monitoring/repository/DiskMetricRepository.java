@@ -162,4 +162,6 @@ public interface DiskMetricRepository extends JpaRepository<DiskMetric, Long> {
             @Param("equipmentIds") List<Long> equipmentIds,
             @Param("limit") int limit
     );
+
+    Optional<DiskMetric> findByEquipmentIdAndGenerateTime(Long equipmentId, LocalDateTime generateTime);
 }

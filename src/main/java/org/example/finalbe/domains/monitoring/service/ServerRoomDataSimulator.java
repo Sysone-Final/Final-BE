@@ -151,7 +151,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedDelay = 1000, initialDelay = 2000)
+    @Scheduled(fixedDelay = 5000, initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
         if (activeEquipments.isEmpty()) {
@@ -855,4 +855,3 @@ public class ServerRoomDataSimulator {
         log.info("🆕 새 장비 시뮬레이터 등록 완료: ID={}, Name={}", equipmentId, newEquipment.getName());
     }
 }
-

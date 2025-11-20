@@ -39,6 +39,28 @@ public class SseController {
         return sseService.subscribeRack(rackId);
     }
 
+    /**
+     * 서버실 실시간 통계 구독
+     * @param serverRoomId 서버실 ID
+     * @return SseEmitter
+     */
+    @GetMapping(value = "/serverroom/{serverRoomId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeToServerRoom(@PathVariable Long serverRoomId, HttpServletResponse response) {
+        applySseHeaders(response);
+        return sseService.subscribeServerRoom(serverRoomId);
+    }
+
+    /**
+     * 데이터센터 실시간 통계 구독
+     * @param dataCenterId 데이터센터 ID
+     * @return SseEmitter
+     */
+    @GetMapping(value = "/datacenter/{dataCenterId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeToDataCenter(@PathVariable Long dataCenterId, HttpServletResponse response) {
+        applySseHeaders(response);
+        return sseService.subscribeDataCenter(dataCenterId);
+    }
+
     private void applySseHeaders(HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-cache");
         response.setHeader("X-Accel-Buffering", "no");

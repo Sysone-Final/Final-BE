@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -164,4 +165,26 @@ public interface DiskMetricRepository extends JpaRepository<DiskMetric, Long> {
     );
 
     Optional<DiskMetric> findByEquipmentIdAndGenerateTime(Long equipmentId, LocalDateTime generateTime);
+
+    /**
+     * 여러 장비의 평균 디스크 통계 조회
+     */
+    @Query(value = """
+        SELECT 
+            AVG(used_percentage) as avgDiskUsage,
+            MAX(used_percentage) as maxDiskUsage,
+            MIN(used_percentage) as minDiskUsage,
+            SUM(total_bytes) as totalDiskBytes,
+            SUM(used_bytes) as totalUsedDiskBytes,
+            AVG(io_time_percentage) as avgDiskIoUsage,
+            COUNT(DISTINCT equipment_id) as equipmentCount
+        FROM disk_metrics
+        WHERE equipment_id IN :equipmentIds
+        AND generate_time BETWEEN :startTime AND :endTime
+        """, nativeQuery = true)
+    Map<String, Object> getAverageDiskStatsByEquipmentIds(
+            @Param("equipmentIds") List<Long> equipmentIds,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
 }

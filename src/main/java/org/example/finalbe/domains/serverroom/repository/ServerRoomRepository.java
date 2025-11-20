@@ -87,4 +87,20 @@ public interface ServerRoomRepository extends JpaRepository<ServerRoom, Long> {
         AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
     """)
     long countByDataCenterIdAndDelYn(@Param("dataCenterId") Long dataCenterId);
+
+    /**
+     * DelYn으로 서버실 개수 조회
+     */
+    long countByDelYn(DelYN delYn);
+
+    /**
+     * DelYn으로 서버실 목록 조회
+     */
+    List<ServerRoom> findAllByDelYn(DelYN delYn);
+
+    /**
+     * 데이터센터별 서버실 목록 조회 (수정)
+     */
+    List<ServerRoom> findByDataCenter_IdAndDelYn(Long dataCenterId, DelYN delYn);
+
 }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -195,6 +196,28 @@ public interface NetworkMetricRepository extends JpaRepository<NetworkMetric, Lo
             Long equipmentId,
             String nicName,
             LocalDateTime generateTime
+    );
+
+    /**
+     * 여러 장비의 네트워크 통계 조회
+     */
+    @Query(value = """
+        SELECT 
+            SUM(in_bytes_per_sec) as totalInBps,
+            SUM(out_bytes_per_sec) as totalOutBps,
+            AVG(rx_usage) as avgRxUsage,
+            AVG(tx_usage) as avgTxUsage,
+            SUM(in_error_pkts_tot) as totalInErrors,
+            SUM(out_error_pkts_tot) as totalOutErrors,
+            COUNT(DISTINCT equipment_id) as equipmentCount
+        FROM network_metrics
+        WHERE equipment_id IN :equipmentIds
+        AND generate_time BETWEEN :startTime AND :endTime
+        """, nativeQuery = true)
+    Map<String, Object> getAverageNetworkStatsByEquipmentIds(
+            @Param("equipmentIds") List<Long> equipmentIds,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
     );
 
 }

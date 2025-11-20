@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -160,4 +161,28 @@ public interface EnvironmentMetricRepository extends JpaRepository<EnvironmentMe
     );
 
     Optional<EnvironmentMetric> findByRackIdAndGenerateTime(Long rackId, LocalDateTime generateTime);
+
+    /**
+     * 여러 랙의 평균 환경 통계 조회
+     */
+    @Query(value = """
+        SELECT 
+            AVG(temperature) as avgTemperature,
+            MAX(temperature) as maxTemperature,
+            MIN(temperature) as minTemperature,
+            AVG(humidity) as avgHumidity,
+            MAX(humidity) as maxHumidity,
+            MIN(humidity) as minHumidity,
+            SUM(CASE WHEN temperature_warning = true THEN 1 ELSE 0 END) as temperatureWarnings,
+            SUM(CASE WHEN humidity_warning = true THEN 1 ELSE 0 END) as humidityWarnings,
+            COUNT(DISTINCT rack_id) as rackCount
+        FROM environment_metrics
+        WHERE rack_id IN :rackIds
+        AND generate_time BETWEEN :startTime AND :endTime
+        """, nativeQuery = true)
+    Map<String, Object> getAverageEnvironmentStatsByRackIds(
+            @Param("rackIds") List<Long> rackIds,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
 }

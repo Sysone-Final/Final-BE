@@ -168,20 +168,29 @@ public class ServerRoomDataSimulator {
         List<EnvironmentMetric> environmentMetricsToSave = new ArrayList<>();
 
         try {
-            // 1. 장비별 메트릭 생성 (DB 저장 X, 리스트 추가 O)
+            // 1. 랙별 환경 메트릭 먼저 생성 (장비에서 참조하기 위해 캐싱 & 랙 구독자에게 전송)
+            for (Rack rack : activeRacks) {
+                Long rackId = rack.getId();
+                EnvironmentMetric envMetric = generateEnvironmentMetric(rackId, now);
+                environmentMetricsToSave.add(envMetric);
+                monitoringMetricCache.updateEnvironmentMetric(envMetric);
+                sseService.sendToRack(rackId, "environment", envMetric);
+            }
+
+            // 2.  장비별 메트릭 생성
             for (Equipment equipment : activeEquipments) {
                 Long equipmentId = equipment.getId();
                 EquipmentType type = equipment.getType();
 
-                // System 메트릭
+                // System
                 if (hasSystemMetric(type)) {
                     SystemMetric sysMetric = generateSystemMetric(equipmentId, now);
                     systemMetricsToSave.add(sysMetric);
                     monitoringMetricCache.updateSystemMetric(sysMetric);
-                    sseService.sendToEquipment(equipmentId, "system", sysMetric); // SSE는 바로 전송 (빠름)
+                    sseService.sendToEquipment(equipmentId, "system", sysMetric);
                 }
 
-                // Disk 메트릭
+                // Disk
                 if (hasDiskMetric(type)) {
                     DiskMetric diskMetric = generateDiskMetric(equipmentId, now);
                     diskMetricsToSave.add(diskMetric);
@@ -189,27 +198,30 @@ public class ServerRoomDataSimulator {
                     sseService.sendToEquipment(equipmentId, "disk", diskMetric);
                 }
 
-                // Network 메트릭
+                // Network
                 if (hasNetworkMetric(type)) {
                     List<String> nics = EQUIPMENT_NICS.get(equipmentId);
+                    List<NetworkMetric> currentNicMetrics = new ArrayList<>();
+
                     if (nics != null) {
                         for (String nic : nics) {
                             NetworkMetric nicMetric = generateNetworkMetric(equipmentId, nic, now);
                             networkMetricsToSave.add(nicMetric);
                             monitoringMetricCache.updateNetworkMetric(nicMetric);
-                            sseService.sendToEquipment(equipmentId, "network", nicMetric);
+                            currentNicMetrics.add(nicMetric);
                         }
                     }
+                    if (!currentNicMetrics.isEmpty()) {
+                        sseService.sendToEquipment(equipmentId, "network", currentNicMetrics);
+                    }
                 }
-            }
 
-            // 2. 랙별 환경 메트릭 생성
-            for (Rack rack : activeRacks) {
-                Long rackId = rack.getId();
-                EnvironmentMetric envMetric = generateEnvironmentMetric(rackId, now);
-                environmentMetricsToSave.add(envMetric);
-                monitoringMetricCache.updateEnvironmentMetric(envMetric);
-                sseService.sendToRack(rackId, "environment", envMetric);
+                Long rackId = equipment.getRackId(); // Equipment 엔티티에 @Transient getRackId()가 있다고 가정
+                if (rackId != null) {
+                    monitoringMetricCache.getEnvironmentMetric(rackId).ifPresent(env -> {
+                        sseService.sendToEquipment(equipmentId, "environment", env);
+                    });
+                }
             }
 
             // 3.  DB에 한 번에 저장 (Batch Insert)
@@ -232,6 +244,61 @@ public class ServerRoomDataSimulator {
             log.error("❌ 메트릭 생성 중 오류 발생", e);
         }
     }
+
+    // NIC별 NetworkMetric 리스트에서 장비 단위 집계 메트릭을 만든다.
+    private NetworkMetric aggregateNetworkMetrics(Long equipmentId, List<NetworkMetric> nicMetrics, LocalDateTime time) {
+        NetworkMetric.NetworkMetricBuilder builder = NetworkMetric.builder()
+                .equipmentId(equipmentId)
+                .nicName("aggregate")
+                .generateTime(time);
+
+        double sumRxUsage = 0.0, sumTxUsage = 0.0;
+        double sumInBytesPerSec = 0.0, sumOutBytesPerSec = 0.0;
+        double sumInPktsPerSec = 0.0, sumOutPktsPerSec = 0.0;
+        long sumInPktsTot = 0L, sumOutPktsTot = 0L;
+        long sumInBytesTot = 0L, sumOutBytesTot = 0L;
+        long sumInErrorPktsTot = 0L, sumOutErrorPktsTot = 0L;
+        long sumInDiscardPktsTot = 0L, sumOutDiscardPktsTot = 0L;
+        int operUpCount = 0;
+
+        for (NetworkMetric m : nicMetrics) {
+            if (m.getRxUsage() != null) sumRxUsage += m.getRxUsage();
+            if (m.getTxUsage() != null) sumTxUsage += m.getTxUsage();
+            if (m.getInBytesPerSec() != null) sumInBytesPerSec += m.getInBytesPerSec();
+            if (m.getOutBytesPerSec() != null) sumOutBytesPerSec += m.getOutBytesPerSec();
+            if (m.getInPktsPerSec() != null) sumInPktsPerSec += m.getInPktsPerSec();
+            if (m.getOutPktsPerSec() != null) sumOutPktsPerSec += m.getOutPktsPerSec();
+            if (m.getInPktsTot() != null) sumInPktsTot += m.getInPktsTot();
+            if (m.getOutPktsTot() != null) sumOutPktsTot += m.getOutPktsTot();
+            if (m.getInBytesTot() != null) sumInBytesTot += m.getInBytesTot();
+            if (m.getOutBytesTot() != null) sumOutBytesTot += m.getOutBytesTot();
+            if (m.getInErrorPktsTot() != null) sumInErrorPktsTot += m.getInErrorPktsTot();
+            if (m.getOutErrorPktsTot() != null) sumOutErrorPktsTot += m.getOutErrorPktsTot();
+            if (m.getInDiscardPktsTot() != null) sumInDiscardPktsTot += m.getInDiscardPktsTot();
+            if (m.getOutDiscardPktsTot() != null) sumOutDiscardPktsTot += m.getOutDiscardPktsTot();
+            if (m.getOperStatus() != null && m.getOperStatus() == 1) operUpCount++;
+        }
+
+        int n = Math.max(1, nicMetrics.size());
+        builder.rxUsage(sumRxUsage / n)
+                .txUsage(sumTxUsage / n)
+                .inBytesPerSec(sumInBytesPerSec)
+                .outBytesPerSec(sumOutBytesPerSec)
+                .inPktsPerSec(sumInPktsPerSec)
+                .outPktsPerSec(sumOutPktsPerSec)
+                .inPktsTot(sumInPktsTot)
+                .outPktsTot(sumOutPktsTot)
+                .inBytesTot(sumInBytesTot)
+                .outBytesTot(sumOutBytesTot)
+                .inErrorPktsTot(sumInErrorPktsTot)
+                .outErrorPktsTot(sumOutErrorPktsTot)
+                .inDiscardPktsTot(sumInDiscardPktsTot)
+                .outDiscardPktsTot(sumOutDiscardPktsTot)
+                .operStatus(operUpCount > 0 ? 1 : 0);
+
+        return builder.build();
+    }
+
     private void batchInsertSystemMetrics(List<SystemMetric> metrics) {
         String sql = "INSERT INTO system_metrics (equipment_id, generate_time, " +
                 "cpu_idle, cpu_user, cpu_system, cpu_wait, cpu_nice, cpu_irq, cpu_softirq, cpu_steal, " +

@@ -69,15 +69,95 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
             @Param("endTime") LocalDateTime endTime
     );
 
+    /**
+     * 여러 장비의 최신 메트릭 조회
+     */
+    @Query(value = "SELECT DISTINCT ON (equipment_id) * FROM system_metrics " +
+            "WHERE equipment_id IN :equipmentIds " +
+            "ORDER BY equipment_id, generate_time DESC",
+            nativeQuery = true)
+    List<SystemMetric> findLatestByEquipmentIds(@Param("equipmentIds") List<Long> equipmentIds);
+
+    /**
+     * 여러 장비의 최근 N개 데이터로 메모리 통계 일괄 계산
+     */
+    @Query(value =
+            "SELECT " +
+                    "  equipment_id, " +
+                    "  AVG(used_memory_percentage) AS avg_mem, " +
+                    "  MAX(used_memory_percentage) AS max_mem, " +
+                    "  MIN(used_memory_percentage) AS min_mem " +
+                    "FROM (" +
+                    "  SELECT *, ROW_NUMBER() OVER (PARTITION BY equipment_id ORDER BY generate_time DESC) AS rn " +
+                    "  FROM system_metrics " +
+                    "  WHERE equipment_id IN (:equipmentIds) " +
+                    ") AS ranked " +
+                    "WHERE rn <= :limit " +
+                    "GROUP BY equipment_id",
+            nativeQuery = true)
+    List<Object[]> getMemoryUsageStatsBatch(
+            @Param("equipmentIds") List<Long> equipmentIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * ✅ 그래프용 조회: 5초 단위 집계, 0값 제외
+     *
+     * TimescaleDB의 time_bucket 함수 사용으로 불규칙한 데이터 간격에도 정확한 집계 가능
+     * 실제 데이터는 약 2~3초 간격으로 들어오지만, 5초 버킷으로 자동 그룹화
+     */
+    @Query(value = """
+        SELECT 
+            time_bucket('5 seconds', sm.generate_time) as timestamp,
+            AVG(CASE WHEN sm.cpu_user > 0 THEN sm.cpu_user ELSE NULL END) as cpu_user,
+            AVG(CASE WHEN sm.cpu_system > 0 THEN sm.cpu_system ELSE NULL END) as cpu_system,
+            AVG(sm.used_memory_percentage) as memory_usage,
+            AVG(sm.load_avg1) as load_avg
+        FROM system_metrics sm
+        WHERE sm.equipment_id = :equipmentId
+          AND sm.generate_time BETWEEN :startTime AND :endTime
+          AND sm.context_switches IS NOT NULL
+          AND sm.cpu_user > 0
+        GROUP BY time_bucket('5 seconds', sm.generate_time)
+        ORDER BY 1
+        """, nativeQuery = true)
+    List<Object[]> findMetricsForChartNative(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    /**
+     * ✅ 그래프용 조회 (DTO 매핑 버전)
+     * Native Query 결과를 서비스 레이어에서 DTO로 변환하여 사용
+     */
+    default List<MetricChartData> findMetricsForChart(
+            Long equipmentId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
+        List<Object[]> results = findMetricsForChartNative(equipmentId, startTime, endTime);
+
+        return results.stream()
+                .map(row -> new MetricChartData(
+                        (java.sql.Timestamp) row[0],  // timestamp
+                        ((Number) row[1]).doubleValue(),  // cpuUser
+                        ((Number) row[2]).doubleValue(),  // cpuSystem
+                        ((Number) row[3]).doubleValue(),  // memoryUsage
+                        ((Number) row[4]).doubleValue()   // loadAvg
+                ))
+                .toList();
+    }
+
+    /**
+     * equipmentId와 generateTime으로 조회 (중복 체크용)
+     */
+    Optional<SystemMetric> findByEquipmentIdAndGenerateTime(Long equipmentId, LocalDateTime generateTime);
+
     // ==================== CPU 통계 조회 ====================
 
     /**
      * CPU 사용률 통계 (평균, 최대, 최소)
-     *
-     * @param equipmentId 장비 ID
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @return [avg, max, min]
      */
     @Query(value = "SELECT " +
             "AVG(100 - cpu_idle) AS avg_cpu, " +
@@ -93,15 +173,30 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
             @Param("endTime") LocalDateTime endTime
     );
 
+    /**
+     * 여러 장비의 최근 N개 데이터로 CPU 통계 일괄 계산
+     */
+    @Query(value =
+            "SELECT " +
+                    "  equipment_id, " +
+                    "  AVG(100 - cpu_idle) AS avg_cpu, " +
+                    "  MAX(100 - cpu_idle) AS max_cpu, " +
+                    "  MIN(100 - cpu_idle) AS min_cpu " +
+                    "FROM (" +
+                    "  SELECT *, ROW_NUMBER() OVER (PARTITION BY equipment_id ORDER BY generate_time DESC) AS rn " +
+                    "  FROM system_metrics " +
+                    "  WHERE equipment_id IN (:equipmentIds) " +
+                    ") AS ranked " +
+                    "WHERE rn <= :limit " +
+                    "GROUP BY equipment_id",
+            nativeQuery = true)
+    List<Object[]> getCpuUsageStatsBatch(
+            @Param("equipmentIds") List<Long> equipmentIds,
+            @Param("limit") int limit
+    );
 
     /**
      * 시간대별 CPU 평균 사용률 (1분 단위 집계)
-     * TimescaleDB의 time_bucket 사용
-     *
-     * @param equipmentId 장비 ID
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @return 1분 단위 집계 데이터
      */
     @Query(value =
             "SELECT " +
@@ -126,11 +221,6 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
 
     /**
      * 시간대별 CPU 평균 사용률 (5분 단위 집계)
-     *
-     * @param equipmentId 장비 ID
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @return 5분 단위 집계 데이터
      */
     @Query(value =
             "SELECT " +
@@ -155,11 +245,6 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
 
     /**
      * 시간대별 CPU 평균 사용률 (1시간 단위 집계)
-     *
-     * @param equipmentId 장비 ID
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @return 1시간 단위 집계 데이터
      */
     @Query(value =
             "SELECT " +
@@ -206,102 +291,23 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
             @Param("endTime") LocalDateTime endTime
     );
 
+    // ==================== 메모리 통계 조회 ====================
+
     /**
-     * 시간대별 메모리 평균 사용률 (1일 단위 집계)
+     * 메모리 사용률 통계 (평균, 최대, 최소)
      */
-    @Query(value =
-            "SELECT " +
-                    "  time_bucket('1 day', generate_time) AS bucket, " +
-                    "  AVG(used_memory_percentage) AS avg_mem_usage, " +
-                    "  MAX(used_memory_percentage) AS max_mem_usage, " +
-                    "  MIN(used_memory_percentage) AS min_mem_usage, " +
-                    "  AVG(used_swap_percentage) AS avg_swap_usage, " +
-                    "  COUNT(*) AS sample_count " +
-                    "FROM system_metrics " +
-                    "WHERE equipment_id = :equipmentId " +
-                    "AND generate_time BETWEEN :startTime AND :endTime " +
-                    "GROUP BY bucket " +
-                    "ORDER BY bucket ASC",
+    @Query(value = "SELECT " +
+            "AVG(used_memory_percentage) as avg_mem, " +
+            "MAX(used_memory_percentage) as max_mem, " +
+            "MIN(used_memory_percentage) as min_mem " +
+            "FROM system_metrics " +
+            "WHERE equipment_id = :equipmentId " +
+            "AND generate_time BETWEEN :startTime AND :endTime",
             nativeQuery = true)
-    List<Object[]> getMemoryAggregatedStats1Day(
-            @Param("equipmentId") Long equipmentId,
-            @Param("startTime") LocalDateTime startTime,
-            @Param("endTime") LocalDateTime endTime
-    );
-
-
-    // ==================== 최신 데이터 조회 (실시간 대시보드용) ====================
-
-    /**
-     * 최근 N개의 메트릭 조회 (실시간 그래프용)
-     *
-     * @param equipmentId 장비 ID
-     * @param limit 조회할 개수
-     * @return 최근 메트릭 리스트
-     */
-    @Query(value =
-            "SELECT * FROM system_metrics " +
-                    "WHERE equipment_id = :equipmentId " +
-                    "ORDER BY generate_time DESC " +
-                    "LIMIT :limit",
-            nativeQuery = true)
-    List<SystemMetric> findRecentMetrics(
-            @Param("equipmentId") Long equipmentId,
-            @Param("limit") int limit
-    );
-
-
-    /**
-     * 메모리 사용률 통계
-     */
-    @Query("SELECT " +
-            "AVG(sm.usedMemoryPercentage), " +
-            "MAX(sm.usedMemoryPercentage), " +
-            "MIN(sm.usedMemoryPercentage) " +
-            "FROM SystemMetric sm " +
-            "WHERE sm.equipmentId = :equipmentId " +
-            "AND sm.generateTime BETWEEN :startTime AND :endTime")
     Object[] getMemoryUsageStats(
             @Param("equipmentId") Long equipmentId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
-    );
-
-    /**
-     * 여러 장비의 최신 메트릭 일괄 조회
-     *
-     * @param equipmentIds 장비 ID 리스트
-     * @return 각 장비별 최신 메트릭
-     */
-    @Query(value =
-            "SELECT DISTINCT ON (equipment_id) * " +
-                    "FROM system_metrics " +
-                    "WHERE equipment_id IN (:equipmentIds) " +
-                    "ORDER BY equipment_id, generate_time DESC",
-            nativeQuery = true)
-    List<SystemMetric> findLatestByEquipmentIds(@Param("equipmentIds") List<Long> equipmentIds);
-
-    /**
-     * 여러 장비의 최근 N개 데이터로 CPU 통계 일괄 계산
-     * 각 장비별로 최근 limit개 데이터의 평균/최대/최소 반환
-     */
-    @Query(value =
-            "SELECT " +
-                    "  equipment_id, " +
-                    "  AVG(100 - cpu_idle) AS avg_cpu, " +
-                    "  MAX(100 - cpu_idle) AS max_cpu, " +
-                    "  MIN(100 - cpu_idle) AS min_cpu " +
-                    "FROM (" +
-                    "  SELECT *, ROW_NUMBER() OVER (PARTITION BY equipment_id ORDER BY generate_time DESC) AS rn " +
-                    "  FROM system_metrics " +
-                    "  WHERE equipment_id IN (:equipmentIds) " +
-                    ") AS ranked " +
-                    "WHERE rn <= :limit " +
-                    "GROUP BY equipment_id",
-            nativeQuery = true)
-    List<Object[]> getCpuUsageStatsBatch(
-            @Param("equipmentIds") List<Long> equipmentIds,
-            @Param("limit") int limit
     );
 
     /**
@@ -374,61 +380,41 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
     );
 
     /**
-     * 여러 장비의 최근 N개 데이터로 메모리 통계 일괄 계산
+     * 시간대별 메모리 평균 사용률 (1일 단위 집계)
      */
     @Query(value =
             "SELECT " +
-                    "  equipment_id, " +
-                    "  AVG(used_memory_percentage) AS avg_mem, " +
-                    "  MAX(used_memory_percentage) AS max_mem, " +
-                    "  MIN(used_memory_percentage) AS min_mem " +
-                    "FROM (" +
-                    "  SELECT *, ROW_NUMBER() OVER (PARTITION BY equipment_id ORDER BY generate_time DESC) AS rn " +
-                    "  FROM system_metrics " +
-                    "  WHERE equipment_id IN (:equipmentIds) " +
-                    ") AS ranked " +
-                    "WHERE rn <= :limit " +
-                    "GROUP BY equipment_id",
+                    "  time_bucket('1 day', generate_time) AS bucket, " +
+                    "  AVG(used_memory_percentage) AS avg_mem_usage, " +
+                    "  MAX(used_memory_percentage) AS max_mem_usage, " +
+                    "  MIN(used_memory_percentage) AS min_mem_usage, " +
+                    "  AVG(used_swap_percentage) AS avg_swap_usage, " +
+                    "  COUNT(*) AS sample_count " +
+                    "FROM system_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "AND generate_time BETWEEN :startTime AND :endTime " +
+                    "GROUP BY bucket " +
+                    "ORDER BY bucket ASC",
             nativeQuery = true)
-    List<Object[]> getMemoryUsageStatsBatch(
-            @Param("equipmentIds") List<Long> equipmentIds,
-            @Param("limit") int limit
-    );
-
-    /**
-     * ✅ 그래프용 조회: 5초 단위 집계, 0값 제외
-     */
-    @Query("""
-        SELECT new org.example.finalbe.domains.monitoring.dto.MetricChartData(
-            FUNCTION('DATE_TRUNC', 'second', 
-                sm.generateTime - FUNCTION('INTERVAL', 
-                    CONCAT((FUNCTION('EXTRACT', SECOND FROM sm.generateTime) % 5), ' second'))),
-            AVG(CASE WHEN sm.cpuUser > 0 THEN sm.cpuUser ELSE NULL END),
-            AVG(CASE WHEN sm.cpuSystem > 0 THEN sm.cpuSystem ELSE NULL END),
-            AVG(sm.usedMemoryPercentage),
-            AVG(sm.loadAvg1)
-        )
-        FROM SystemMetric sm
-        WHERE sm.equipmentId = :equipmentId
-          AND sm.generateTime BETWEEN :startTime AND :endTime
-          AND sm.contextSwitches IS NOT NULL
-          AND sm.cpuUser > 0
-        GROUP BY FUNCTION('DATE_TRUNC', 'second', 
-            sm.generateTime - FUNCTION('INTERVAL', 
-                CONCAT((FUNCTION('EXTRACT', SECOND FROM sm.generateTime) % 5), ' second')))
-        ORDER BY 1
-    """)
-    List<MetricChartData> findMetricsForChart(
+    List<Object[]> getMemoryAggregatedStats1Day(
             @Param("equipmentId") Long equipmentId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
     );
 
+    // ==================== 추가 유틸리티 메서드 ====================
+
     /**
-     * equipmentId와 generateTime으로 조회 (중복 체크용)
+     * 최근 N개의 메트릭 조회 (실시간 그래프용)
      */
-    Optional<SystemMetric> findByEquipmentIdAndGenerateTime(Long equipmentId, LocalDateTime generateTime);
-
-
-
+    @Query(value =
+            "SELECT * FROM system_metrics " +
+                    "WHERE equipment_id = :equipmentId " +
+                    "ORDER BY generate_time DESC " +
+                    "LIMIT :limit",
+            nativeQuery = true)
+    List<SystemMetric> findRecentMetrics(
+            @Param("equipmentId") Long equipmentId,
+            @Param("limit") int limit
+    );
 }

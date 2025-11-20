@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -82,7 +81,7 @@ public class MemoryMetricService {
                 .findLatestByEquipmentId(equipmentId)
                 .orElseThrow(() -> new RuntimeException("메트릭 데이터가 없습니다."));
 
-        // 통계 조회 (기존 Repository의 getMemoryUsageStats 활용)
+        // 통계 조회
         Object[] stats = systemMetricRepository.getMemoryUsageStats(equipmentId, startTime, endTime);
 
         Double avgMem = 0.0;
@@ -100,7 +99,6 @@ public class MemoryMetricService {
                     minMem = convertToDouble(innerArray[2]);
                 }
             } else if (stats.length >= 3) {
-                // JPA QL은 보통 이 경로를 따름
                 avgMem = convertToDouble(stats[0]);
                 maxMem = convertToDouble(stats[1]);
                 minMem = convertToDouble(stats[2]);
@@ -122,7 +120,7 @@ public class MemoryMetricService {
     }
 
     /**
-     * Object를 Double로 안전하게 변환 (CpuMetricService에서 복사)
+     * Object를 Double로 안전하게 변환
      */
     private Double convertToDouble(Object value) {
         if (value == null) {
@@ -186,8 +184,9 @@ public class MemoryMetricService {
                 .map(this::mapToMemoryAggregatedStats)
                 .collect(Collectors.toList());
     }
+
     /**
-     * 1일 단위 집계 데이터 조회 (새로 추가)
+     * 1일 단위 집계 데이터 조회
      */
     private List<MemoryAggregatedStatsDto> getMemoryAggregatedData1Day(
             Long equipmentId,
@@ -198,7 +197,7 @@ public class MemoryMetricService {
                 equipmentId, startTime, endTime);
 
         return results.stream()
-                .map(this::mapToMemoryAggregatedStats) // 기존 매퍼 재활용
+                .map(this::mapToMemoryAggregatedStats)
                 .collect(Collectors.toList());
     }
 
@@ -289,7 +288,6 @@ public class MemoryMetricService {
     }
 
     /**
-     * (CPU 서비스에서 복사)
      * 시간 범위에 따른 최적 집계 레벨 자동 선택
      */
     public AggregationLevel determineOptimalAggregationLevel(
@@ -311,7 +309,8 @@ public class MemoryMetricService {
             return AggregationLevel.HOUR; // 1시간 단위
         } else { // 30일 초과 조회
             return AggregationLevel.DAY; // 1일 단위
-        }}
+        }
+    }
 
     /**
      * 여러 장비의 현재 메모리 상태 일괄 조회
@@ -357,24 +356,24 @@ public class MemoryMetricService {
                 }
 
                 Object[] stats = statsMap.get(equipmentId);
-                Double currentMem = latest.getUsedMemoryPercentage();
-                Double avgMem = currentMem;
-                Double maxMem = currentMem;
-                Double minMem = currentMem;
+                Double currentMemory = latest.getUsedMemoryPercentage();
+                Double avgMemory = currentMemory;
+                Double maxMemory = currentMemory;
+                Double minMemory = currentMemory;
 
                 if (stats != null && stats[0] != null) {
-                    avgMem = convertToDouble(stats[0]);
-                    maxMem = convertToDouble(stats[1]);
-                    minMem = convertToDouble(stats[2]);
+                    avgMemory = convertToDouble(stats[0]);
+                    maxMemory = convertToDouble(stats[1]);
+                    minMemory = convertToDouble(stats[2]);
                 } else {
-                    log.warn("⚠️ 장비 {}의 메모리 통계 데이터 없음, 현재값으로 대체", equipmentId);
+                    log.warn("⚠️ 장비 {}의 통계 데이터 없음, 현재값으로 대체", equipmentId);
                 }
 
                 MemoryCurrentStatsDto memoryStats = MemoryCurrentStatsDto.builder()
-                        .currentMemoryUsage(currentMem)
-                        .avgMemoryUsage(avgMem)
-                        .maxMemoryUsage(maxMem)
-                        .minMemoryUsage(minMem)
+                        .currentMemoryUsage(currentMemory)
+                        .avgMemoryUsage(avgMemory)
+                        .maxMemoryUsage(maxMemory)
+                        .minMemoryUsage(minMemory)
                         .currentSwapUsage(latest.getUsedSwapPercentage())
                         .usedMemoryBytes(latest.getUsedMemory())
                         .totalMemoryBytes(latest.getTotalMemory())

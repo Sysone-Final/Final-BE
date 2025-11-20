@@ -24,10 +24,14 @@ public class SystemMetricCollectorService {
     private final SystemMetricRepository systemMetricRepository;
 
     public void collectAndPopulate(Map<Long, MetricRawData> dataMap) {
-        collectCpuMetrics(dataMap);
-        collectMemoryMetrics(dataMap);
-        collectLoadAverage(dataMap);
-        collectContextSwitches(dataMap);
+        try {
+            collectCpuMetrics(dataMap);
+            collectMemoryMetrics(dataMap);
+            collectLoadAverage(dataMap);
+            collectContextSwitches(dataMap);
+        } catch (Exception e) {
+            log.error("❌ SystemMetric 수집 중 오류", e);
+        }
     }
 
     private void collectCpuMetrics(Map<Long, MetricRawData> dataMap) {
@@ -39,7 +43,8 @@ public class SystemMetricCollectorService {
             String mode = result.getMode();
             Double value = result.getValue();
 
-            if (instance != null && mode != null && value != null) {
+            // ✅ 0값 필터링
+            if (instance != null && mode != null && value != null && value > 0.0) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
                     data.getCpuModes().put(mode, value * 100);
@@ -68,7 +73,8 @@ public class SystemMetricCollectorService {
             String instance = result.getInstance();
             Double value = result.getValue();
 
-            if (instance != null && value != null) {
+            // ✅ 0값과 null 필터링
+            if (instance != null && value != null && value > 0.0) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
                     setter.accept(data, value.longValue());
@@ -108,7 +114,8 @@ public class SystemMetricCollectorService {
             String instance = result.getInstance();
             Double value = result.getValue();
 
-            if (instance != null && value != null) {
+            // ✅ 0값 필터링
+            if (instance != null && value != null && value > 0.0) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
                     data.setContextSwitches((long) (value * 5));
@@ -130,6 +137,7 @@ public class SystemMetricCollectorService {
             try {
                 SystemMetric metric = convertToEntity(data);
 
+                // ✅ 중복 체크 및 업데이트
                 SystemMetric existing = systemMetricRepository
                         .findByEquipmentIdAndGenerateTime(data.getEquipmentId(), metric.getGenerateTime())
                         .orElse(null);
@@ -137,11 +145,11 @@ public class SystemMetricCollectorService {
                 if (existing != null) {
                     updateExisting(existing, metric);
                     systemMetricRepository.save(existing);
+                    log.debug("  ↻ SystemMetric 업데이트: equipmentId={}", data.getEquipmentId());
                 } else {
                     systemMetricRepository.save(metric);
+                    log.debug("  ✓ SystemMetric 저장: equipmentId={}", data.getEquipmentId());
                 }
-
-                log.debug("  ✓ SystemMetric 저장: equipmentId={}", data.getEquipmentId());
 
             } catch (Exception e) {
                 log.error("❌ SystemMetric 저장 실패: equipmentId={} - {}",
@@ -151,6 +159,7 @@ public class SystemMetricCollectorService {
     }
 
     private SystemMetric convertToEntity(MetricRawData data) {
+        // ✅ 통일된 타임스탬프 사용
         LocalDateTime generateTime = data.getTimestamp() != null
                 ? LocalDateTime.ofInstant(Instant.ofEpochSecond(data.getTimestamp()), ZoneId.systemDefault())
                 : LocalDateTime.now();

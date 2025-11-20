@@ -8,6 +8,7 @@ import org.example.finalbe.domains.monitoring.repository.EnvironmentMetricReposi
 import org.example.finalbe.domains.prometheus.dto.MetricRawData;
 import org.example.finalbe.domains.prometheus.dto.PrometheusResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -53,45 +54,66 @@ public class EnvironmentMetricCollectorService {
                 .orElse(null);
     }
 
-    @Transactional
+    /**
+     * ✅ 트랜잭션 분리: 각 저장을 독립적으로 처리
+     */
     public void saveMetrics(List<MetricRawData> dataList) {
+        int successCount = 0;
+        int failureCount = 0;
+
         for (MetricRawData data : dataList) {
             try {
-                Equipment equipment = equipmentMappingService.getEquipment(data.getEquipmentId())
-                        .orElse(null);
-
-                if (equipment == null || equipment.getRack() == null) {
-                    log.warn("⚠️ Equipment or Rack not found for equipmentId={}", data.getEquipmentId());
-                    continue;
-                }
-
-                if (data.getTemperature() == null) {
-                    log.debug("  ⏭️ Temperature data not available for equipmentId={}", data.getEquipmentId());
-                    continue;
-                }
-
-                Long rackId = equipment.getRack().getId();
-                EnvironmentMetric metric = convertToEntity(data, rackId);
-
-                EnvironmentMetric existing = environmentMetricRepository
-                        .findByRackIdAndGenerateTime(rackId, metric.getGenerateTime())
-                        .orElse(null);
-
-                if (existing != null) {
-                    updateExisting(existing, metric);
-                    environmentMetricRepository.save(existing);
-                } else {
-                    environmentMetricRepository.save(metric);
-                }
-
-                log.debug("  ✓ EnvironmentMetric 저장: rackId={}, temperature={}",
-                        rackId, data.getTemperature());
-
+                saveMetricWithNewTransaction(data);
+                successCount++;
             } catch (Exception e) {
+                failureCount++;
                 log.error("❌ EnvironmentMetric 저장 실패: equipmentId={} - {}",
                         data.getEquipmentId(), e.getMessage());
             }
         }
+
+        if (failureCount > 0) {
+            log.warn("⚠️ EnvironmentMetric 저장 완료: 성공={}, 실패={}", successCount, failureCount);
+        } else {
+            log.debug("✅ EnvironmentMetric 저장 완료: {} 건", successCount);
+        }
+    }
+
+    /**
+     * ✅ 각 저장을 새 트랜잭션으로 분리
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveMetricWithNewTransaction(MetricRawData data) {
+        Equipment equipment = equipmentMappingService.getEquipment(data.getEquipmentId())
+                .orElse(null);
+
+        if (equipment == null || equipment.getRack() == null) {
+            log.debug("⚠️ Equipment or Rack not found for equipmentId={}", data.getEquipmentId());
+            return;
+        }
+
+        // ✅ null 체크 추가
+        if (data.getTemperature() == null) {
+            log.debug("⚠️ Temperature data not available for equipmentId={}", data.getEquipmentId());
+            return;
+        }
+
+        Long rackId = equipment.getRack().getId();
+        EnvironmentMetric metric = convertToEntity(data, rackId);
+
+        EnvironmentMetric existing = environmentMetricRepository
+                .findByRackIdAndGenerateTime(rackId, metric.getGenerateTime())
+                .orElse(null);
+
+        if (existing != null) {
+            updateExisting(existing, metric);
+            environmentMetricRepository.save(existing);
+        } else {
+            environmentMetricRepository.save(metric);
+        }
+
+        log.debug("  ✓ EnvironmentMetric 저장: rackId={}, temperature={}",
+                rackId, data.getTemperature());
     }
 
     private EnvironmentMetric convertToEntity(MetricRawData data, Long rackId) {
@@ -102,12 +124,15 @@ public class EnvironmentMetricCollectorService {
         return EnvironmentMetric.builder()
                 .rackId(rackId)
                 .generateTime(generateTime)
-                .temperature(data.getTemperature())
-                .humidity(null)
+                .temperature(data.getTemperature())  // ✅ null 허용
+                .humidity(null)  // 추후 수집 시 업데이트
                 .build();
     }
 
     private void updateExisting(EnvironmentMetric existing, EnvironmentMetric newMetric) {
-        existing.setTemperature(newMetric.getTemperature());
+        // ✅ null이 아닐 때만 업데이트
+        if (newMetric.getTemperature() != null) {
+            existing.setTemperature(newMetric.getTemperature());
+        }
     }
 }

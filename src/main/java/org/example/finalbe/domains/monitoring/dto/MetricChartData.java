@@ -1,0 +1,18 @@
+package org.example.finalbe.domains.monitoring.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class MetricChartData {
+    private LocalDateTime time;
+    private Double avgCpuUser;
+    private Double avgCpuSystem;
+    private Double avgMemoryUsage;
+    private Double avgLoad;
+}

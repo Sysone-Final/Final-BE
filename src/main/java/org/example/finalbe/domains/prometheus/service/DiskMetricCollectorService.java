@@ -7,6 +7,7 @@ import org.example.finalbe.domains.monitoring.repository.DiskMetricRepository;
 import org.example.finalbe.domains.prometheus.dto.MetricRawData;
 import org.example.finalbe.domains.prometheus.dto.PrometheusResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -29,8 +30,11 @@ public class DiskMetricCollectorService {
         collectDiskIO(dataMap);
     }
 
+    /**
+     * ✅ 필터 완전 제거 - 모든 파일시스템 수집
+     */
     private void collectDiskSpace(Map<Long, MetricRawData> dataMap) {
-        String totalQuery = "sum by (instance) (node_filesystem_size_bytes{fstype!~\"tmpfs|devtmpfs|overlay|shm\"})";
+        String totalQuery = "sum by (instance) (node_filesystem_size_bytes)";
         List<PrometheusResponse.PrometheusResult> totalResults = prometheusQuery.query(totalQuery);
 
         for (PrometheusResponse.PrometheusResult result : totalResults) {
@@ -45,7 +49,7 @@ public class DiskMetricCollectorService {
             }
         }
 
-        String freeQuery = "sum by (instance) (node_filesystem_free_bytes{fstype!~\"tmpfs|devtmpfs|overlay|shm\"})";
+        String freeQuery = "sum by (instance) (node_filesystem_free_bytes)";
         List<PrometheusResponse.PrometheusResult> freeResults = prometheusQuery.query(freeQuery);
 
         for (PrometheusResponse.PrometheusResult result : freeResults) {
@@ -65,7 +69,7 @@ public class DiskMetricCollectorService {
     }
 
     private void collectDiskInodes(Map<Long, MetricRawData> dataMap) {
-        String totalQuery = "sum by (instance) (node_filesystem_files{fstype!~\"tmpfs|devtmpfs|overlay|shm\"})";
+        String totalQuery = "sum by (instance) (node_filesystem_files)";
         List<PrometheusResponse.PrometheusResult> totalResults = prometheusQuery.query(totalQuery);
 
         for (PrometheusResponse.PrometheusResult result : totalResults) {
@@ -80,7 +84,7 @@ public class DiskMetricCollectorService {
             }
         }
 
-        String freeQuery = "sum by (instance) (node_filesystem_files_free{fstype!~\"tmpfs|devtmpfs|overlay|shm\"})";
+        String freeQuery = "sum by (instance) (node_filesystem_files_free)";
         List<PrometheusResponse.PrometheusResult> freeResults = prometheusQuery.query(freeQuery);
 
         for (PrometheusResponse.PrometheusResult result : freeResults) {
@@ -98,23 +102,23 @@ public class DiskMetricCollectorService {
 
     private void collectDiskIO(Map<Long, MetricRawData> dataMap) {
         String readQuery = "sum by (instance) (rate(node_disk_read_bytes_total[5s]))";
-        collectDiskIOMetric(dataMap, readQuery, MetricRawData::setDiskReadBps);
-
         String writeQuery = "sum by (instance) (rate(node_disk_written_bytes_total[5s]))";
-        collectDiskIOMetric(dataMap, writeQuery, MetricRawData::setDiskWriteBps);
+
+        collectMetricAndSet(dataMap, readQuery, MetricRawData::setDiskReadBps);
+        collectMetricAndSet(dataMap, writeQuery, MetricRawData::setDiskWriteBps);
 
         String readCountQuery = "sum by (instance) (rate(node_disk_reads_completed_total[5s]))";
-        collectDiskIOCountMetric(dataMap, readCountQuery, MetricRawData::setDiskReadCount);
-
         String writeCountQuery = "sum by (instance) (rate(node_disk_writes_completed_total[5s]))";
-        collectDiskIOCountMetric(dataMap, writeCountQuery, MetricRawData::setDiskWriteCount);
 
-        String ioTimeQuery = "avg by (instance) (rate(node_disk_io_time_seconds_total[5s]) * 100)";
-        collectDiskIOMetric(dataMap, ioTimeQuery, MetricRawData::setDiskIoTimePercentage);
+        collectMetricAndSet(dataMap, readCountQuery, (d, v) -> d.setDiskReadCount(v.longValue()));
+        collectMetricAndSet(dataMap, writeCountQuery, (d, v) -> d.setDiskWriteCount(v.longValue()));
     }
 
-    private void collectDiskIOMetric(Map<Long, MetricRawData> dataMap, String query,
-                                     java.util.function.BiConsumer<MetricRawData, Double> setter) {
+    private void collectMetricAndSet(
+            Map<Long, MetricRawData> dataMap,
+            String query,
+            java.util.function.BiConsumer<MetricRawData, Double> setter) {
+
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
 
         for (PrometheusResponse.PrometheusResult result : results) {
@@ -130,23 +134,6 @@ public class DiskMetricCollectorService {
         }
     }
 
-    private void collectDiskIOCountMetric(Map<Long, MetricRawData> dataMap, String query,
-                                          java.util.function.BiConsumer<MetricRawData, Long> setter) {
-        List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
-
-        for (PrometheusResponse.PrometheusResult result : results) {
-            String instance = result.getInstance();
-            Double value = result.getValue();
-
-            if (instance != null && value != null) {
-                MetricRawData data = findDataByInstance(dataMap, instance);
-                if (data != null) {
-                    setter.accept(data, (long) (value * 5));
-                }
-            }
-        }
-    }
-
     private MetricRawData findDataByInstance(Map<Long, MetricRawData> dataMap, String instance) {
         return dataMap.values().stream()
                 .filter(d -> instance.equals(d.getInstance()))
@@ -154,29 +141,42 @@ public class DiskMetricCollectorService {
                 .orElse(null);
     }
 
-    @Transactional
+    /**
+     * ✅ 트랜잭션 분리
+     */
     public void saveMetrics(List<MetricRawData> dataList) {
+        int successCount = 0;
+        int failureCount = 0;
+
         for (MetricRawData data : dataList) {
             try {
-                DiskMetric metric = convertToEntity(data);
-
-                DiskMetric existing = diskMetricRepository
-                        .findByEquipmentIdAndGenerateTime(data.getEquipmentId(), metric.getGenerateTime())
-                        .orElse(null);
-
-                if (existing != null) {
-                    updateExisting(existing, metric);
-                    diskMetricRepository.save(existing);
-                } else {
-                    diskMetricRepository.save(metric);
-                }
-
-                log.debug("  ✓ DiskMetric 저장: equipmentId={}", data.getEquipmentId());
-
+                saveMetricWithNewTransaction(data);
+                successCount++;
             } catch (Exception e) {
+                failureCount++;
                 log.error("❌ DiskMetric 저장 실패: equipmentId={} - {}",
                         data.getEquipmentId(), e.getMessage());
             }
+        }
+
+        if (failureCount > 0) {
+            log.warn("⚠️ DiskMetric 저장 완료: 성공={}, 실패={}", successCount, failureCount);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveMetricWithNewTransaction(MetricRawData data) {
+        DiskMetric metric = convertToEntity(data);
+
+        DiskMetric existing = diskMetricRepository
+                .findByEquipmentIdAndGenerateTime(data.getEquipmentId(), metric.getGenerateTime())
+                .orElse(null);
+
+        if (existing != null) {
+            updateExisting(existing, metric);
+            diskMetricRepository.save(existing);
+        } else {
+            diskMetricRepository.save(metric);
         }
     }
 
@@ -185,53 +185,26 @@ public class DiskMetricCollectorService {
                 ? LocalDateTime.ofInstant(Instant.ofEpochSecond(data.getTimestamp()), ZoneId.systemDefault())
                 : LocalDateTime.now();
 
-        Double usedPercentage = null;
-        if (data.getDiskTotalBytes() != null && data.getDiskTotalBytes() > 0
-                && data.getDiskUsedBytes() != null) {
-            usedPercentage = (data.getDiskUsedBytes() * 100.0) / data.getDiskTotalBytes();
-        }
-
-        Double usedInodePercentage = null;
-        Long usedInodes = null;
-        if (data.getDiskTotalInodes() != null && data.getDiskFreeInodes() != null) {
-            usedInodes = data.getDiskTotalInodes() - data.getDiskFreeInodes();
-            if (data.getDiskTotalInodes() > 0) {
-                usedInodePercentage = (usedInodes * 100.0) / data.getDiskTotalInodes();
-            }
-        }
-
         return DiskMetric.builder()
                 .equipmentId(data.getEquipmentId())
                 .generateTime(generateTime)
                 .totalBytes(data.getDiskTotalBytes())
                 .usedBytes(data.getDiskUsedBytes())
                 .freeBytes(data.getDiskFreeBytes())
-                .usedPercentage(usedPercentage)
                 .ioReadBps(data.getDiskReadBps())
                 .ioWriteBps(data.getDiskWriteBps())
-                .ioTimePercentage(data.getDiskIoTimePercentage())
                 .ioReadCount(data.getDiskReadCount())
                 .ioWriteCount(data.getDiskWriteCount())
                 .totalInodes(data.getDiskTotalInodes())
-                .usedInodes(usedInodes)
                 .freeInodes(data.getDiskFreeInodes())
-                .usedInodePercentage(usedInodePercentage)
                 .build();
     }
 
     private void updateExisting(DiskMetric existing, DiskMetric newMetric) {
-        existing.setTotalBytes(newMetric.getTotalBytes());
-        existing.setUsedBytes(newMetric.getUsedBytes());
-        existing.setFreeBytes(newMetric.getFreeBytes());
-        existing.setUsedPercentage(newMetric.getUsedPercentage());
-        existing.setIoReadBps(newMetric.getIoReadBps());
-        existing.setIoWriteBps(newMetric.getIoWriteBps());
-        existing.setIoTimePercentage(newMetric.getIoTimePercentage());
-        existing.setIoReadCount(newMetric.getIoReadCount());
-        existing.setIoWriteCount(newMetric.getIoWriteCount());
-        existing.setTotalInodes(newMetric.getTotalInodes());
-        existing.setUsedInodes(newMetric.getUsedInodes());
-        existing.setFreeInodes(newMetric.getFreeInodes());
-        existing.setUsedInodePercentage(newMetric.getUsedInodePercentage());
+        if (newMetric.getTotalBytes() != null) existing.setTotalBytes(newMetric.getTotalBytes());
+        if (newMetric.getUsedBytes() != null) existing.setUsedBytes(newMetric.getUsedBytes());
+        if (newMetric.getFreeBytes() != null) existing.setFreeBytes(newMetric.getFreeBytes());
+        if (newMetric.getIoReadBps() != null) existing.setIoReadBps(newMetric.getIoReadBps());
+        if (newMetric.getIoWriteBps() != null) existing.setIoWriteBps(newMetric.getIoWriteBps());
     }
 }

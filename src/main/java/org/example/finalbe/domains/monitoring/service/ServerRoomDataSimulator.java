@@ -707,35 +707,39 @@ public class ServerRoomDataSimulator {
         return metric;
     }
 
+    /**
+     * 이상 징후 시뮬레이션 (실제 서버실 수준으로 감소)
+     */
     private void maybeUpdateAnomalies() {
         long currentTime = System.currentTimeMillis();
+        ThreadLocalRandom random = ThreadLocalRandom.current();
 
-        // 장비별 이상 징후
+        // 장비별 이상 징후 (발생 확률 대폭 감소)
         for (Equipment equipment : activeEquipments) {
             Long equipmentId = equipment.getId();
             AnomalyState state = anomalyStates.get(equipmentId);
 
-            // CPU 이상 징후
+            // CPU 이상 징후 (5% -> 0.5% = 1/200 확률)
             if (state.hasCpuAnomaly) {
                 if (currentTime - state.cpuAnomalyStartTime > state.cpuAnomalyDuration) {
                     state.hasCpuAnomaly = false;
                     log.warn("✅ [Equipment {}] CPU 이상 징후 해소!", equipmentId);
                 }
-            } else if (random.nextDouble() < 0.05) {
+            } else if (random.nextDouble() < 0.005) {  // ✅ 5% -> 0.5%
                 state.hasCpuAnomaly = true;
                 state.cpuAnomalyStartTime = currentTime;
-                state.cpuAnomalyDuration = 30_000 + random.nextInt(90_000);
+                state.cpuAnomalyDuration = 60_000 + random.nextInt(120_000);  // 1~3분
                 log.error("🚨 [Equipment {}] CPU 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.cpuAnomalyDuration / 1000);
             }
 
-            // 메모리 이상 징후
+            // 메모리 이상 징후 (4% -> 0.3%)
             if (state.hasMemoryAnomaly) {
                 if (currentTime - state.memoryAnomalyStartTime > state.memoryAnomalyDuration) {
                     state.hasMemoryAnomaly = false;
                     log.warn("✅ [Equipment {}] 메모리 이상 징후 해소!", equipmentId);
                 }
-            } else if (random.nextDouble() < 0.04) {
+            } else if (random.nextDouble() < 0.003) {  // ✅ 4% -> 0.3%
                 state.hasMemoryAnomaly = true;
                 state.memoryAnomalyStartTime = currentTime;
                 state.memoryAnomalyDuration = 40_000 + random.nextInt(80_000);
@@ -743,69 +747,70 @@ public class ServerRoomDataSimulator {
                         equipmentId, state.memoryAnomalyDuration / 1000);
             }
 
-            // 디스크 I/O 이상 징후
+            // 디스크 I/O 이상 징후 (3% -> 0.2%)
             if (state.hasDiskAnomaly) {
                 if (currentTime - state.diskAnomalyStartTime > state.diskAnomalyDuration) {
                     state.hasDiskAnomaly = false;
                     log.warn("✅ [Equipment {}] 디스크 I/O 이상 징후 해소!", equipmentId);
                 }
-            } else if (random.nextDouble() < 0.03) {
+            } else if (random.nextDouble() < 0.002) {  // ✅ 3% -> 0.2%
                 state.hasDiskAnomaly = true;
                 state.diskAnomalyStartTime = currentTime;
-                state.diskAnomalyDuration = 20_000 + random.nextInt(60_000);
+                state.diskAnomalyDuration = 30_000 + random.nextInt(90_000);
                 log.error("🚨 [Equipment {}] 디스크 I/O 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.diskAnomalyDuration / 1000);
             }
 
-            // 네트워크 이상 징후
+            // 네트워크 이상 징후 (6% -> 0.4%)
             if (state.hasNetworkAnomaly) {
                 if (currentTime - state.networkAnomalyStartTime > state.networkAnomalyDuration) {
                     state.hasNetworkAnomaly = false;
                     log.warn("✅ [Equipment {}] 네트워크 이상 징후 해소!", equipmentId);
                 }
-            } else if (random.nextDouble() < 0.06) {
+            } else if (random.nextDouble() < 0.004) {  // ✅ 6% -> 0.4%
                 state.hasNetworkAnomaly = true;
                 state.networkAnomalyStartTime = currentTime;
-                state.networkAnomalyDuration = 25_000 + random.nextInt(75_000);
+                state.networkAnomalyDuration = 40_000 + random.nextInt(100_000);
                 log.error("🚨 [Equipment {}] 네트워크 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.networkAnomalyDuration / 1000);
             }
         }
 
-        // 랙별 환경 이상 징후
+        // 랙별 환경 이상 징후 (발생 확률 대폭 감소)
         for (Rack rack : activeRacks) {
             Long rackId = rack.getId();
             AnomalyState state = rackAnomalyStates.get(rackId);
 
-            // 온도 이상 징후
+            // 온도 이상 징후 (4% -> 0.3%)
             if (state.hasTemperatureAnomaly) {
                 if (currentTime - state.temperatureAnomalyStartTime > state.temperatureAnomalyDuration) {
                     state.hasTemperatureAnomaly = false;
                     log.warn("✅ [Rack {}] 온도 이상 징후 해소!", rackId);
                 }
-            } else if (random.nextDouble() < 0.04) {
+            } else if (random.nextDouble() < 0.003) {  // ✅ 4% -> 0.3%
                 state.hasTemperatureAnomaly = true;
                 state.temperatureAnomalyStartTime = currentTime;
-                state.temperatureAnomalyDuration = 35_000 + random.nextInt(85_000);
+                state.temperatureAnomalyDuration = 50_000 + random.nextInt(150_000);
                 log.error("🚨 [Rack {}] 온도 이상 징후 발생! (지속: {}초)",
                         rackId, state.temperatureAnomalyDuration / 1000);
             }
 
-            // 습도 이상 징후
+            // 습도 이상 징후 (3% -> 0.2%)
             if (state.hasHumidityAnomaly) {
                 if (currentTime - state.humidityAnomalyStartTime > state.humidityAnomalyDuration) {
                     state.hasHumidityAnomaly = false;
                     log.warn("✅ [Rack {}] 습도 이상 징후 해소!", rackId);
                 }
-            } else if (random.nextDouble() < 0.03) {
+            } else if (random.nextDouble() < 0.002) {  // ✅ 3% -> 0.2%
                 state.hasHumidityAnomaly = true;
                 state.humidityAnomalyStartTime = currentTime;
-                state.humidityAnomalyDuration = 30_000 + random.nextInt(70_000);
+                state.humidityAnomalyDuration = 45_000 + random.nextInt(135_000);
                 log.error("🚨 [Rack {}] 습도 이상 징후 발생! (지속: {}초)",
                         rackId, state.humidityAnomalyDuration / 1000);
             }
         }
     }
+
 
     private static class AnomalyState {
         boolean hasCpuAnomaly = false;

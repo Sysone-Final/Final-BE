@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.monitoring.repository;
 
 import org.example.finalbe.domains.monitoring.domain.SystemMetric;
+import org.example.finalbe.domains.monitoring.dto.MetricChartData;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -394,6 +395,38 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
             @Param("limit") int limit
     );
 
+    /**
+     * ✅ 그래프용 조회: 5초 단위 집계, 0값 제외
+     */
+    @Query("""
+        SELECT new org.example.finalbe.domains.monitoring.dto.MetricChartData(
+            FUNCTION('DATE_TRUNC', 'second', 
+                sm.generateTime - FUNCTION('INTERVAL', 
+                    CONCAT((FUNCTION('EXTRACT', SECOND FROM sm.generateTime) % 5), ' second'))),
+            AVG(CASE WHEN sm.cpuUser > 0 THEN sm.cpuUser ELSE NULL END),
+            AVG(CASE WHEN sm.cpuSystem > 0 THEN sm.cpuSystem ELSE NULL END),
+            AVG(sm.usedMemoryPercentage),
+            AVG(sm.loadAvg1)
+        )
+        FROM SystemMetric sm
+        WHERE sm.equipmentId = :equipmentId
+          AND sm.generateTime BETWEEN :startTime AND :endTime
+          AND sm.contextSwitches IS NOT NULL
+          AND sm.cpuUser > 0
+        GROUP BY FUNCTION('DATE_TRUNC', 'second', 
+            sm.generateTime - FUNCTION('INTERVAL', 
+                CONCAT((FUNCTION('EXTRACT', SECOND FROM sm.generateTime) % 5), ' second')))
+        ORDER BY 1
+    """)
+    List<MetricChartData> findMetricsForChart(
+            @Param("equipmentId") Long equipmentId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    /**
+     * equipmentId와 generateTime으로 조회 (중복 체크용)
+     */
     Optional<SystemMetric> findByEquipmentIdAndGenerateTime(Long equipmentId, LocalDateTime generateTime);
 
 

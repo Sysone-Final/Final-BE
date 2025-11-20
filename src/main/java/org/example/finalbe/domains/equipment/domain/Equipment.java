@@ -192,4 +192,13 @@ public class Equipment extends BaseTimeEntity {
     public void updateStatus(EquipmentStatus newStatus) {
         this.status = newStatus;
     }
+
+    /**
+     * 편의 메서드: 연관된 Rack의 id를 안전하게 반환합니다.
+     * JPA 매핑에 영향을 주지 않으므로 @Transient로 표시합니다.
+     */
+    @Transient
+    public Long getRackId() {
+        return this.rack != null ? this.rack.getId() : null;
+    }
 }

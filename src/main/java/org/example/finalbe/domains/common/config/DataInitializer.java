@@ -9,10 +9,7 @@
 //import org.example.finalbe.domains.common.enumdir.*;
 //import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 //import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
-//import org.example.finalbe.domains.department.domain.Department;
-//import org.example.finalbe.domains.department.domain.MemberDepartment;
-//import org.example.finalbe.domains.department.repository.DepartmentRepository;
-//import org.example.finalbe.domains.department.repository.MemberDepartmentRepository;
+//
 //import org.example.finalbe.domains.device.domain.Device;
 //import org.example.finalbe.domains.device.domain.DeviceType;
 //import org.example.finalbe.domains.device.repository.DeviceRepository;

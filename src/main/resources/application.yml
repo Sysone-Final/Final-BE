@@ -73,6 +73,13 @@ prometheus:
     enabled: true
     interval: 5000  # 5초
 
+#logging:
+#  level:
+#    root: INFO
+#    org.example.finalbe.domains.prometheus: DEBUG  # ← 이 줄 추가/수정
+#    org.hibernate.SQL: DEBUG
+#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+#    com.zaxxer.hikari: DEBUG
 
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

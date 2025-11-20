@@ -35,19 +35,33 @@ public class SystemMetricCollectorService {
     }
 
     private void collectCpuMetrics(Map<Long, MetricRawData> dataMap) {
-        String query = "avg by (instance, mode) (rate(node_cpu_seconds_total[5s]))";
+        String query = "avg by (instance, mode) (rate(node_cpu_seconds_total[15s]))";
+
+        log.info("🔍 CPU 메트릭 쿼리 실행: {}", query);  // ← 추가
+
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
+
+        log.info("📊 CPU 메트릭 쿼리 결과: {} 개", results.size());  // ← 추가
+
+        if (results.isEmpty()) {
+            log.warn("⚠️ CPU 메트릭 쿼리 결과가 비어있습니다!");  // ← 추가
+            return;
+        }
 
         for (PrometheusResponse.PrometheusResult result : results) {
             String instance = result.getInstance();
             String mode = result.getMode();
             Double value = result.getValue();
 
-            // ✅ 0값 필터링
-            if (instance != null && mode != null && value != null && value > 0.0) {
+            log.debug("  결과: instance={}, mode={}, value={}", instance, mode, value);  // ← 추가
+
+            if (instance != null && mode != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
                     data.getCpuModes().put(mode, value * 100);
+                    log.debug("    ✓ 데이터 추가됨");  // ← 추가
+                } else {
+                    log.warn("    ✗ dataMap에서 instance를 찾을 수 없음: {}", instance);  // ← 추가
                 }
             }
         }
@@ -73,8 +87,8 @@ public class SystemMetricCollectorService {
             String instance = result.getInstance();
             Double value = result.getValue();
 
-            // ✅ 0값과 null 필터링
-            if (instance != null && value != null && value > 0.0) {
+            // ✅ null 체크만 수행 (0도 유효한 값)
+            if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
                     setter.accept(data, value.longValue());
@@ -107,18 +121,18 @@ public class SystemMetricCollectorService {
     }
 
     private void collectContextSwitches(Map<Long, MetricRawData> dataMap) {
-        String query = "rate(node_context_switches_total[5s])";
+        String query = "rate(node_context_switches_total[15m])";
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
 
         for (PrometheusResponse.PrometheusResult result : results) {
             String instance = result.getInstance();
             Double value = result.getValue();
 
-            // ✅ 0값 필터링
-            if (instance != null && value != null && value > 0.0) {
+
+            if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
-                    data.setContextSwitches((long) (value * 5));
+                    data.setContextSwitches(value.longValue());
                 }
             }
         }
@@ -131,54 +145,70 @@ public class SystemMetricCollectorService {
                 .orElse(null);
     }
 
-    @Transactional
     public void saveMetrics(List<MetricRawData> dataList) {
+        int successCount = 0;
+        int failureCount = 0;
+
         for (MetricRawData data : dataList) {
             try {
-                SystemMetric metric = convertToEntity(data);
-
-                // ✅ 중복 체크 및 업데이트
-                SystemMetric existing = systemMetricRepository
-                        .findByEquipmentIdAndGenerateTime(data.getEquipmentId(), metric.getGenerateTime())
-                        .orElse(null);
-
-                if (existing != null) {
-                    updateExisting(existing, metric);
-                    systemMetricRepository.save(existing);
-                    log.debug("  ↻ SystemMetric 업데이트: equipmentId={}", data.getEquipmentId());
-                } else {
-                    systemMetricRepository.save(metric);
-                    log.debug("  ✓ SystemMetric 저장: equipmentId={}", data.getEquipmentId());
-                }
-
+                saveMetricWithNewTransaction(data);
+                successCount++;
             } catch (Exception e) {
+                failureCount++;
                 log.error("❌ SystemMetric 저장 실패: equipmentId={} - {}",
                         data.getEquipmentId(), e.getMessage());
             }
         }
+
+        if (failureCount > 0) {
+            log.warn("⚠️ SystemMetric 저장 완료: 성공={}, 실패={}", successCount, failureCount);
+        } else {
+            log.debug("✅ SystemMetric 저장 완료: {} 건", successCount);
+        }
     }
 
-    private SystemMetric convertToEntity(MetricRawData data) {
-        // ✅ 통일된 타임스탬프 사용
+    @Transactional
+    public void saveMetricWithNewTransaction(MetricRawData data) {
         LocalDateTime generateTime = data.getTimestamp() != null
                 ? LocalDateTime.ofInstant(Instant.ofEpochSecond(data.getTimestamp()), ZoneId.systemDefault())
                 : LocalDateTime.now();
 
+        SystemMetric metric = convertToEntity(data, generateTime);
+
+        SystemMetric existing = systemMetricRepository
+                .findByEquipmentIdAndGenerateTime(data.getEquipmentId(), generateTime)
+                .orElse(null);
+
+        if (existing != null) {
+            updateExisting(existing, metric);
+            systemMetricRepository.save(existing);
+        } else {
+            systemMetricRepository.save(metric);
+        }
+
+        log.debug("  ✓ SystemMetric 저장: equipmentId={}, time={}",
+                data.getEquipmentId(), generateTime);
+    }
+
+    private SystemMetric convertToEntity(MetricRawData data, LocalDateTime generateTime) {
         Map<String, Double> cpuModes = data.getCpuModes();
 
-        Long usedMemory = null;
-        Double usedMemoryPercentage = null;
-        if (data.getTotalMemory() != null && data.getFreeMemory() != null) {
-            usedMemory = data.getTotalMemory() - data.getFreeMemory();
-            usedMemoryPercentage = (usedMemory * 100.0) / data.getTotalMemory();
-        }
+        Long totalMemory = data.getTotalMemory();
+        Long freeMemory = data.getFreeMemory();
+        Long availableMemory = data.getAvailableMemory();
 
-        Long usedSwap = null;
-        Double usedSwapPercentage = null;
-        if (data.getTotalSwap() != null && data.getFreeSwap() != null && data.getTotalSwap() > 0) {
-            usedSwap = data.getTotalSwap() - data.getFreeSwap();
-            usedSwapPercentage = (usedSwap * 100.0) / data.getTotalSwap();
-        }
+        Long usedMemory = (totalMemory != null && availableMemory != null)
+                ? totalMemory - availableMemory : null;
+
+        Double usedMemoryPercentage = (totalMemory != null && totalMemory > 0 && usedMemory != null)
+                ? (usedMemory * 100.0 / totalMemory) : null;
+
+        Long totalSwap = data.getTotalSwap();
+        Long freeSwap = data.getFreeSwap();
+        Long usedSwap = (totalSwap != null && freeSwap != null) ? totalSwap - freeSwap : null;
+
+        Double usedSwapPercentage = (totalSwap != null && totalSwap > 0 && usedSwap != null)
+                ? (usedSwap * 100.0 / totalSwap) : null;
 
         return SystemMetric.builder()
                 .equipmentId(data.getEquipmentId())

@@ -101,14 +101,14 @@ public class DiskMetricCollectorService {
     }
 
     private void collectDiskIO(Map<Long, MetricRawData> dataMap) {
-        String readQuery = "sum by (instance) (rate(node_disk_read_bytes_total[5s]))";
-        String writeQuery = "sum by (instance) (rate(node_disk_written_bytes_total[5s]))";
+        String readQuery = "sum by (instance) (rate(node_disk_read_bytes_total[15s]))";
+        String writeQuery = "sum by (instance) (rate(node_disk_written_bytes_total[15s]))";
 
         collectMetricAndSet(dataMap, readQuery, MetricRawData::setDiskReadBps);
         collectMetricAndSet(dataMap, writeQuery, MetricRawData::setDiskWriteBps);
 
-        String readCountQuery = "sum by (instance) (rate(node_disk_reads_completed_total[5s]))";
-        String writeCountQuery = "sum by (instance) (rate(node_disk_writes_completed_total[5s]))";
+        String readCountQuery = "sum by (instance) (rate(node_disk_reads_completed_total[15s]))";
+        String writeCountQuery = "sum by (instance) (rate(node_disk_writes_completed_total[15s]))";
 
         collectMetricAndSet(dataMap, readCountQuery, (d, v) -> d.setDiskReadCount(v.longValue()));
         collectMetricAndSet(dataMap, writeCountQuery, (d, v) -> d.setDiskWriteCount(v.longValue()));

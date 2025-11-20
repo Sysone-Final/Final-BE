@@ -34,8 +34,8 @@ public class NetworkMetricCollectorService {
      * ✅ 필터 완전 제거 - 모든 네트워크 인터페이스 수집
      */
     private void collectNetworkTraffic(Map<Long, MetricRawData> dataMap) {
-        String rxQuery = "sum by (instance) (rate(node_network_receive_bytes_total[5s]))";
-        String txQuery = "sum by (instance) (rate(node_network_transmit_bytes_total[5s]))";
+        String rxQuery = "sum by (instance) (rate(node_network_receive_bytes_total[15s]))";
+        String txQuery = "sum by (instance) (rate(node_network_transmit_bytes_total[15s]))";
 
         collectMetricAndSetDouble(dataMap, rxQuery, MetricRawData::setNetworkRxBps);
         collectMetricAndSetDouble(dataMap, txQuery, MetricRawData::setNetworkTxBps);
@@ -48,8 +48,8 @@ public class NetworkMetricCollectorService {
     }
 
     private void collectNetworkPackets(Map<Long, MetricRawData> dataMap) {
-        String rxPpsQuery = "sum by (instance) (rate(node_network_receive_packets_total[5s]))";
-        String txPpsQuery = "sum by (instance) (rate(node_network_transmit_packets_total[5s]))";
+        String rxPpsQuery = "sum by (instance) (rate(node_network_receive_packets_total[15s]))";
+        String txPpsQuery = "sum by (instance) (rate(node_network_transmit_packets_total[15s]))";
 
         collectMetricAndSetDouble(dataMap, rxPpsQuery, MetricRawData::setNetworkRxPps);
         collectMetricAndSetDouble(dataMap, txPpsQuery, MetricRawData::setNetworkTxPps);

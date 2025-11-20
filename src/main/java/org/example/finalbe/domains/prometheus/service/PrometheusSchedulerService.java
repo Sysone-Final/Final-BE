@@ -53,7 +53,12 @@ public class PrometheusSchedulerService {
             Map<Long, MetricRawData> dataMap = initializeDataMap(timestamp);
 
             if (dataMap.isEmpty()) {
+                List<String> instances = equipmentMappingService.getAllInstances();
                 log.warn("⚠️ 매핑된 Equipment가 없습니다. 수집을 건너뜁니다.");
+                log.warn("   getAllInstances() 결과 개수: {}", instances.size());
+                if (!instances.isEmpty()) {
+                    log.warn("   첫 5개 instances: {}", instances.stream().limit(5).collect(Collectors.toList()));
+                }
                 return;
             }
 
@@ -72,6 +77,17 @@ public class PrometheusSchedulerService {
 
             if (validDataList.isEmpty()) {
                 log.warn("⚠️ 유효한 메트릭이 없습니다.");
+                log.warn("   전체 수집된 데이터 개수: {}", dataMap.size());
+
+                // 샘플 데이터 1개 출력 (디버깅용)
+                if (!dataMap.isEmpty()) {
+                    MetricRawData sample = dataMap.values().iterator().next();
+                    log.warn("   샘플 데이터 - equipmentId: {}, instance: {}",
+                            sample.getEquipmentId(), sample.getInstance());
+                    log.warn("   샘플 데이터 - CPU modes: {}", sample.getCpuModes());
+                    log.warn("   샘플 데이터 - contextSwitches: {}", sample.getContextSwitches());
+                    log.warn("   샘플 데이터 - totalMemory: {}", sample.getTotalMemory());
+                }
                 return;
             }
 

@@ -3,6 +3,7 @@ package org.example.finalbe.domains.monitoring.service;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.EquipmentType;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
@@ -15,6 +16,7 @@ import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository
 import org.example.finalbe.domains.monitoring.repository.SystemMetricRepository;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.repository.RackRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ import java.time.ZoneId;
 import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -49,6 +52,12 @@ public class ServerRoomDataSimulator {
     private final Map<Long, AnomalyState> anomalyStates = new HashMap<>();
     private final Map<Long, AnomalyState> rackAnomalyStates = new HashMap<>();
     private final Random random = new Random();
+
+    // ✅ 실제 Prometheus 데이터를 받는 장비 ID 목록 (설정 파일에서 로드)
+    @Value("${monitoring.simulator.excluded-equipment-ids:256,257,258,259}")
+    private String excludedEquipmentIdsStr;
+
+    private Set<Long> excludedEquipmentIds = new HashSet<>();
 
     // 누적 카운터
     private final Map<String, Long> cumulativeInPackets = new HashMap<>();
@@ -80,6 +89,22 @@ public class ServerRoomDataSimulator {
     public void init() {
         log.info("🚀 서버실 데이터 시뮬레이터 초기화 시작...");
 
+        // ✅ 제외할 장비 ID 파싱
+        if (excludedEquipmentIdsStr != null && !excludedEquipmentIdsStr.isEmpty()) {
+            try {
+                excludedEquipmentIds = Arrays.stream(excludedEquipmentIdsStr.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .map(Long::parseLong)
+                        .collect(Collectors.toSet());
+                log.info("🚫 더미 데이터 생성 제외 장비 ID: {}", excludedEquipmentIds);
+            } catch (NumberFormatException e) {
+                log.error("❌ 제외 장비 ID 파싱 실패: {}", excludedEquipmentIdsStr, e);
+                excludedEquipmentIds = Set.of(256L, 257L, 258L, 259L); // 기본값
+            }
+        } else {
+            excludedEquipmentIds = Set.of(256L, 257L, 258L, 259L); // 기본값
+        }
 
         activeEquipments = new CopyOnWriteArrayList<>(equipmentRepository.findAll());
         activeRacks = new CopyOnWriteArrayList<>(rackRepository.findAll());
@@ -93,6 +118,17 @@ public class ServerRoomDataSimulator {
         for (Equipment equipment : activeEquipments) {
             Long equipmentId = equipment.getId();
             EquipmentType type = equipment.getType();
+
+            // ✅ 제외 장비이거나 del_yn='Y'인 경우 스킵
+            if (excludedEquipmentIds.contains(equipmentId)) {
+                log.info("⏭️  장비 ID {}는 실제 Prometheus 데이터 사용 - 더미 생성 제외", equipmentId);
+                continue;
+            }
+
+            if (DelYN.Y.equals(equipment.getDelYn())) {
+                log.info("⏭️  장비 ID {}는 삭제됨(del_yn=Y) - 더미 생성 제외", equipmentId);
+                continue;
+            }
 
             // NIC 설정 (SERVER, SWITCH, ROUTER, FIREWALL, LOAD_BALANCER)
             if (hasNetworkMetric(type)) {
@@ -114,21 +150,13 @@ public class ServerRoomDataSimulator {
             maxHumidityTracker.put(rackId, 45.0);
         }
 
-        log.info("✅ 초기화 완료! {}개 장비 + {}개 랙 모니터링 시작", activeEquipments.size(), activeRacks.size());
+        int activeCount = (int) activeEquipments.stream()
+                .filter(e -> !excludedEquipmentIds.contains(e.getId()))
+                .filter(e -> !DelYN.Y.equals(e.getDelYn()))
+                .count();
 
-        // 장비 타입별 통계
-//        Map<EquipmentType, Long> typeCounts = activeEquipments.stream()
-//                .collect(java.util.stream.Collectors.groupingBy(Equipment::getType, java.util.stream.Collectors.counting()));
-//
-//        log.info("📊 장비 타입별 수량:");
-//        typeCounts.forEach((type, count) -> {
-//            log.info("   - {}: {}개 (System:{}, Disk:{}, Network:{})",
-//                    type, count,
-//                    hasSystemMetric(type) ? "✅" : "❌",
-//                    hasDiskMetric(type) ? "✅" : "❌",
-//                    hasNetworkMetric(type) ? "✅" : "❌"
-//            );
-//        });
+        log.info("✅ 초기화 완료! {}개 장비(실제 더미 생성 대상) + {}개 랙 모니터링 시작",
+                activeCount, activeRacks.size());
     }
 
     /**
@@ -182,7 +210,17 @@ public class ServerRoomDataSimulator {
                 Long equipmentId = equipment.getId();
                 EquipmentType type = equipment.getType();
 
-                // System
+                // ✅ 실제 데이터를 받는 장비는 건너뛰기
+                if (excludedEquipmentIds.contains(equipmentId)) {
+                    continue;
+                }
+
+                // ✅ 삭제된 장비(del_yn='Y')는 건너뛰기
+                if (DelYN.Y.equals(equipment.getDelYn())) {
+                    continue;
+                }
+
+                // System 메트릭
                 if (hasSystemMetric(type)) {
                     SystemMetric sysMetric = generateSystemMetric(equipmentId, now);
                     systemMetricsToSave.add(sysMetric);
@@ -784,7 +822,15 @@ public class ServerRoomDataSimulator {
         // 장비별 이상 징후 (발생 확률 대폭 감소)
         for (Equipment equipment : activeEquipments) {
             Long equipmentId = equipment.getId();
+
+            // ✅ 제외 장비이거나 삭제된 장비는 이상 징후 체크 안 함
+            if (excludedEquipmentIds.contains(equipmentId) ||
+                    DelYN.Y.equals(equipment.getDelYn())) {
+                continue;
+            }
+
             AnomalyState state = anomalyStates.get(equipmentId);
+            if (state == null) continue;
 
             // CPU 이상 징후 (5% -> 0.5% = 1/200 확률)
             if (state.hasCpuAnomaly) {
@@ -916,6 +962,17 @@ public class ServerRoomDataSimulator {
         // 2. NIC 정보 등 초기화
         Long equipmentId = newEquipment.getId();
         EquipmentType type = newEquipment.getType();
+
+        // ✅ 제외 장비이거나 삭제된 장비는 초기화 안 함
+        if (excludedEquipmentIds.contains(equipmentId)) {
+            log.info("⏭️  장비 ID {}는 실제 Prometheus 데이터 사용 - 시뮬레이터 등록 제외", equipmentId);
+            return;
+        }
+
+        if (DelYN.Y.equals(newEquipment.getDelYn())) {
+            log.info("⏭️  장비 ID {}는 삭제됨(del_yn=Y) - 시뮬레이터 등록 제외", equipmentId);
+            return;
+        }
 
         if (hasNetworkMetric(type)) {
             EQUIPMENT_NICS.put(equipmentId, generateDefaultNics(type));

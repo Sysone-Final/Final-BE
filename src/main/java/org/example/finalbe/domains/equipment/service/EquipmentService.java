@@ -2,11 +2,10 @@ package org.example.finalbe.domains.equipment.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.finalbe.domains.common.enumdir.DelYN;
-import org.example.finalbe.domains.common.enumdir.EquipmentStatus;
-import org.example.finalbe.domains.common.enumdir.EquipmentType;
-import org.example.finalbe.domains.common.enumdir.Role;
-import org.example.finalbe.domains.common.exception.*;
+import org.example.finalbe.domains.common.enumdir.*;
+import org.example.finalbe.domains.common.exception.AccessDeniedException;
+import org.example.finalbe.domains.common.exception.DuplicateException;
+import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.dto.*;
@@ -24,10 +23,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.example.finalbe.domains.rack.domain.Rack;
-import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 
-import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -45,7 +42,7 @@ public class EquipmentService {
     private final MemberRepository memberRepository;
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final EquipmentHistoryRecorder equipmentHistoryRecorder;
-    private final org.example.finalbe.domains.monitoring.service.ServerRoomDataSimulator serverRoomDataSimulator;
+    // private final ServerRoomDataSimulator serverRoomDataSimulator; // 시뮬레이터 주석처리
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
@@ -55,19 +52,33 @@ public class EquipmentService {
             int page, int size, String keyword, EquipmentType type, EquipmentStatus status,
             Long serverRoomId, Boolean onlyUnassigned) {
 
-        log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, serverRoomId: {}, onlyUnassigned: {}",
-                page, size, keyword, type, status, serverRoomId, onlyUnassigned);
+        Member currentMember = getCurrentMember();
+        log.info("Fetching equipments with filters - page: {}, size: {}, keyword: {}, type: {}, status: {}, serverRoomId: {}, onlyUnassigned: {}, user: {} (role: {}, company: {})",
+                page, size, keyword, type, status, serverRoomId, onlyUnassigned,
+                currentMember.getId(), currentMember.getRole(), currentMember.getCompany().getId());
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
-        Page<Equipment> equipmentPage = equipmentRepository.searchEquipmentsWithFilters(
-                keyword, type, status, serverRoomId, onlyUnassigned, DelYN.N, pageable);
+        Page<Equipment> equipmentPage;
+
+        if (currentMember.getRole() == Role.ADMIN) {
+            // ADMIN은 전체 조회
+            equipmentPage = equipmentRepository.searchEquipmentsWithFilters(
+                    keyword, type, status, serverRoomId, onlyUnassigned, DelYN.N, pageable);
+            log.info("Admin user - fetched {} equipments", equipmentPage.getTotalElements());
+        } else {
+            // 일반 사용자는 자기 회사 장비만 조회
+            Long companyId = currentMember.getCompany().getId();
+            equipmentPage = equipmentRepository.searchEquipmentsWithFiltersByCompany(
+                    keyword, type, status, serverRoomId, onlyUnassigned, companyId, DelYN.N, pageable);
+            log.info("Non-admin user - fetched {} equipments for company: {}",
+                    equipmentPage.getTotalElements(), companyId);
+        }
 
         Page<EquipmentListResponse> responsePage = equipmentPage.map(EquipmentListResponse::from);
 
         return EquipmentPageResponse.from(responsePage);
     }
-
 
     /**
      * 랙별 장비 목록 조회 (랙 정보 포함)
@@ -131,7 +142,7 @@ public class EquipmentService {
     }
 
     /**
-     * 서버실별 장비 목록 조회 (기존 유지)
+     * 서버실별 장비 목록 조회
      */
     public List<EquipmentListResponse> getEquipmentsByServerRoom(
             Long serverRoomId, String status, String type) {
@@ -152,7 +163,7 @@ public class EquipmentService {
     }
 
     /**
-     * 장비 검색 (기존 유지)
+     * 장비 검색
      */
     public List<EquipmentListResponse> searchEquipments(String keyword, String type, String status) {
         log.info("Searching equipments with keyword: {}", keyword);
@@ -212,7 +223,6 @@ public class EquipmentService {
                     throw new AccessDeniedException("해당 랙에 대한 접근 권한이 없습니다.");
                 }
             }
-
         }
 
         if (request.equipmentCode() != null && !request.equipmentCode().trim().isEmpty()) {
@@ -222,6 +232,10 @@ public class EquipmentService {
         }
 
         Equipment equipment = request.toEntity(rack);
+
+        // ✅ 회사 ID 자동 설정
+        equipment.setCompanyId(currentMember.getCompany().getId());
+
         Equipment savedEquipment = equipmentRepository.save(equipment);
 
         // 랙이 있을 때만 placeEquipment 호출
@@ -231,19 +245,23 @@ public class EquipmentService {
 
         equipmentHistoryRecorder.recordCreate(savedEquipment, currentMember);
 
+        // ========== 시뮬레이터 등록 (주석처리) ==========
+        // if (savedEquipment.getType() == EquipmentType.SERVER || savedEquipment.getType() == EquipmentType.STORAGE) {
+        //     try {
+        //         serverRoomDataSimulator.addEquipment(savedEquipment);
+        //     } catch (Exception e) {
+        //         log.error("⚠️ 시뮬레이터 등록 실패 (모니터링 데이터 생성 안됨): {}", e.getMessage());
+        //     }
+        // }
 
-        if (savedEquipment.getType() == EquipmentType.SERVER || savedEquipment.getType() == EquipmentType.STORAGE) {
-            try {
-                serverRoomDataSimulator.addEquipment(savedEquipment);
-            } catch (Exception e) {
-                log.error("⚠️ 시뮬레이터 등록 실패 (모니터링 데이터 생성 안됨): {}", e.getMessage());
-            }
-        }
-
-        log.info("Equipment created successfully with id: {}", savedEquipment.getId());
+        log.info("Equipment created successfully with id: {} for company: {}",
+                savedEquipment.getId(), savedEquipment.getCompanyId());
         return EquipmentDetailResponse.from(savedEquipment);
     }
 
+    /**
+     * 장비 수정
+     */
     @Transactional
     public EquipmentDetailResponse updateEquipment(Long id, EquipmentUpdateRequest request) {
         Member currentMember = getCurrentMember();
@@ -280,37 +298,16 @@ public class EquipmentService {
         String newStatus = null;
 
         if (request.status() != null) {
-            oldStatus = equipment.getStatus() != null ? equipment.getStatus().name() : "UNKNOWN";
+            oldStatus = equipment.getStatus() != null ? equipment.getStatus().name() : null;
             newStatus = request.status();
-            isStatusChanged = !oldStatus.equals(newStatus);
+            isStatusChanged = !Objects.equals(oldStatus, newStatus);
         }
-
-        // === 위치 변경 감지 (유닛 위치 변경) ===
-        boolean isLocationChanged = false;
-        String oldLocation = null;
-        String newLocation = null;
-
-        // startUnit만 변경되었는지 확인
-        if (request.startUnit() != null && !request.startUnit().equals(equipment.getStartUnit())) {
-            isLocationChanged = true;
-            oldLocation = String.format("Rack: %s, StartUnit: %d, UnitSize: %d",
-                    equipment.getRack().getRackName(),
-                    equipment.getStartUnit(),
-                    equipment.getUnitSize());
-            newLocation = String.format("Rack: %s, StartUnit: %d, UnitSize: %d",
-                    equipment.getRack().getRackName(),
-                    request.startUnit(),
-                    equipment.getUnitSize());
-        }
-
-        Rack rack = equipment.getRack();
-        BigDecimal oldPower = equipment.getPowerConsumption();
 
         // === 장비 정보 업데이트 ===
         equipment.updateInfo(
                 request.equipmentName(),
                 request.equipmentCode(),
-                request.equipmentType() != null ? EquipmentType.valueOf(request.equipmentType()) : null,
+                request.equipmentType() != null ? EquipmentType.valueOf(request.equipmentType()) : equipment.getType(),
                 request.modelName(),
                 request.manufacturer(),
                 request.serialNumber(),
@@ -322,7 +319,7 @@ public class EquipmentService {
                 request.memorySpec(),
                 request.diskSpec(),
                 request.powerConsumption(),
-                request.status() != null ? EquipmentStatus.valueOf(request.status()) : null,
+                request.status() != null ? EquipmentStatus.valueOf(request.status()) : equipment.getStatus(),
                 request.installationDate(),
                 request.notes(),
                 request.monitoringEnabled(),
@@ -334,38 +331,22 @@ public class EquipmentService {
                 request.diskThresholdCritical()
         );
 
-        // === 랙 전력 재계산 ===
-        BigDecimal newPower = equipment.getPowerConsumption();
+        Equipment updatedEquipment = equipmentRepository.save(equipment);
 
-        if (oldPower != null && newPower != null && !oldPower.equals(newPower)) {
-            rack.setCurrentPowerUsage(
-                    rack.getCurrentPowerUsage()
-                            .subtract(oldPower)
-                            .add(newPower)
-            );
-        }
-
-        // === 히스토리 기록 (우선순위: 상태변경 > 위치변경 > 일반수정) ===
-        // 상태만 변경된 경우 상태변경 히스토리 기록
-        if (isStatusChanged && !hasOtherChanges(oldEquipment, equipment, "status")) {
-            equipmentHistoryRecorder.recordStatusChange(equipment, oldStatus, newStatus, currentMember);
-        }
-        // 위치만 변경된 경우 위치변경 히스토리 기록
-        else if (isLocationChanged && !hasOtherChanges(oldEquipment, equipment, "location")) {
-            equipmentHistoryRecorder.recordMove(equipment, oldLocation, newLocation, currentMember);
-        }
-        // 여러 필드가 변경된 경우 일반 수정 히스토리 기록 (상세 변경 내역 포함)
-        else {
-            equipmentHistoryRecorder.recordUpdate(oldEquipment, equipment, currentMember);
+        // === 히스토리 기록 ===
+        if (isStatusChanged) {
+            equipmentHistoryRecorder.recordStatusChange(
+                    updatedEquipment, oldStatus, newStatus, currentMember);
+        } else {
+            equipmentHistoryRecorder.recordUpdate(oldEquipment, updatedEquipment, currentMember);
         }
 
         log.info("Equipment updated successfully with id: {}", id);
-        return EquipmentDetailResponse.from(equipment);
+        return EquipmentDetailResponse.from(updatedEquipment);
     }
 
-
     /**
-     * 장비 삭제 (단건)
+     * 장비 삭제
      */
     @Transactional
     public void deleteEquipment(Long id) {
@@ -379,14 +360,12 @@ public class EquipmentService {
         validateDeletePermission(currentMember);
         validateEquipmentAccess(currentMember, id);
 
-
         Equipment equipment = equipmentRepository.findByIdWithRackAndServerRoom(id)
                 .orElseThrow(() -> new EntityNotFoundException("장비", id));
 
         if (equipment.getDelYn() == DelYN.Y) {
             throw new EntityNotFoundException("장비", id);
         }
-
 
         Rack rack = equipment.getRack();
         if (rack != null) {
@@ -397,12 +376,9 @@ public class EquipmentService {
             if (equipment.getPowerConsumption() != null) {
                 rack.subtractPowerUsage(equipment.getPowerConsumption());
             }
-
         }
 
-
         equipment.softDelete();
-
 
         equipmentHistoryRecorder.recordDelete(equipment, currentMember);
 
@@ -433,6 +409,95 @@ public class EquipmentService {
         }
 
         log.info("Multiple equipments deleted successfully");
+    }
+
+    /**
+     * 장비 대량 상태 변경
+     * PUT /api/equipments/status
+     * Body: {"ids": [1, 2, 3], "status": "MAINTENANCE"}
+     */
+    @Transactional
+    public EquipmentStatusBulkUpdateResponse updateMultipleEquipmentStatus(
+            EquipmentStatusBulkUpdateRequest request) {
+
+        Member currentMember = getCurrentMember();
+        log.info("Bulk updating equipment status by user: {}, ids: {}, new status: {}",
+                currentMember.getId(), request.ids(), request.status());
+
+        validateWritePermission(currentMember);
+
+        if (request.ids() == null || request.ids().isEmpty()) {
+            throw new IllegalArgumentException("장비 ID 목록이 비어있습니다.");
+        }
+
+        if (request.status() == null || request.status().trim().isEmpty()) {
+            throw new IllegalArgumentException("변경할 상태를 입력해주세요.");
+        }
+
+        // 상태 값 유효성 검증
+        EquipmentStatus newStatus;
+        try {
+            newStatus = EquipmentStatus.valueOf(request.status().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("유효하지 않은 상태 값입니다: " + request.status());
+        }
+
+        List<Long> successIds = new ArrayList<>();
+        List<Long> failedIds = new ArrayList<>();
+
+        for (Long equipmentId : request.ids()) {
+            try {
+                // 권한 확인
+                validateEquipmentAccess(currentMember, equipmentId);
+
+                // 장비 조회
+                Equipment equipment = equipmentRepository.findById(equipmentId)
+                        .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
+
+                if (equipment.getDelYn() == DelYN.Y) {
+                    log.warn("장비 ID {}는 이미 삭제되었습니다.", equipmentId);
+                    failedIds.add(equipmentId);
+                    continue;
+                }
+
+                // 상태 변경 전 값 저장
+                String oldStatus = equipment.getStatus() != null ? equipment.getStatus().name() : null;
+
+                // 상태 변경
+                equipment.setStatus(newStatus);
+                equipmentRepository.save(equipment);
+
+                // 히스토리 기록
+                equipmentHistoryRecorder.recordStatusChange(
+                        equipment, newStatus.name(), oldStatus, currentMember);
+
+                successIds.add(equipmentId);
+                log.info("장비 ID {} 상태 변경 완료: {} -> {}", equipmentId, oldStatus, newStatus);
+
+            } catch (Exception e) {
+                log.error("장비 ID {} 상태 변경 실패: {}", equipmentId, e.getMessage());
+                failedIds.add(equipmentId);
+            }
+        }
+
+        log.info("대량 상태 변경 완료 - 성공: {}, 실패: {}", successIds.size(), failedIds.size());
+
+        return EquipmentStatusBulkUpdateResponse.builder()
+                .totalRequested(request.ids().size())
+                .successCount(successIds.size())
+                .failureCount(failedIds.size())
+                .successIds(successIds)
+                .failedEquipments(
+                        failedIds.stream()
+                                .map(id -> EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
+                                        .equipmentId(id)
+                                        .equipmentName(null)   // 필요하면 조회해서 채우기
+                                        .reason("상태 변경 실패")
+                                        .build())
+                                .toList()
+                )
+                .build();
+
     }
 
     // ========== Private 헬퍼 메서드 ==========
@@ -470,7 +535,6 @@ public class EquipmentService {
         }
     }
 
-
     /**
      * 장비 접근 권한 검증 (CompanyServerRoom 기반)
      */
@@ -481,6 +545,15 @@ public class EquipmentService {
 
         Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
+
+        // 장비가 랙에 속하지 않은 경우 (미배정 장비)
+        if (equipment.getRack() == null) {
+            // 미배정 장비는 같은 회사 소속이면 접근 가능
+            if (!Objects.equals(equipment.getCompanyId(), member.getCompany().getId())) {
+                throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
+            }
+            return;
+        }
 
         // 장비가 속한 서버실 확인
         Long serverRoomId = equipment.getRack().getServerRoom().getId();
@@ -494,193 +567,41 @@ public class EquipmentService {
         }
     }
 
-    private Equipment cloneEquipment(Equipment equipment) {
+    /**
+     * Equipment Deep Copy (히스토리 기록용)
+     */
+    private Equipment cloneEquipment(Equipment original) {
         return Equipment.builder()
-                .id(equipment.getId())
-                .name(equipment.getName())
-                .code(equipment.getCode())
-                .type(equipment.getType())
-                .startUnit(equipment.getStartUnit())
-                .unitSize(equipment.getUnitSize())
-                .positionType(equipment.getPositionType())
-                .modelName(equipment.getModelName())
-                .manufacturer(equipment.getManufacturer())
-                .serialNumber(equipment.getSerialNumber())
-                .ipAddress(equipment.getIpAddress())
-                .macAddress(equipment.getMacAddress())
-                .os(equipment.getOs())
-                .cpuSpec(equipment.getCpuSpec())
-                .memorySpec(equipment.getMemorySpec())
-                .diskSpec(equipment.getDiskSpec())
-                .powerConsumption(equipment.getPowerConsumption())
-                .status(equipment.getStatus())
-                .installationDate(equipment.getInstallationDate())
-                .notes(equipment.getNotes())
-                .rack(equipment.getRack())
-                .monitoringEnabled(equipment.getMonitoringEnabled())
-                .cpuThresholdWarning(equipment.getCpuThresholdWarning())
-                .cpuThresholdCritical(equipment.getCpuThresholdCritical())
-                .memoryThresholdWarning(equipment.getMemoryThresholdWarning())
-                .memoryThresholdCritical(equipment.getMemoryThresholdCritical())
-                .diskThresholdWarning(equipment.getDiskThresholdWarning())
-                .diskThresholdCritical(equipment.getDiskThresholdCritical())
+                .id(original.getId())
+                .companyId(original.getCompanyId())
+                .name(original.getName())
+                .code(original.getCode())
+                .type(original.getType())
+                .startUnit(original.getStartUnit())
+                .unitSize(original.getUnitSize())
+                .positionType(original.getPositionType())
+                .modelName(original.getModelName())
+                .manufacturer(original.getManufacturer())
+                .serialNumber(original.getSerialNumber())
+                .ipAddress(original.getIpAddress())
+                .macAddress(original.getMacAddress())
+                .os(original.getOs())
+                .cpuSpec(original.getCpuSpec())
+                .memorySpec(original.getMemorySpec())
+                .diskSpec(original.getDiskSpec())
+                .powerConsumption(original.getPowerConsumption())
+                .status(original.getStatus())
+                .installationDate(original.getInstallationDate())
+                .notes(original.getNotes())
+                .monitoringEnabled(original.getMonitoringEnabled())
+                .cpuThresholdWarning(original.getCpuThresholdWarning())
+                .cpuThresholdCritical(original.getCpuThresholdCritical())
+                .memoryThresholdWarning(original.getMemoryThresholdWarning())
+                .memoryThresholdCritical(original.getMemoryThresholdCritical())
+                .diskThresholdWarning(original.getDiskThresholdWarning())
+                .diskThresholdCritical(original.getDiskThresholdCritical())
+                .delYn(original.getDelYn())
+                .rack(original.getRack())
                 .build();
     }
-
-    /**
-     * 특정 필드 외에 다른 필드도 변경되었는지 확인
-     * @param oldEquipment 이전 장비
-     * @param newEquipment 새 장비
-     * @param excludeField 제외할 필드 ("status" 또는 "location")
-     * @return 다른 필드가 변경되었으면 true
-     */
-    private boolean hasOtherChanges(Equipment oldEquipment, Equipment newEquipment, String excludeField) {
-        boolean hasChanges = false;
-
-        if (!"name".equals(excludeField) && !Objects.equals(oldEquipment.getName(), newEquipment.getName())) {
-            hasChanges = true;
-        }
-        if (!"code".equals(excludeField) && !Objects.equals(oldEquipment.getCode(), newEquipment.getCode())) {
-            hasChanges = true;
-        }
-        if (!"type".equals(excludeField) && !Objects.equals(oldEquipment.getType(), newEquipment.getType())) {
-            hasChanges = true;
-        }
-        if (!"modelName".equals(excludeField) && !Objects.equals(oldEquipment.getModelName(), newEquipment.getModelName())) {
-            hasChanges = true;
-        }
-        if (!"status".equals(excludeField) && !Objects.equals(oldEquipment.getStatus(), newEquipment.getStatus())) {
-            hasChanges = true;
-        }
-        if (!"location".equals(excludeField) && !Objects.equals(oldEquipment.getStartUnit(), newEquipment.getStartUnit())) {
-            hasChanges = true;
-        }
-
-        // 기타 주요 필드들도 체크 가능
-
-        return hasChanges;
-    }
-
-    /**
-     * 장비 대량 상태 변경
-     *
-     * @param request 대량 상태 변경 요청 (장비 ID 목록 + 변경할 상태)
-     * @return 변경 결과 (성공/실패 개수, 상세 정보)
-     */
-    @Transactional
-    public EquipmentStatusBulkUpdateResponse updateMultipleEquipmentStatus(
-            EquipmentStatusBulkUpdateRequest request) {
-
-        Member currentMember = getCurrentMember();
-        log.info("Bulk updating equipment status by user: {} for {} equipments",
-                currentMember.getId(), request.ids().size());
-
-        // === 권한 확인 ===
-        validateWritePermission(currentMember);
-
-        // === 상태 enum 검증 ===
-        EquipmentStatus newStatus;
-        try {
-            newStatus = EquipmentStatus.valueOf(request.status().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("유효하지 않은 상태 값입니다: " + request.status());
-        }
-
-        // === 결과 추적용 변수 ===
-        List<Long> successIds = new java.util.ArrayList<>();
-        List<EquipmentStatusBulkUpdateResponse.FailedEquipment> failedEquipments =
-                new java.util.ArrayList<>();
-
-        // === 각 장비에 대해 상태 변경 시도 ===
-        for (Long equipmentId : request.ids()) {
-            try {
-                // 1. 장비 존재 여부 확인
-                Equipment equipment = equipmentRepository.findById(equipmentId)
-                        .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
-
-                // 2. 삭제된 장비 확인
-                if (equipment.getDelYn() == DelYN.Y) {
-                    failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
-                            .equipmentId(equipmentId)
-                            .equipmentName(equipment.getName())
-                            .reason("삭제된 장비입니다.")
-                            .build());
-                    continue;
-                }
-
-                // 3. 접근 권한 확인
-                if (currentMember.getRole() != Role.ADMIN) {
-                    // ✅ 수정: equipment.getRack().getServerRoomId() → equipment.getRack().getServerRoom().getId()
-                    Long serverRoomId = equipment.getRack().getServerRoom().getId();
-                    Long companyId = currentMember.getCompany().getId();
-
-                    boolean hasAccess = companyServerRoomRepository.existsByCompanyIdAndServerRoomId(
-                            companyId, serverRoomId);
-
-                    if (!hasAccess) {
-                        failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
-                                .equipmentId(equipmentId)
-                                .equipmentName(equipment.getName())
-                                .reason("접근 권한이 없습니다.")
-                                .build());
-                        continue;
-                    }
-                }
-
-                // 4. 이미 동일한 상태인 경우 스킵
-                if (equipment.getStatus() == newStatus) {
-                    failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
-                            .equipmentId(equipmentId)
-                            .equipmentName(equipment.getName())
-                            .reason("이미 " + newStatus.name() + " 상태입니다.")
-                            .build());
-                    continue;
-                }
-
-                // 5. 상태 변경 전 저장 (히스토리 기록용)
-                EquipmentStatus oldStatus = equipment.getStatus();
-
-                // 6. 상태 변경
-                equipment.updateStatus(newStatus);
-
-                // 7. 히스토리 기록
-                equipmentHistoryRecorder.recordStatusChange(
-                        equipment,
-                        oldStatus.name(),
-                        newStatus.name(),
-                        currentMember
-                );
-
-                // 8. 성공 목록에 추가
-                successIds.add(equipmentId);
-
-                log.info("Equipment {} status changed: {} → {}",
-                        equipmentId, oldStatus, newStatus);
-
-            } catch (Exception e) {
-                // 예상치 못한 오류 처리
-                log.error("Failed to update equipment {} status: {}", equipmentId, e.getMessage());
-                failedEquipments.add(EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
-                        .equipmentId(equipmentId)
-                        .equipmentName("알 수 없음")
-                        .reason("오류: " + e.getMessage())
-                        .build());
-            }
-        }
-
-        // === 결과 반환 ===
-        EquipmentStatusBulkUpdateResponse response = EquipmentStatusBulkUpdateResponse.builder()
-                .totalRequested(request.ids().size())
-                .successCount(successIds.size())
-                .failureCount(failedEquipments.size())
-                .successIds(successIds)
-                .failedEquipments(failedEquipments)
-                .build();
-
-        log.info("Bulk status update completed: {} success, {} failed",
-                response.successCount(), response.failureCount());
-
-        return response;
-    }
-
 }

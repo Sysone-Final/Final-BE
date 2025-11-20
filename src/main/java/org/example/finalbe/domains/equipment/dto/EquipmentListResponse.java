@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 @Builder
 public record EquipmentListResponse(
         Long id,
+        Long companyId,
         String equipmentName,
         String equipmentCode,
         String equipmentType,
@@ -25,7 +26,7 @@ public record EquipmentListResponse(
         Long rackId,
         String rackName,
 
-        // ===== 임계치 필드 추가 =====
+        // ===== 임계치 필드 =====
         Boolean monitoringEnabled,
         Integer cpuThresholdWarning,
         Integer cpuThresholdCritical,
@@ -37,6 +38,7 @@ public record EquipmentListResponse(
     public static EquipmentListResponse from(Equipment equipment) {
         return EquipmentListResponse.builder()
                 .id(equipment.getId())
+                .companyId(equipment.getCompanyId())
                 .equipmentName(equipment.getName())
                 .equipmentCode(equipment.getCode())
                 .equipmentType(equipment.getType() != null ? equipment.getType().name() : null)

@@ -13,7 +13,9 @@ import java.time.LocalDate;
  * 장비 엔티티
  */
 @Entity
-@Table(name = "equipment")
+@Table(name = "equipment", indexes = {
+        @Index(name = "idx_equipment_company_id", columnList = "company_id")
+})
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -25,6 +27,10 @@ public class Equipment extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "equipment_id")
     private Long id;
+
+    // ========== 회사 정보 ==========
+    @Column(name = "company_id")
+    private Long companyId;
 
     @Column(name = "equipment_name", nullable = false, length = 100)
     private String name;
@@ -77,7 +83,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "power_consumption", precision = 10, scale = 2)
     private BigDecimal powerConsumption;
 
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private EquipmentStatus status;
@@ -88,8 +93,7 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "notes", length = 1000)
     private String notes;
 
-
-    // ========== 모니터링 설정 필드 추가 ==========
+    // ========== 모니터링 설정 필드 ==========
     @Column(name = "monitoring_enabled")
     private Boolean monitoringEnabled;
 
@@ -150,55 +154,45 @@ public class Equipment extends BaseTimeEntity {
             Integer diskThresholdWarning,
             Integer diskThresholdCritical
     ) {
-        if (name != null) this.name = name;
-        if (code != null) this.code = code;
-        if (type != null) this.type = type;
-        if (startUnit != null) this.startUnit = startUnit;
-        if (modelName != null) this.modelName = modelName;
-        if (manufacturer != null) this.manufacturer = manufacturer;
-        if (serialNumber != null) this.serialNumber = serialNumber;
-        if (ipAddress != null) this.ipAddress = ipAddress;
-        if (macAddress != null) this.macAddress = macAddress;
-        if (os != null) this.os = os;
-        if (cpuSpec != null) this.cpuSpec = cpuSpec;
-        if (memorySpec != null) this.memorySpec = memorySpec;
-        if (diskSpec != null) this.diskSpec = diskSpec;
-        if (powerConsumption != null) this.powerConsumption = powerConsumption;
-        if (status != null) this.status = status;
-        if (installationDate != null) this.installationDate = installationDate;
-        if (notes != null) this.notes = notes;
-        if (monitoringEnabled != null) this.monitoringEnabled = monitoringEnabled;
-        if (cpuThresholdWarning != null) this.cpuThresholdWarning = cpuThresholdWarning;
-        if (cpuThresholdCritical != null) this.cpuThresholdCritical = cpuThresholdCritical;
-        if (memoryThresholdWarning != null) this.memoryThresholdWarning = memoryThresholdWarning;
-        if (memoryThresholdCritical != null) this.memoryThresholdCritical = memoryThresholdCritical;
-        if (diskThresholdWarning != null) this.diskThresholdWarning = diskThresholdWarning;
-        if (diskThresholdCritical != null) this.diskThresholdCritical = diskThresholdCritical;
-
-        this.updateTimestamp();
+        this.name = name;
+        this.code = code;
+        this.type = type;
+        this.modelName = modelName;
+        this.manufacturer = manufacturer;
+        this.serialNumber = serialNumber;
+        this.startUnit = startUnit;
+        this.ipAddress = ipAddress;
+        this.macAddress = macAddress;
+        this.os = os;
+        this.cpuSpec = cpuSpec;
+        this.memorySpec = memorySpec;
+        this.diskSpec = diskSpec;
+        this.powerConsumption = powerConsumption;
+        this.status = status;
+        this.installationDate = installationDate;
+        this.notes = notes;
+        this.monitoringEnabled = monitoringEnabled;
+        this.cpuThresholdWarning = cpuThresholdWarning;
+        this.cpuThresholdCritical = cpuThresholdCritical;
+        this.memoryThresholdWarning = memoryThresholdWarning;
+        this.memoryThresholdCritical = memoryThresholdCritical;
+        this.diskThresholdWarning = diskThresholdWarning;
+        this.diskThresholdCritical = diskThresholdCritical;
     }
 
     /**
-     * 소프트 삭제
+     * 논리 삭제
      */
     public void softDelete() {
         this.delYn = DelYN.Y;
-        this.updateTimestamp();
     }
 
     /**
-     * 장비 상태 변경
-     */
-    public void updateStatus(EquipmentStatus newStatus) {
-        this.status = newStatus;
-    }
-
-    /**
-     * 편의 메서드: 연관된 Rack의 id를 안전하게 반환합니다.
-     * JPA 매핑에 영향을 주지 않으므로 @Transient로 표시합니다.
+     * 랙 ID 조회 (Transient 메서드)
      */
     @Transient
     public Long getRackId() {
-        return this.rack != null ? this.rack.getId() : null;
+        return rack != null ? rack.getId() : null;
     }
+
 }

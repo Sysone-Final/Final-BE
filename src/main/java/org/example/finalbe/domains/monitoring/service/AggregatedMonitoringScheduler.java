@@ -2,6 +2,7 @@ package org.example.finalbe.domains.monitoring.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.alert.service.AlertEvaluationService;
 import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.monitoring.dto.DataCenterStatisticsDto;
@@ -26,6 +27,7 @@ public class AggregatedMonitoringScheduler {
     private final ServerRoomMonitoringService serverRoomMonitoringService;
     private final DataCenterMonitoringService dataCenterMonitoringService;
     private final SseService sseService;
+    private final AlertEvaluationService alertEvaluationService;
 
     /**
      * 서버실 통계 주기적 갱신
@@ -134,6 +136,46 @@ public class AggregatedMonitoringScheduler {
                     serverRoomCount, dataCenterCount);
         } catch (Exception e) {
             log.error("통계 로깅 실패", e);
+        }
+    }
+
+    @Scheduled(fixedDelay = 5000)
+    public void updateServerRoomStatistics() {
+        try {
+            List<Long> serverRoomIds = serverRoomMonitoringService.getAllServerRoomIds();
+
+            for (Long serverRoomId : serverRoomIds) {
+                ServerRoomStatisticsDto statistics = serverRoomMonitoringService
+                        .calculateServerRoomStatistics(serverRoomId);
+
+                // 기존 SSE 전송...
+
+                // ✅ 추가: 알림 평가
+                alertEvaluationService.evaluateServerRoomStatistics(statistics);
+            }
+
+        } catch (Exception e) {
+            log.error("ServerRoom 통계 업데이트 실패", e);
+        }
+    }
+
+    @Scheduled(fixedDelay = 5000)
+    public void updateDataCenterStatistics() {
+        try {
+            List<Long> dataCenterIds = dataCenterMonitoringService.getAllDataCenterIds();
+
+            for (Long dataCenterId : dataCenterIds) {
+                DataCenterStatisticsDto statistics = dataCenterMonitoringService
+                        .calculateDataCenterStatistics(dataCenterId);
+
+                // 기존 SSE 전송...
+
+                // ✅ 추가: 알림 평가
+                alertEvaluationService.evaluateDataCenterStatistics(statistics);
+            }
+
+        } catch (Exception e) {
+            log.error("DataCenter 통계 업데이트 실패", e);
         }
     }
 }

@@ -62,6 +62,9 @@ public class EnvironmentMetricService {
             case HOUR:
                 aggregatedData = getEnvironmentAggregatedData1Hour(rackId, startTime, endTime);
                 return buildEnvironmentSectionFromAggregated(currentStats, aggregatedData);
+            case DAY:
+                aggregatedData = getEnvironmentAggregatedData1Day(rackId, startTime, endTime);
+                return buildEnvironmentSectionFromAggregated(currentStats, aggregatedData);
             case RAW:
             default:
                 metrics = environmentMetricRepository.findByRackIdAndTimeRange(
@@ -158,6 +161,16 @@ public class EnvironmentMetricService {
         return environmentMetricRepository.getEnvironmentAggregatedStats1Hour(rackId, startTime, endTime)
                 .stream()
                 .map(this::mapToEnvironmentAggregatedStats)
+                .collect(Collectors.toList());
+    }
+    /**
+     * 1일 단위 집계 데이터 조회 (새로 추가)
+     */
+    private List<EnvironmentAggregatedStatsDto> getEnvironmentAggregatedData1Day(
+            Long rackId, LocalDateTime startTime, LocalDateTime endTime) {
+        return environmentMetricRepository.getEnvironmentAggregatedStats1Day(rackId, startTime, endTime)
+                .stream()
+                .map(this::mapToEnvironmentAggregatedStats) // 기존 매퍼 재활용
                 .collect(Collectors.toList());
     }
 
@@ -277,7 +290,6 @@ public class EnvironmentMetricService {
 
         // 3. 각 랙별 데이터 조합
         for (Long rackId : rackIds) {
-//            String rackName = rackMap.getOrDefault(rackId, new Rack(rackId, "Unknown Rack " + rackId)).getName();
             Rack rack = rackMap.get(rackId);
             String rackName = (rack != null) ? rack.getRackName() : ("Unknown Rack " + rackId);
             try {

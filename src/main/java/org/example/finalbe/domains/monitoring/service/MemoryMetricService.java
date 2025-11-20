@@ -58,6 +58,9 @@ public class MemoryMetricService {
             case HOUR:
                 aggregatedData = getMemoryAggregatedData1Hour(equipmentId, startTime, endTime);
                 return buildMemorySectionFromAggregated(currentStats, aggregatedData);
+            case DAY:
+                aggregatedData = getMemoryAggregatedData1Day(equipmentId, startTime, endTime);
+                return buildMemorySectionFromAggregated(currentStats, aggregatedData);
             case RAW:
             default:
                 metrics = systemMetricRepository.findByEquipmentIdAndTimeRange(
@@ -183,6 +186,21 @@ public class MemoryMetricService {
                 .map(this::mapToMemoryAggregatedStats)
                 .collect(Collectors.toList());
     }
+    /**
+     * 1일 단위 집계 데이터 조회 (새로 추가)
+     */
+    private List<MemoryAggregatedStatsDto> getMemoryAggregatedData1Day(
+            Long equipmentId,
+            LocalDateTime startTime,
+            LocalDateTime endTime) {
+
+        List<Object[]> results = systemMetricRepository.getMemoryAggregatedStats1Day(
+                equipmentId, startTime, endTime);
+
+        return results.stream()
+                .map(this::mapToMemoryAggregatedStats) // 기존 매퍼 재활용
+                .collect(Collectors.toList());
+    }
 
     /**
      * Object[] → MemoryAggregatedStatsDto 매핑
@@ -279,17 +297,21 @@ public class MemoryMetricService {
             LocalDateTime endTime) {
 
         long hours = java.time.Duration.between(startTime, endTime).toHours();
+        long days = java.time.Duration.between(startTime, endTime).toDays();
 
-        if (hours <= 1) {
-            return AggregationLevel.RAW;
-        } else if (hours <= 6) {
-            return AggregationLevel.MIN;
-        } else if (hours <= 24) {
-            return AggregationLevel.MIN5;
-        } else {
-            return AggregationLevel.HOUR;
-        }
-    }
+        if (days < 1) { // 24시간 이내 조회
+            if (hours <= 1) {
+                return AggregationLevel.RAW;  // 1시간 이내
+            } else if (hours <= 6) {
+                return AggregationLevel.MIN;  // 6시간 이내
+            } else {
+                return AggregationLevel.MIN5; // 24시간 이내
+            }
+        } else if (days <= 30) { // 30일 이내 조회
+            return AggregationLevel.HOUR; // 1시간 단위
+        } else { // 30일 초과 조회
+            return AggregationLevel.DAY; // 1일 단위
+        }}
 
     /**
      * 여러 장비의 현재 메모리 상태 일괄 조회

@@ -5,7 +5,7 @@ on:
     branches:
       - "main"
       - "refactor/SYSONE-88-(53+63)-리팩토링"
-      - "ci/SYSONE-38-backend-deploy"
+#      - "ci/SYSONE-115-모니터링"
 
 jobs:
   test:

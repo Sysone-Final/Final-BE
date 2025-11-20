@@ -58,12 +58,28 @@ public class NetworkMetricService {
             case HOUR:
                 aggregatedData = getNetworkAggregatedData1Hour(equipmentId, startTime, endTime);
                 return buildNetworkSectionFromAggregated(currentStats, aggregatedData);
+            case DAY: 
+                aggregatedData = getNetworkAggregatedData1Day(equipmentId, startTime, endTime);
+                return buildNetworkSectionFromAggregated(currentStats, aggregatedData);
             case RAW:
             default:
                 metrics = networkMetricRepository.findByEquipmentIdAndTimeRange(
                         equipmentId, startTime, endTime);
                 return buildNetworkSectionFromRaw(currentStats, metrics);
         }
+    }
+
+    private List<NetworkAggregatedStatsDto> getNetworkAggregatedData1Day(
+            Long equipmentId,
+            LocalDateTime startTime,
+            LocalDateTime endTime) {
+
+        List<Object[]> results = networkMetricRepository.getNetworkAggregatedStats1Day(
+                equipmentId, startTime, endTime);
+
+        return results.stream()
+                .map(this::mapToNetworkAggregatedStats) // 기존 매퍼 재활용
+                .collect(Collectors.toList());
     }
 
     /**

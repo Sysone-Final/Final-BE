@@ -64,12 +64,31 @@ public class CpuMetricService {
             case HOUR:
                 aggregatedData = getCpuAggregatedData1Hour(equipmentId, startTime, endTime);
                 return buildCpuSectionFromAggregated(currentStats, aggregatedData);
+            case DAY:
+                aggregatedData = getCpuAggregatedData1Day(equipmentId, startTime, endTime);
+                return buildCpuSectionFromAggregated(currentStats, aggregatedData);
             case RAW:
             default:
                 metrics = systemMetricRepository.findByEquipmentIdAndTimeRange(
                         equipmentId, startTime, endTime);
                 return buildCpuSectionFromRaw(currentStats, metrics);
         }
+    }
+
+    /**
+     * 1일 단위 집계 데이터 조회 (새로 추가)
+     */
+    private List<CpuAggregatedStatsDto> getCpuAggregatedData1Day(
+            Long equipmentId,
+            LocalDateTime startTime,
+            LocalDateTime endTime) {
+
+        List<Object[]> results = systemMetricRepository.getCpuAggregatedStats1Day(
+                equipmentId, startTime, endTime);
+
+        return results.stream()
+                .map(this::mapToCpuAggregatedStats) // 기존 매퍼 재활용
+                .collect(Collectors.toList());
     }
 
     /**
@@ -338,15 +357,20 @@ public class CpuMetricService {
             LocalDateTime endTime) {
 
         long hours = java.time.Duration.between(startTime, endTime).toHours();
+        long days = java.time.Duration.between(startTime, endTime).toDays();
 
-        if (hours <= 1) {
-            return AggregationLevel.RAW;
-        } else if (hours <= 6) {
-            return AggregationLevel.MIN;
-        } else if (hours <= 24) {
-            return AggregationLevel.MIN5;
-        } else {
-            return AggregationLevel.HOUR;
+        if (days < 1) { // 24시간 이내 조회
+            if (hours <= 1) {
+                return AggregationLevel.RAW;  // 1시간 이내
+            } else if (hours <= 6) {
+                return AggregationLevel.MIN;  // 6시간 이내
+            } else {
+                return AggregationLevel.MIN5; // 24시간 이내
+            }
+        } else if (days <= 30) { // 30일 이내 조회
+            return AggregationLevel.HOUR; // 1시간 단위
+        } else { // 30일 초과 조회
+            return AggregationLevel.DAY; // 1일 단위
         }
     }
 

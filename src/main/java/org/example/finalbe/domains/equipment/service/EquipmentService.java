@@ -336,7 +336,7 @@ public class EquipmentService {
         // === 히스토리 기록 ===
         if (isStatusChanged) {
             equipmentHistoryRecorder.recordStatusChange(
-                    updatedEquipment, currentMember, oldStatus, newStatus);
+                    updatedEquipment, oldStatus, newStatus, currentMember);
         } else {
             equipmentHistoryRecorder.recordUpdate(oldEquipment, updatedEquipment, currentMember);
         }
@@ -469,7 +469,7 @@ public class EquipmentService {
 
                 // 히스토리 기록
                 equipmentHistoryRecorder.recordStatusChange(
-                        equipment, currentMember, oldStatus, newStatus.name());
+                        equipment, newStatus.name(), oldStatus, currentMember);
 
                 successIds.add(equipmentId);
                 log.info("장비 ID {} 상태 변경 완료: {} -> {}", equipmentId, oldStatus, newStatus);
@@ -482,12 +482,22 @@ public class EquipmentService {
 
         log.info("대량 상태 변경 완료 - 성공: {}, 실패: {}", successIds.size(), failedIds.size());
 
-        return new EquipmentStatusBulkUpdateResponse(
-                successIds.size(),
-                failedIds.size(),
-                successIds,
-                failedIds
-        );
+        return EquipmentStatusBulkUpdateResponse.builder()
+                .totalRequested(request.ids().size())
+                .successCount(successIds.size())
+                .failureCount(failedIds.size())
+                .successIds(successIds)
+                .failedEquipments(
+                        failedIds.stream()
+                                .map(id -> EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
+                                        .equipmentId(id)
+                                        .equipmentName(null)   // 필요하면 조회해서 채우기
+                                        .reason("상태 변경 실패")
+                                        .build())
+                                .toList()
+                )
+                .build();
+
     }
 
     // ========== Private 헬퍼 메서드 ==========

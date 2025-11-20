@@ -2,6 +2,8 @@ package org.example.finalbe.domains.monitoring.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
 import org.example.finalbe.domains.monitoring.repository.DiskMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -30,20 +33,20 @@ public class SseService {
     private static final Long DEFAULT_TIMEOUT = 60L * 60 * 1000; // 1시간
     private static final long HEARTBEAT_INTERVAL_MS = 30_000;
 
-    // 초기 데이터 전송을 위해 Repository 주입
     private final SystemMetricRepository systemMetricRepository;
     private final DiskMetricRepository diskMetricRepository;
     private final NetworkMetricRepository networkMetricRepository;
     private final EnvironmentMetricRepository environmentMetricRepository;
+    private final EquipmentRepository equipmentRepository;
 
     /**
      * 장비 메트릭 구독 (equipmentId 기준)
      */
     public SseEmitter subscribeEquipment(Long equipmentId) {
         String topic = "equipment-" + equipmentId;
-        SseEmitter emitter = createEmitter(topic); // Emitter 생성
+        SseEmitter emitter = createEmitter(topic);
 
-        // ✅ 비동기로 초기 데이터 전송 (연결은 즉시 반환)
+        // 비동기로 초기 데이터 전송
         asyncSendInitialData(equipmentId, emitter);
 
         return emitter;
@@ -55,49 +58,85 @@ public class SseService {
     @Async("taskExecutor")
     void asyncSendInitialData(Long equipmentId, SseEmitter emitter) {
         try {
-            boolean sentFromCache = sendFromCache(equipmentId, emitter);
-            if (!sentFromCache) {
-                sendFromDatabase(equipmentId, emitter);
+            Equipment equipment = equipmentRepository.findByIdWithRackAndServerRoom(equipmentId)
+                    .orElse(null);
+
+            Long rackId = null;
+            if (equipment != null && equipment.getRack() != null) {
+                rackId = equipment.getRack().getId();
             }
-            log.info("🚀 [Equipment-{}] 초기 데이터 전송 완료 (cache={} )", equipmentId, sentFromCache);
+
+            boolean sentFromCache = sendFromCache(equipmentId, rackId, emitter);
+            if (!sentFromCache) {
+                sendFromDatabase(equipmentId, rackId, emitter);
+            }
+            log.info("🚀 [Equipment-{}] 초기 데이터 전송 완료 (RackID: {})", equipmentId, rackId);
         } catch (Exception e) {
             log.error("❌ [Equipment-{}] 초기 데이터 전송 실패", equipmentId, e);
         }
     }
 
-    private boolean sendFromCache(Long equipmentId, SseEmitter emitter) {
+    /**
+     * Cache에서 데이터 전송
+     * emitSafely가 boolean을 반환하므로 '|=' 연산 사용 가능
+     */
+    private boolean sendFromCache(Long equipmentId, Long rackId, SseEmitter emitter) {
         boolean sent = false;
+        // System
         if (monitoringMetricCache.getSystemMetric(equipmentId).isPresent()) {
             sent |= emitSafely(emitter, "system", monitoringMetricCache.getSystemMetric(equipmentId).get());
         }
+        // Disk
         if (monitoringMetricCache.getDiskMetric(equipmentId).isPresent()) {
             sent |= emitSafely(emitter, "disk", monitoringMetricCache.getDiskMetric(equipmentId).get());
         }
+        // Network: 리스트 전체를 한 번에 전송
         List<NetworkMetric> networks = monitoringMetricCache.getNetworkMetrics(equipmentId);
-        for (NetworkMetric net : networks) {
-            sent |= emitSafely(emitter, "network", net);
+        if (!networks.isEmpty()) {
+            sent |= emitSafely(emitter, "network", networks);
+        }
+        // Environment: Rack ID가 있으면 환경 정보도 전송
+        if (rackId != null && monitoringMetricCache.getEnvironmentMetric(rackId).isPresent()) {
+            sent |= emitSafely(emitter, "environment", monitoringMetricCache.getEnvironmentMetric(rackId).get());
         }
         return sent;
     }
 
-    private void sendFromDatabase(Long equipmentId, SseEmitter emitter) {
+    /**
+     * DB에서 데이터 전송
+     */
+    private void sendFromDatabase(Long equipmentId, Long rackId, SseEmitter emitter) {
+        // System
         systemMetricRepository.findLatestByEquipmentId(equipmentId)
                 .ifPresent(data -> emitSafely(emitter, "system", data));
+        // Disk
         diskMetricRepository.findLatestByEquipmentId(equipmentId)
                 .ifPresent(data -> emitSafely(emitter, "disk", data));
+
+        // Network: 리스트 전체를 한 번에 전송
         List<NetworkMetric> networks = networkMetricRepository.findLatestByEquipmentId(equipmentId);
-        for (NetworkMetric net : networks) {
-            emitSafely(emitter, "network", net);
+        if (!networks.isEmpty()) {
+            emitSafely(emitter, "network", networks);
+        }
+
+        // Environment: Rack ID로 조회하여 전송
+        if (rackId != null) {
+            environmentMetricRepository.findLatestByRackId(rackId)
+                    .ifPresent(data -> emitSafely(emitter, "environment", data));
         }
     }
 
+    /**
+     * [중요] void 버전을 삭제하고 boolean 반환 버전만 남김
+     * 성공 시 true, 실패 시 false 반환
+     */
     private boolean emitSafely(SseEmitter emitter, String eventName, Object data) {
         try {
             emitter.send(SseEmitter.event().name(eventName).data(data));
-            return true;
+            return true; // 전송 성공
         } catch (IOException e) {
-            log.warn("초기 {} 데이터 전송 실패", eventName, e);
-            return false;
+            log.warn("SSE 초기 데이터 전송 실패: {}", eventName, e);
+            return false; // 전송 실패
         }
     }
 
@@ -161,9 +200,6 @@ public class SseService {
         return emitter;
     }
 
-    /**
-     * 장비 구독자들에게 데이터 전송
-     */
     public void sendToEquipment(Long equipmentId, String eventName, Object data) {
         String topic = "equipment-" + equipmentId;
         if (!hasSubscribers(topic)) {
@@ -172,9 +208,6 @@ public class SseService {
         asyncSend(topic, eventName, data);
     }
 
-    /**
-     * 랙 구독자들에게 데이터 전송
-     */
     public void sendToRack(Long rackId, String eventName, Object data) {
         String topic = "rack-" + rackId;
         if (!hasSubscribers(topic)) {
@@ -205,10 +238,10 @@ public class SseService {
                 emitter.send(SseEmitter.event()
                         .name(eventName)
                         .data(data));
-                return false; // 전송 성공, 유지
+                return false;
             } catch (IOException e) {
                 log.warn("❌ SSE 데이터 전송 실패: [{}], Emitter 제거", topic);
-                return true; // 전송 실패, 제거
+                return true;
             }
         });
 
@@ -230,7 +263,7 @@ public class SseService {
                             .reconnectTime(5000));
                     return false;
                 } catch (IOException e) {
-                    return true; // 실패한 emitter 제거
+                    return true;
                 }
             });
             removed -= topicEmitters.size();
@@ -239,7 +272,6 @@ public class SseService {
                 log.warn("⚠️ Heartbeat 실패: {} - {}개 구독자 제거됨", topic, removed);
             }
 
-            // 빈 리스트가 된 경우 topic 제거
             if (topicEmitters.isEmpty()) {
                 emitters.remove(topic);
             }

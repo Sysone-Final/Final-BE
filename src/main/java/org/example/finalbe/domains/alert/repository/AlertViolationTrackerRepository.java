@@ -1,6 +1,7 @@
 package org.example.finalbe.domains.alert.repository;
 
 import org.example.finalbe.domains.alert.domain.AlertViolationTracker;
+import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,7 +15,7 @@ public interface AlertViolationTrackerRepository extends JpaRepository<AlertViol
             "AND t.metricName = :metricName")
     Optional<AlertViolationTracker> findByEquipmentIdAndMetric(
             @Param("equipmentId") Long equipmentId,
-            @Param("metricType") String metricType,
+            @Param("metricType") MetricType metricType,
             @Param("metricName") String metricName);
 
     @Query("SELECT t FROM AlertViolationTracker t WHERE t.targetType = 'RACK' " +
@@ -22,7 +23,7 @@ public interface AlertViolationTrackerRepository extends JpaRepository<AlertViol
             "AND t.metricName = :metricName")
     Optional<AlertViolationTracker> findByRackIdAndMetric(
             @Param("rackId") Long rackId,
-            @Param("metricType") String metricType,
+            @Param("metricType") MetricType metricType,
             @Param("metricName") String metricName);
 
     @Query("SELECT t FROM AlertViolationTracker t WHERE t.targetType = 'SERVER_ROOM' " +
@@ -30,7 +31,7 @@ public interface AlertViolationTrackerRepository extends JpaRepository<AlertViol
             "AND t.metricName = :metricName")
     Optional<AlertViolationTracker> findByServerRoomIdAndMetric(
             @Param("serverRoomId") Long serverRoomId,
-            @Param("metricType") String metricType,
+            @Param("metricType") MetricType metricType,
             @Param("metricName") String metricName);
 
     @Query("SELECT t FROM AlertViolationTracker t WHERE t.targetType = 'DATA_CENTER' " +
@@ -38,6 +39,6 @@ public interface AlertViolationTrackerRepository extends JpaRepository<AlertViol
             "AND t.metricName = :metricName")
     Optional<AlertViolationTracker> findByDataCenterIdAndMetric(
             @Param("dataCenterId") Long dataCenterId,
-            @Param("metricType") String metricType,
+            @Param("metricType") MetricType metricType,
             @Param("metricName") String metricName);
 }

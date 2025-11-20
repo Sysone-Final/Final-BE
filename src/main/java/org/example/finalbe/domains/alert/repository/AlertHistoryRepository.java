@@ -2,6 +2,7 @@ package org.example.finalbe.domains.alert.repository;
 
 import org.example.finalbe.domains.alert.domain.AlertHistory;
 import org.example.finalbe.domains.common.enumdir.AlertStatus;
+import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,7 +19,7 @@ public interface AlertHistoryRepository extends JpaRepository<AlertHistory, Long
             "AND a.status != 'RESOLVED' ORDER BY a.triggeredAt DESC")
     List<AlertHistory> findActiveAlertsByEquipmentIdAndMetric(
             @Param("equipmentId") Long equipmentId,
-            @Param("metricType") String metricType,
+            @Param("metricType") MetricType metricType,
             @Param("metricName") String metricName);
 
     List<AlertHistory> findByRackIdAndStatusOrderByTriggeredAtDesc(
@@ -29,7 +30,7 @@ public interface AlertHistoryRepository extends JpaRepository<AlertHistory, Long
             "AND a.status != 'RESOLVED' ORDER BY a.triggeredAt DESC")
     List<AlertHistory> findActiveAlertsByRackIdAndMetric(
             @Param("rackId") Long rackId,
-            @Param("metricType") String metricType,
+            @Param("metricType") MetricType metricType,
             @Param("metricName") String metricName);
 
     List<AlertHistory> findByStatusOrderByTriggeredAtDesc(AlertStatus status);

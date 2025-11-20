@@ -441,9 +441,9 @@ public class AlertEvaluationService {
 
         List<AlertHistory> activeAlerts = switch (targetType) {
             case EQUIPMENT -> alertHistoryRepository.findActiveAlertsByEquipmentIdAndMetric(
-                    targetId, metricType.name(), metricName);
+                    targetId, metricType, metricName);
             case RACK -> alertHistoryRepository.findActiveAlertsByRackIdAndMetric(
-                    targetId, metricType.name(), metricName);
+                    targetId, metricType, metricName);
             default -> List.of();
         };
 
@@ -463,13 +463,13 @@ public class AlertEvaluationService {
 
         Optional<AlertViolationTracker> existing = switch (targetType) {
             case EQUIPMENT -> violationTrackerRepository.findByEquipmentIdAndMetric(
-                    targetId, metricType.name(), metricName);
+                    targetId, metricType, metricName);
             case RACK -> violationTrackerRepository.findByRackIdAndMetric(
-                    targetId, metricType.name(), metricName);
+                    targetId, metricType, metricName);
             case SERVER_ROOM -> violationTrackerRepository.findByServerRoomIdAndMetric(
-                    targetId, metricType.name(), metricName);
+                    targetId, metricType, metricName);
             case DATA_CENTER -> violationTrackerRepository.findByDataCenterIdAndMetric(
-                    targetId, metricType.name(), metricName);
+                    targetId, metricType, metricName);
         };
 
         return existing.orElseGet(() -> {

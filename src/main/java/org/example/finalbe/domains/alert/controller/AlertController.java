@@ -5,18 +5,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.domain.AlertHistory;
 import org.example.finalbe.domains.alert.dto.AlertHistoryDto;
 import org.example.finalbe.domains.alert.dto.AlertStatisticsDto;
-
 import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
 import org.example.finalbe.domains.alert.service.AlertNotificationService;
 import org.example.finalbe.domains.common.enumdir.AlertStatus;
 import org.example.finalbe.domains.common.enumdir.TargetType;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -148,36 +145,48 @@ public class AlertController {
     public ResponseEntity<AlertStatisticsDto> getStatistics() {
         List<AlertHistory> allAlerts = alertHistoryRepository.findAll();
 
-        AlertStatisticsDto stats = AlertStatisticsDto.builder()
-                .totalAlerts((long) allAlerts.size())
-                .triggeredAlerts(allAlerts.stream()
-                        .filter(a -> a.getStatus() == AlertStatus.TRIGGERED)
-                        .count())
-                .acknowledgedAlerts(allAlerts.stream()
-                        .filter(a -> a.getStatus() == AlertStatus.ACKNOWLEDGED)
-                        .count())
-                .resolvedAlerts(allAlerts.stream()
-                        .filter(a -> a.getStatus() == AlertStatus.RESOLVED)
-                        .count())
-                .criticalAlerts(allAlerts.stream()
-                        .filter(a -> a.getLevel().name().equals("CRITICAL"))
-                        .count())
-                .warningAlerts(allAlerts.stream()
-                        .filter(a -> a.getLevel().name().equals("WARNING"))
-                        .count())
-                .equipmentAlerts(allAlerts.stream()
-                        .filter(a -> a.getTargetType() == TargetType.EQUIPMENT)
-                        .count())
-                .rackAlerts(allAlerts.stream()
-                        .filter(a -> a.getTargetType() == TargetType.RACK)
-                        .count())
-                .serverRoomAlerts(allAlerts.stream()
-                        .filter(a -> a.getTargetType() == TargetType.SERVER_ROOM)
-                        .count())
-                .dataCenterAlerts(allAlerts.stream()
-                        .filter(a -> a.getTargetType() == TargetType.DATA_CENTER)
-                        .count())
-                .build();
+        long totalAlerts = (long) allAlerts.size();
+        long triggeredAlerts = allAlerts.stream()
+                .filter(a -> a.getStatus() == AlertStatus.TRIGGERED)
+                .count();
+        long acknowledgedAlerts = allAlerts.stream()
+                .filter(a -> a.getStatus() == AlertStatus.ACKNOWLEDGED)
+                .count();
+        long resolvedAlerts = allAlerts.stream()
+                .filter(a -> a.getStatus() == AlertStatus.RESOLVED)
+                .count();
+        long criticalAlerts = allAlerts.stream()
+                .filter(a -> a.getLevel().name().equals("CRITICAL"))
+                .count();
+        long warningAlerts = allAlerts.stream()
+                .filter(a -> a.getLevel().name().equals("WARNING"))
+                .count();
+        long equipmentAlerts = allAlerts.stream()
+                .filter(a -> a.getTargetType() == TargetType.EQUIPMENT)
+                .count();
+        long rackAlerts = allAlerts.stream()
+                .filter(a -> a.getTargetType() == TargetType.RACK)
+                .count();
+        long serverRoomAlerts = allAlerts.stream()
+                .filter(a -> a.getTargetType() == TargetType.SERVER_ROOM)
+                .count();
+        long dataCenterAlerts = allAlerts.stream()
+                .filter(a -> a.getTargetType() == TargetType.DATA_CENTER)
+                .count();
+
+        // ✅ Record는 new 생성자로 직접 생성
+        AlertStatisticsDto stats = new AlertStatisticsDto(
+                totalAlerts,
+                triggeredAlerts,
+                acknowledgedAlerts,
+                resolvedAlerts,
+                criticalAlerts,
+                warningAlerts,
+                equipmentAlerts,
+                rackAlerts,
+                serverRoomAlerts,
+                dataCenterAlerts
+        );
 
         return ResponseEntity.ok(stats);
     }

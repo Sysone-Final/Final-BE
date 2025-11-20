@@ -3,6 +3,7 @@ package org.example.finalbe.domains.alert.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.domain.AlertHistory;
+import org.example.finalbe.domains.alert.dto.AlertNotificationDto;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;

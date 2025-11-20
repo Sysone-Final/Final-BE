@@ -1,26 +1,23 @@
 package org.example.finalbe.domains.alert.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+public record AlertStatisticsDto(
+        Long totalAlerts,
+        Long triggeredAlerts,
+        Long acknowledgedAlerts,
+        Long resolvedAlerts,
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AlertStatisticsDto {
+        Long criticalAlerts,
+        Long warningAlerts,
 
-    private Long totalAlerts;
-    private Long triggeredAlerts;
-    private Long acknowledgedAlerts;
-    private Long resolvedAlerts;
-
-    private Long criticalAlerts;
-    private Long warningAlerts;
-
-    private Long equipmentAlerts;
-    private Long rackAlerts;
-    private Long serverRoomAlerts;
-    private Long dataCenterAlerts;
+        Long equipmentAlerts,
+        Long rackAlerts,
+        Long serverRoomAlerts,
+        Long dataCenterAlerts
+) {
+    /**
+     * 빌더 패턴 대체 - 모든 필드 0으로 초기화
+     */
+    public static AlertStatisticsDto empty() {
+        return new AlertStatisticsDto(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+    }
 }

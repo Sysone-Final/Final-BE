@@ -3,10 +3,15 @@ package org.example.finalbe.domains.alert.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.domain.AlertHistory;
-import org.example.finalbe.domains.alert.domain.AlertSettings;
 import org.example.finalbe.domains.alert.domain.AlertViolationTracker;
+import org.example.finalbe.domains.alert.dto.AlertSettingsDto;
 import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
+import org.example.finalbe.domains.alert.repository.AlertSettingsRepository;
 import org.example.finalbe.domains.alert.repository.AlertViolationTrackerRepository;
+import org.example.finalbe.domains.common.enumdir.AlertLevel;
+import org.example.finalbe.domains.common.enumdir.AlertStatus;
+import org.example.finalbe.domains.common.enumdir.MetricType;
+import org.example.finalbe.domains.common.enumdir.TargetType;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
@@ -58,15 +63,17 @@ public class AlertEvaluationService {
                 return;
             }
 
-            // CPU 평가
-            if (equipment.getCpuThresholdWarning() != null && metric.getCpuUsagePercent() != null) {
+            // ✅ CPU 평가 - cpuIdle 기반으로 사용률 계산
+            if (equipment.getCpuThresholdWarning() != null && metric.getCpuIdle() != null) {
+                Double cpuUsage = 100.0 - metric.getCpuIdle();
+
                 evaluateMetric(
                         TargetType.EQUIPMENT,
                         equipment.getId(),
                         equipment.getName(),
                         MetricType.CPU,
                         "cpu_usage_percent",
-                        metric.getCpuUsagePercent(),
+                        cpuUsage,
                         equipment.getCpuThresholdWarning().doubleValue(),
                         equipment.getCpuThresholdCritical() != null ?
                                 equipment.getCpuThresholdCritical().doubleValue() : null,
@@ -74,15 +81,15 @@ public class AlertEvaluationService {
                 );
             }
 
-            // Memory 평가
-            if (equipment.getMemoryThresholdWarning() != null && metric.getMemoryUsagePercent() != null) {
+            // ✅ Memory 평가 - usedMemoryPercentage 사용
+            if (equipment.getMemoryThresholdWarning() != null && metric.getUsedMemoryPercentage() != null) {
                 evaluateMetric(
                         TargetType.EQUIPMENT,
                         equipment.getId(),
                         equipment.getName(),
                         MetricType.MEMORY,
                         "memory_usage_percent",
-                        metric.getMemoryUsagePercent(),
+                        metric.getUsedMemoryPercentage(),
                         equipment.getMemoryThresholdWarning().doubleValue(),
                         equipment.getMemoryThresholdCritical() != null ?
                                 equipment.getMemoryThresholdCritical().doubleValue() : null,
@@ -346,9 +353,10 @@ public class AlertEvaluationService {
         tracker.setUpdatedAt(LocalDateTime.now());
         violationTrackerRepository.save(tracker);
 
-        AlertSettings settings = getAlertSettings();
+        AlertSettingsDto settings = getAlertSettings();
 
-        if (tracker.getConsecutiveViolations() >= settings.getDefaultConsecutiveCount()) {
+        // ✅ Record getter: defaultConsecutiveCount()
+        if (tracker.getConsecutiveViolations() >= settings.defaultConsecutiveCount()) {
             if (shouldSendAlert(tracker, settings)) {
                 sendAlert(targetType, targetId, targetName, level, metricType, metricName,
                         measuredValue, thresholdValue, metricTime);
@@ -381,13 +389,14 @@ public class AlertEvaluationService {
         }
     }
 
-    private boolean shouldSendAlert(AlertViolationTracker tracker, AlertSettings settings) {
+    private boolean shouldSendAlert(AlertViolationTracker tracker, AlertSettingsDto settings) {
         if (tracker.getLastAlertSentAt() == null) {
             return true;
         }
 
+        // ✅ Record getter: defaultCooldownMinutes()
         LocalDateTime cooldownEnd = tracker.getLastAlertSentAt()
-                .plusMinutes(settings.getDefaultCooldownMinutes());
+                .plusMinutes(settings.defaultCooldownMinutes());
 
         return LocalDateTime.now().isAfter(cooldownEnd);
     }
@@ -502,17 +511,9 @@ public class AlertEvaluationService {
         return warningThreshold;
     }
 
-    private AlertSettings getAlertSettings() {
+    private AlertSettingsDto getAlertSettings() {
         return alertSettingsRepository.findById(1L)
-                .orElseGet(this::getDefaultSettings);
-    }
-
-    private AlertSettings getDefaultSettings() {
-        return AlertSettings.builder()
-                .defaultConsecutiveCount(3)
-                .defaultCooldownMinutes(10)
-                .networkErrorRateWarning(0.1)
-                .networkErrorRateCritical(1.0)
-                .build();
+                .map(AlertSettingsDto::from)
+                .orElseGet(AlertSettingsDto::getDefault);
     }
 }

@@ -26,13 +26,13 @@ public class AsyncConfig {
     @Bean(name = "alertExecutor")
     public Executor alertExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(50);              // 20 → 50 증가
-        executor.setMaxPoolSize(100);              // 50 → 100 증가
-        executor.setQueueCapacity(2000);           // 500 → 2000 증가
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("Alert-");
 
         // ✅ 큐 포화 시 호출 스레드에서 실행 (거부 방지)
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
 
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);

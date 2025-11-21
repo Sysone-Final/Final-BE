@@ -49,7 +49,6 @@ public class AlertEvaluationService {
      * System 메트릭 평가 (CPU, Memory)
      */
     @Async("alertExecutor")
-    @Transactional
     public void evaluateSystemMetric(SystemMetric metric) {
         if (metric == null || metric.getEquipmentId() == null) {
             return;
@@ -106,7 +105,6 @@ public class AlertEvaluationService {
      * Disk 메트릭 평가
      */
     @Async("alertExecutor")
-    @Transactional
     public void evaluateDiskMetric(DiskMetric metric) {
         if (metric == null || metric.getEquipmentId() == null) {
             return;
@@ -144,7 +142,6 @@ public class AlertEvaluationService {
      * Network 메트릭 평가
      */
     @Async("alertExecutor")
-    @Transactional
     public void evaluateNetworkMetric(NetworkMetric metric) {
         if (metric == null || metric.getEquipmentId() == null) {
             return;
@@ -326,7 +323,6 @@ public class AlertEvaluationService {
      * Environment 메트릭 평가 (Rack)
      */
     @Async("alertExecutor")
-    @Transactional
     public void evaluateEnvironmentMetric(EnvironmentMetric metric) {
         if (metric == null || metric.getRackId() == null) {
             return;
@@ -408,7 +404,6 @@ public class AlertEvaluationService {
      * ServerRoom 통계 평가
      */
     @Async("alertExecutor")
-    @Transactional
     public void evaluateServerRoomStatistics(ServerRoomStatisticsDto stats) {
         if (stats == null || stats.getServerRoomId() == null) {
             return;
@@ -457,7 +452,6 @@ public class AlertEvaluationService {
      * DataCenter 통계 평가
      */
     @Async("alertExecutor")
-    @Transactional
     public void evaluateDataCenterStatistics(DataCenterStatisticsDto stats) {
         if (stats == null || stats.getDataCenterId() == null) {
             return;

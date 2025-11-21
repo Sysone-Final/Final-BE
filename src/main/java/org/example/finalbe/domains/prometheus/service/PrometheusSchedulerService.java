@@ -3,6 +3,8 @@ package org.example.finalbe.domains.prometheus.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.service.AlertEvaluationService;
+import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.monitoring.domain.DiskMetric;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
 import org.example.finalbe.domains.monitoring.domain.SystemMetric;
@@ -43,11 +45,16 @@ public class PrometheusSchedulerService {
     private final SystemMetricRepository systemMetricRepository;
     private final DiskMetricRepository diskMetricRepository;
     private final NetworkMetricRepository networkMetricRepository;
+    private final EquipmentRepository equipmentRepository;
+
+    // ✅ Equipment 캐시 (알림 평가 최적화용)
+    private final Map<Long, Equipment> equipmentCache = new HashMap<>();
 
     /**
      * ✅ fixedRate로 변경: 정확히 5초마다 실행
      * ✅ 통일된 수집 시간 사용
      * ✅ SSE 실시간 전송 추가
+     * ✅ 알림 평가 최적화 (임계값 근처만 평가)
      */
     @Scheduled(fixedRateString = "${monitoring.scheduler.metrics-interval:10000}")
     public void collectMetrics() {
@@ -76,6 +83,9 @@ public class PrometheusSchedulerService {
             }
 
             log.debug("🎯 수집 대상: {} 개 장비, 통일 시간: {}", dataMap.size(), collectionTime);
+
+            // ✅ Equipment 캐시 갱신 (알림 평가용)
+            refreshEquipmentCache(dataMap.keySet());
 
             // 메트릭 수집 (병렬 실행)
             systemMetricCollector.collectAndPopulate(dataMap);
@@ -113,10 +123,14 @@ public class PrometheusSchedulerService {
             List<DiskMetric> diskMetrics = new ArrayList<>();
             List<NetworkMetric> networkMetrics = new ArrayList<>();
 
+            int alertEvaluationCount = 0;  // ✅ 실제 평가된 알림 수
+
             for (MetricRawData data : validDataList) {
                 Long equipmentId = data.getEquipmentId();
 
                 try {
+                    Equipment equipment = equipmentCache.get(equipmentId);
+
                     // System 메트릭 변환 및 전송
                     SystemMetric systemMetric = convertToSystemMetric(data, collectionTime);
                     if (systemMetric != null) {
@@ -128,6 +142,16 @@ public class PrometheusSchedulerService {
                         // ✅ SSE 전송
                         sseService.sendToEquipment(equipmentId, "system", systemMetric);
                         log.debug("📡 System SSE 전송: equipmentId={}", equipmentId);
+
+                        // ✅ 임계값 근처일 때만 알림 평가
+                        if (equipment != null && needsSystemAlertEvaluation(systemMetric, equipment)) {
+                            try {
+                                alertEvaluationService.evaluateSystemMetric(systemMetric);
+                                alertEvaluationCount++;
+                            } catch (Exception e) {
+                                log.warn("⚠️ System 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                            }
+                        }
                     }
 
                     // Disk 메트릭 변환 및 전송
@@ -141,6 +165,16 @@ public class PrometheusSchedulerService {
                         // ✅ SSE 전송
                         sseService.sendToEquipment(equipmentId, "disk", diskMetric);
                         log.debug("📡 Disk SSE 전송: equipmentId={}", equipmentId);
+
+                        // ✅ 임계값 근처일 때만 알림 평가
+                        if (equipment != null && needsDiskAlertEvaluation(diskMetric, equipment)) {
+                            try {
+                                alertEvaluationService.evaluateDiskMetric(diskMetric);
+                                alertEvaluationCount++;
+                            } catch (Exception e) {
+                                log.warn("⚠️ Disk 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                            }
+                        }
                     }
 
                     // Network 메트릭 변환 및 전송
@@ -154,10 +188,17 @@ public class PrometheusSchedulerService {
                         // ✅ SSE 전송
                         sseService.sendToEquipment(equipmentId, "network", networkMetric);
                         log.debug("📡 Network SSE 전송: equipmentId={}", equipmentId);
-                    }
 
-                    // 알림 평가
-                    evaluateMetricsForAlert(data, collectionTime);
+                        // ✅ 임계값 근처일 때만 알림 평가
+                        if (equipment != null && needsNetworkAlertEvaluation(networkMetric, equipment)) {
+                            try {
+                                alertEvaluationService.evaluateNetworkMetric(networkMetric);
+                                alertEvaluationCount++;
+                            } catch (Exception e) {
+                                log.warn("⚠️ Network 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                            }
+                        }
+                    }
 
                 } catch (Exception e) {
                     log.error("❌ 메트릭 처리 실패: equipmentId={}", equipmentId, e);
@@ -194,42 +235,96 @@ public class PrometheusSchedulerService {
             }
 
             long elapsed = System.currentTimeMillis() - startTime;
+
+            int totalMetrics = systemMetrics.size() + diskMetrics.size() + networkMetrics.size();
+
             log.info("✅ 메트릭 수집 완료: {} 개 장비 (유효: {}, 제외: {}), {}ms 소요",
                     dataMap.size(), validDataList.size(), filteredCount, elapsed);
+            log.info("  - System 메트릭: {}", systemMetrics.size());
+            log.info("  - Disk 메트릭: {}", diskMetrics.size());
+            log.info("  - Network 메트릭: {}", networkMetrics.size());
+
+            if (totalMetrics > 0) {
+                log.info("  ✅ 알림 평가 실행: {} 건 (전체 메트릭의 {}%)",
+                        alertEvaluationCount,
+                        String.format("%.1f", alertEvaluationCount * 100.0 / totalMetrics));
+            }
 
         } catch (Exception e) {
             log.error("❌ 메트릭 수집 중 오류 발생", e);
         }
     }
 
+    // ========== ✅ 새로 추가: Equipment 캐시 관리 ==========
+
     /**
-     * ✅ 메트릭 데이터를 SystemMetric, DiskMetric으로 변환하여 알림 평가
+     * Equipment 캐시 갱신
      */
-    private void evaluateMetricsForAlert(MetricRawData data, LocalDateTime generateTime) {
-        // System 메트릭 변환 및 평가
-        if (data.getCpuModes() != null && !data.getCpuModes().isEmpty()) {
-            SystemMetric systemMetric = convertToSystemMetric(data, generateTime);
-            if (systemMetric != null) {
-                alertEvaluationService.evaluateSystemMetric(systemMetric);
-            }
-        }
-
-        // Disk 메트릭 변환 및 평가
-        if (data.getTotalDisk() != null && data.getUsedDisk() != null) {
-            DiskMetric diskMetric = convertToDiskMetric(data, generateTime);
-            if (diskMetric != null) {
-                alertEvaluationService.evaluateDiskMetric(diskMetric);
-            }
-        }
-
-        // Network 메트릭 변환 및 평가
-        if (data.getNetworkRxBps() != null || data.getNetworkTxBps() != null) {
-            NetworkMetric networkMetric = convertToNetworkMetric(data, generateTime);
-            if (networkMetric != null) {
-                alertEvaluationService.evaluateNetworkMetric(networkMetric);
-            }
+    private void refreshEquipmentCache(Set<Long> equipmentIds) {
+        try {
+            List<Equipment> equipments = equipmentRepository.findAllById(equipmentIds);
+            equipmentCache.clear();
+            equipments.forEach(eq -> equipmentCache.put(eq.getId(), eq));
+            log.debug("🔄 Equipment 캐시 갱신: {} 개", equipmentCache.size());
+        } catch (Exception e) {
+            log.warn("⚠️ Equipment 캐시 갱신 실패", e);
         }
     }
+
+    // ========== ✅ 새로 추가: 알림 평가 필요 여부 판단 메서드 ==========
+
+    /**
+     * System 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsSystemAlertEvaluation(SystemMetric metric, Equipment equipment) {
+        // 모니터링 비활성화면 평가 안 함
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+
+        // CPU 체크 (임계값의 80% 이상만 평가)
+        if (equipment.getCpuThresholdWarning() != null && metric.getCpuIdle() != null) {
+            double cpuUsage = 100.0 - metric.getCpuIdle();
+            double threshold = equipment.getCpuThresholdWarning().doubleValue();
+            if (cpuUsage >= threshold * 0.8) {
+                return true;
+            }
+        }
+
+        // Memory 체크 (임계값의 80% 이상만 평가)
+        if (equipment.getMemoryThresholdWarning() != null &&
+                metric.getUsedMemoryPercentage() != null) {
+            double threshold = equipment.getMemoryThresholdWarning().doubleValue();
+            if (metric.getUsedMemoryPercentage() >= threshold * 0.8) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Disk 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsDiskAlertEvaluation(DiskMetric metric, Equipment equipment) {
+        // 모니터링 비활성화면 평가 안 함
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+
+        // Disk 사용률 체크 (임계값의 80% 이상만 평가)
+        if (equipment.getDiskThresholdWarning() != null &&
+                metric.getUsedPercentage() != null) {
+            double threshold = equipment.getDiskThresholdWarning().doubleValue();
+            if (metric.getUsedPercentage() >= threshold * 0.8) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // ========== 기존 메서드들 ==========
 
     /**
      * ✅ MetricRawData → SystemMetric 변환
@@ -432,5 +527,60 @@ public class PrometheusSchedulerService {
         }
 
         return true;
+    }
+
+    /**
+     * Network 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsNetworkAlertEvaluation(NetworkMetric metric, Equipment equipment) {
+        if (equipment == null || !Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+
+        double bandwidthWarning = 80.0;
+
+        // RX/TX 사용률 체크
+        if (metric.getRxUsage() != null && metric.getRxUsage() >= bandwidthWarning * 0.8) {
+            return true;
+        }
+        if (metric.getTxUsage() != null && metric.getTxUsage() >= bandwidthWarning * 0.8) {
+            return true;
+        }
+
+        // 에러율 체크
+        if (metric.getInErrorPktsTot() != null && metric.getInPktsTot() != null &&
+                metric.getInPktsTot() > 0) {
+            double errorRate = (metric.getInErrorPktsTot() * 100.0) / metric.getInPktsTot();
+            if (errorRate >= 0.08) {
+                return true;
+            }
+        }
+
+        if (metric.getOutErrorPktsTot() != null && metric.getOutPktsTot() != null &&
+                metric.getOutPktsTot() > 0) {
+            double errorRate = (metric.getOutErrorPktsTot() * 100.0) / metric.getOutPktsTot();
+            if (errorRate >= 0.08) {
+                return true;
+            }
+        }
+
+        // 드롭율 체크
+        if (metric.getInDiscardPktsTot() != null && metric.getInPktsTot() != null &&
+                metric.getInPktsTot() > 0) {
+            double dropRate = (metric.getInDiscardPktsTot() * 100.0) / metric.getInPktsTot();
+            if (dropRate >= 0.08) {
+                return true;
+            }
+        }
+
+        if (metric.getOutDiscardPktsTot() != null && metric.getOutPktsTot() != null &&
+                metric.getOutPktsTot() > 0) {
+            double dropRate = (metric.getOutDiscardPktsTot() * 100.0) / metric.getOutPktsTot();
+            if (dropRate >= 0.08) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableAsync
@@ -14,9 +15,9 @@ public class AsyncConfig {
     @Bean(name = "taskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(20);     // 기본 스레드 수
-        executor.setMaxPoolSize(100);      // 최대 스레드 수
-        executor.setQueueCapacity(1000);   // 대기 큐 크기
+        executor.setCorePoolSize(20);
+        executor.setMaxPoolSize(100);
+        executor.setQueueCapacity(1000);
         executor.setThreadNamePrefix("SSE-Async-");
         executor.initialize();
         return executor;
@@ -25,10 +26,14 @@ public class AsyncConfig {
     @Bean(name = "alertExecutor")
     public Executor alertExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(20);
-        executor.setMaxPoolSize(50);
-        executor.setQueueCapacity(500);
+        executor.setCorePoolSize(50);              // 20 → 50 증가
+        executor.setMaxPoolSize(100);              // 50 → 100 증가
+        executor.setQueueCapacity(2000);           // 500 → 2000 증가
         executor.setThreadNamePrefix("Alert-");
+
+        // ✅ 큐 포화 시 호출 스레드에서 실행 (거부 방지)
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         executor.initialize();

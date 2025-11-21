@@ -15,7 +15,6 @@ import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.task.TaskRejectedException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -26,7 +25,6 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -54,54 +52,55 @@ public class ServerRoomDataSimulator {
     // 누적 카운터
     private final Map<String, Long> cumulativeInPackets = new HashMap<>();
     private final Map<String, Long> cumulativeOutPackets = new HashMap<>();
-    private final Map<String, Long> cumulativeInBytes = new HashMap<>();
-    private final Map<String, Long> cumulativeOutBytes = new HashMap<>();
     private final Map<String, Long> cumulativeInErrors = new HashMap<>();
     private final Map<String, Long> cumulativeOutErrors = new HashMap<>();
     private final Map<String, Long> cumulativeInDiscards = new HashMap<>();
     private final Map<String, Long> cumulativeOutDiscards = new HashMap<>();
-    private final Map<String, Long> cumulativeContextSwitches = new HashMap<>();
     private final Map<String, Long> cumulativeIoReads = new HashMap<>();
     private final Map<String, Long> cumulativeIoWrites = new HashMap<>();
 
-    // 환경 메트릭 추적용
     private final Map<Long, Double> minTemperatureTracker = new HashMap<>();
     private final Map<Long, Double> maxTemperatureTracker = new HashMap<>();
     private final Map<Long, Double> minHumidityTracker = new HashMap<>();
     private final Map<Long, Double> maxHumidityTracker = new HashMap<>();
 
-    // DB에서 조회한 장비/랙 목록 캐시
     private List<Equipment> activeEquipments = new CopyOnWriteArrayList<>();
-    private List<Rack> activeRacks = new ArrayList<>();
+    private List<Rack> activeRacks = new CopyOnWriteArrayList<>();
+
+    private static final double HOURLY_PROBABILITY = 1.0 / 720.0;
 
     @PostConstruct
     public void init() {
         log.info("🚀 서버실 데이터 시뮬레이터 초기화 시작...");
 
-        if (excludedEquipmentIdsStr != null && !excludedEquipmentIdsStr.isEmpty()) {
-            try {
-                excludedEquipmentIds = Arrays.stream(excludedEquipmentIdsStr.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .map(Long::parseLong)
-                        .collect(Collectors.toSet());
-                log.info("🚫 더미 데이터 생성 제외 장비 ID: {}", excludedEquipmentIds);
-            } catch (NumberFormatException e) {
-                log.error("❌ 제외 장비 ID 파싱 실패: {}", excludedEquipmentIdsStr, e);
-                excludedEquipmentIds = Set.of(256L, 257L, 258L, 259L);
+        // Excluded Equipment IDs 파싱
+        if (excludedEquipmentIdsStr != null && !excludedEquipmentIdsStr.trim().isEmpty()) {
+            String[] ids = excludedEquipmentIdsStr.split(",");
+            for (String id : ids) {
+                try {
+                    excludedEquipmentIds.add(Long.parseLong(id.trim()));
+                } catch (NumberFormatException e) {
+                    log.warn("⚠️ 잘못된 Excluded Equipment ID: {}", id);
+                }
             }
-        } else {
-            excludedEquipmentIds = Set.of(256L, 257L, 258L, 259L);
         }
+        log.info("🚫 더미 데이터 생성 제외 장비 ID: {}", excludedEquipmentIds);
 
-        activeEquipments = new CopyOnWriteArrayList<>(equipmentRepository.findAll());
-        activeRacks = new CopyOnWriteArrayList<>(rackRepository.findAll());
+        // DB에서 삭제되지 않은 장비만 로드
+        activeEquipments = equipmentRepository.findAll().stream()
+                .filter(e -> DelYN.N.equals(e.getDelYn()))
+                .collect(java.util.stream.Collectors.toCollection(CopyOnWriteArrayList::new));
+
+        // DB에서 삭제되지 않은 랙만 로드
+        activeRacks = rackRepository.findAll().stream()
+                .filter(r -> DelYN.N.equals(r.getDelYn()))
+                .collect(java.util.stream.Collectors.toCollection(CopyOnWriteArrayList::new));
 
         log.info("📊 DB에서 로드된 장비 총 개수: {}", activeEquipments.size());
         log.info("📊 DB에서 로드된 랙 총 개수: {}", activeRacks.size());
 
         if (activeEquipments.isEmpty()) {
-            log.warn("⚠️ 등록된 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
+            log.warn("⚠️ DB에 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
             return;
         }
 
@@ -162,7 +161,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedRateString = "${monitoring.scheduler.metrics-interval:10000}")
+    @Scheduled(fixedDelayString = "${monitoring.simulator.interval-seconds:10}000", initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
         log.info("📊 =================================================");
@@ -185,7 +184,7 @@ public class ServerRoomDataSimulator {
         int skippedExcluded = 0;
         int skippedDeleted = 0;
         int processed = 0;
-        int alertEvaluationErrors = 0; // ✅ 알림 평가 에러 카운트 추가
+        int alertEvaluationCount = 0;  // ✅ 실제 평가된 알림 수
 
         try {
             for (Equipment equipment : activeEquipments) {
@@ -214,14 +213,14 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateSystemMetric(sysMetric);
                     sseService.sendToEquipment(equipmentId, "system", sysMetric);
 
-                    // ✅ 알림 평가 - 에러 방지 처리
-                    try {
-                        alertEvaluationService.evaluateSystemMetric(sysMetric);
-                    } catch (TaskRejectedException e) {
-                        alertEvaluationErrors++;
-                        log.debug("⚠️ System 알림 평가 작업 거부 (큐 포화): equipmentId={}", equipmentId);
-                    } catch (Exception e) {
-                        log.warn("⚠️ System 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                    // ✅ 임계값 근처일 때만 알림 평가
+                    if (needsSystemAlertEvaluation(sysMetric, equipment)) {
+                        try {
+                            alertEvaluationService.evaluateSystemMetric(sysMetric);
+                            alertEvaluationCount++;
+                        } catch (Exception e) {
+                            log.warn("⚠️ System 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                        }
                     }
 
                     log.debug("  → System 메트릭 생성 완료 (equipmentId={})", equipmentId);
@@ -234,14 +233,14 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateDiskMetric(diskMetric);
                     sseService.sendToEquipment(equipmentId, "disk", diskMetric);
 
-                    // ✅ 알림 평가 - 에러 방지 처리
-                    try {
-                        alertEvaluationService.evaluateDiskMetric(diskMetric);
-                    } catch (TaskRejectedException e) {
-                        alertEvaluationErrors++;
-                        log.debug("⚠️ Disk 알림 평가 작업 거부 (큐 포화): equipmentId={}", equipmentId);
-                    } catch (Exception e) {
-                        log.warn("⚠️ Disk 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                    // ✅ 임계값 근처일 때만 알림 평가
+                    if (needsDiskAlertEvaluation(diskMetric, equipment)) {
+                        try {
+                            alertEvaluationService.evaluateDiskMetric(diskMetric);
+                            alertEvaluationCount++;
+                        } catch (Exception e) {
+                            log.warn("⚠️ Disk 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                        }
                     }
 
                     log.debug("  → Disk 메트릭 생성 완료 (equipmentId={})", equipmentId);
@@ -257,14 +256,13 @@ public class ServerRoomDataSimulator {
                             monitoringMetricCache.updateNetworkMetric(nicMetric);
                             sseService.sendToEquipment(equipmentId, "network", nicMetric);
 
-                            // ✅ 알림 평가 - 에러 방지 처리
+                            // ✅ Network는 일단 모두 평가 (에러율/드롭율 체크 필요)
                             try {
                                 alertEvaluationService.evaluateNetworkMetric(nicMetric);
-                            } catch (TaskRejectedException e) {
-                                alertEvaluationErrors++;
-                                log.debug("⚠️ Network 알림 평가 작업 거부 (큐 포화): equipmentId={}, nic={}", equipmentId, nic);
+                                alertEvaluationCount++;
                             } catch (Exception e) {
-                                log.warn("⚠️ Network 알림 평가 실패: equipmentId={}, nic={}, error={}", equipmentId, nic, e.getMessage());
+                                log.warn("⚠️ Network 알림 평가 실패: equipmentId={}, nic={}, error={}",
+                                        equipmentId, nic, e.getMessage());
                             }
                         }
                         log.debug("  → Network 메트릭 생성 완료 (equipmentId={}, NICs={})",
@@ -281,14 +279,14 @@ public class ServerRoomDataSimulator {
                 monitoringMetricCache.updateEnvironmentMetric(envMetric);
                 sseService.sendToRack(rackId, "environment", envMetric);
 
-                // ✅ 알림 평가 - 에러 방지 처리
-                try {
-                    alertEvaluationService.evaluateEnvironmentMetric(envMetric);
-                } catch (TaskRejectedException e) {
-                    alertEvaluationErrors++;
-                    log.debug("⚠️ Environment 알림 평가 작업 거부 (큐 포화): rackId={}", rackId);
-                } catch (Exception e) {
-                    log.warn("⚠️ Environment 알림 평가 실패: rackId={}, error={}", rackId, e.getMessage());
+                // ✅ 임계값 근처일 때만 알림 평가
+                if (needsEnvironmentAlertEvaluation(envMetric, rack)) {
+                    try {
+                        alertEvaluationService.evaluateEnvironmentMetric(envMetric);
+                        alertEvaluationCount++;
+                    } catch (Exception e) {
+                        log.warn("⚠️ Environment 알림 평가 실패: rackId={}, error={}", rackId, e.getMessage());
+                    }
                 }
             }
 
@@ -317,10 +315,15 @@ public class ServerRoomDataSimulator {
             log.info("  - Disk 메트릭: {}", diskMetricsToSave.size());
             log.info("  - Network 메트릭: {}", networkMetricsToSave.size());
             log.info("  - Environment 메트릭: {}", environmentMetricsToSave.size());
-            // ✅ 알림 평가 에러 로그 추가
-            if (alertEvaluationErrors > 0) {
-                log.warn("  ⚠️ 알림 평가 작업 거부 (큐 포화): {} 건", alertEvaluationErrors);
+
+            int totalMetrics = systemMetricsToSave.size() + diskMetricsToSave.size() +
+                    networkMetricsToSave.size() + environmentMetricsToSave.size();
+            if (totalMetrics > 0) {
+                log.info("  ✅ 알림 평가 실행: {} 건 (전체 메트릭의 {}%)",
+                        alertEvaluationCount,
+                        String.format("%.1f", alertEvaluationCount * 100.0 / totalMetrics));
             }
+
             log.info("🚀 SSE 전송 완료 & DB 작업 할당 끝: {}ms 소요", duration);
             log.info("📊 =================================================");
 
@@ -328,6 +331,100 @@ public class ServerRoomDataSimulator {
             log.error("❌ 메트릭 생성 중 오류 발생", e);
         }
     }
+
+    // ========== ✅ 새로 추가: 알림 평가 필요 여부 판단 메서드 ==========
+
+    /**
+     * System 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsSystemAlertEvaluation(SystemMetric metric, Equipment equipment) {
+        // 모니터링 비활성화면 평가 안 함
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+
+        // CPU 체크 (임계값의 80% 이상만 평가)
+        if (equipment.getCpuThresholdWarning() != null && metric.getCpuIdle() != null) {
+            double cpuUsage = 100.0 - metric.getCpuIdle();
+            double threshold = equipment.getCpuThresholdWarning().doubleValue();
+            if (cpuUsage >= threshold * 0.8) {
+                return true;
+            }
+        }
+
+        // Memory 체크 (임계값의 80% 이상만 평가)
+        if (equipment.getMemoryThresholdWarning() != null &&
+                metric.getUsedMemoryPercentage() != null) {
+            double threshold = equipment.getMemoryThresholdWarning().doubleValue();
+            if (metric.getUsedMemoryPercentage() >= threshold * 0.8) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Disk 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsDiskAlertEvaluation(DiskMetric metric, Equipment equipment) {
+        // 모니터링 비활성화면 평가 안 함
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+
+        // Disk 사용률 체크 (임계값의 80% 이상만 평가)
+        if (equipment.getDiskThresholdWarning() != null &&
+                metric.getUsedPercentage() != null) {
+            double threshold = equipment.getDiskThresholdWarning().doubleValue();
+            if (metric.getUsedPercentage() >= threshold * 0.8) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Environment 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsEnvironmentAlertEvaluation(EnvironmentMetric metric, Rack rack) {
+        // 모니터링 비활성화면 평가 안 함
+        if (!Boolean.TRUE.equals(rack.getMonitoringEnabled())) {
+            return false;
+        }
+
+        // 온도 체크 (임계값의 90% 이상만 평가)
+        if (rack.getTemperatureThresholdWarning() != null &&
+                metric.getTemperature() != null) {
+            double threshold = rack.getTemperatureThresholdWarning().doubleValue();
+            if (metric.getTemperature() >= threshold * 0.9) {
+                return true;
+            }
+        }
+
+        // 습도 최소값 체크 (임계값의 110% 이하만 평가)
+        if (rack.getHumidityThresholdMinWarning() != null &&
+                metric.getHumidity() != null) {
+            double threshold = rack.getHumidityThresholdMinWarning().doubleValue();
+            if (metric.getHumidity() <= threshold * 1.1) {
+                return true;
+            }
+        }
+
+        // 습도 최대값 체크 (임계값의 90% 이상만 평가)
+        if (rack.getHumidityThresholdMaxWarning() != null &&
+                metric.getHumidity() != null) {
+            double threshold = rack.getHumidityThresholdMaxWarning().doubleValue();
+            if (metric.getHumidity() >= threshold * 0.9) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // ========== 기존 메서드들 ==========
 
     private void batchInsertSystemMetrics(List<SystemMetric> metrics) {
         String sql = "INSERT INTO system_metrics (equipment_id, generate_time, " +
@@ -371,7 +468,8 @@ public class ServerRoomDataSimulator {
     private void batchInsertDiskMetrics(List<DiskMetric> metrics) {
         String sql = "INSERT INTO disk_metrics (equipment_id, generate_time, " +
                 "total_bytes, used_bytes, free_bytes, used_percentage, " +
-                "io_read_bps, io_write_bps, io_time_percentage, io_read_count, io_write_count, " +
+                "io_read_bps, io_write_bps, io_time_percentage, " +
+                "io_read_count, io_write_count, " +
                 "total_inodes, used_inodes, free_inodes, used_inode_percentage) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -397,10 +495,10 @@ public class ServerRoomDataSimulator {
 
     private void batchInsertNetworkMetrics(List<NetworkMetric> metrics) {
         String sql = "INSERT INTO network_metrics (equipment_id, nic_name, generate_time, " +
-                "rx_usage, tx_usage, in_pkts_tot, out_pkts_tot, in_bytes_tot, out_bytes_tot, " +
-                "in_bytes_per_sec, out_bytes_per_sec, in_pkts_per_sec, out_pkts_per_sec, " +
-                "in_error_pkts_tot, out_error_pkts_tot, in_discard_pkts_tot, out_discard_pkts_tot, oper_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "rx_usage, tx_usage, in_pkts_tot, out_pkts_tot, " +
+                "in_error_pkts_tot, out_error_pkts_tot, in_discard_pkts_tot, out_discard_pkts_tot, " +
+                "oper_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
                 (ps, metric) -> {
@@ -411,17 +509,11 @@ public class ServerRoomDataSimulator {
                     ps.setObject(5, metric.getTxUsage());
                     ps.setObject(6, metric.getInPktsTot());
                     ps.setObject(7, metric.getOutPktsTot());
-                    ps.setObject(8, metric.getInBytesTot());
-                    ps.setObject(9, metric.getOutBytesTot());
-                    ps.setObject(10, metric.getInBytesPerSec());
-                    ps.setObject(11, metric.getOutBytesPerSec());
-                    ps.setObject(12, metric.getInPktsPerSec());
-                    ps.setObject(13, metric.getOutPktsPerSec());
-                    ps.setObject(14, metric.getInErrorPktsTot());
-                    ps.setObject(15, metric.getOutErrorPktsTot());
-                    ps.setObject(16, metric.getInDiscardPktsTot());
-                    ps.setObject(17, metric.getOutDiscardPktsTot());
-                    ps.setObject(18, metric.getOperStatus());
+                    ps.setObject(8, metric.getInErrorPktsTot());
+                    ps.setObject(9, metric.getOutErrorPktsTot());
+                    ps.setObject(10, metric.getInDiscardPktsTot());
+                    ps.setObject(11, metric.getOutDiscardPktsTot());
+                    ps.setObject(12, metric.getOperStatus());
                 });
     }
 
@@ -476,26 +568,23 @@ public class ServerRoomDataSimulator {
         double cpuUsage = state.hasCpuAnomaly ?
                 Math.min(95, baseCpu + 50 + rand.nextDouble() * 20) : baseCpu;
 
-        metric.setCpuIdle(100 - cpuUsage);
-        metric.setCpuUser(cpuUsage * 0.55);
-        metric.setCpuSystem(cpuUsage * 0.20);
-        metric.setCpuWait(cpuUsage * 0.10);
-        metric.setCpuNice(cpuUsage * 0.02);
-        metric.setCpuIrq(cpuUsage * 0.05);
-        metric.setCpuSoftirq(cpuUsage * 0.05);
-        metric.setCpuSteal(cpuUsage * 0.03);
+        double cpuIdle = 100.0 - cpuUsage;
+        metric.setCpuIdle(cpuIdle);
+        metric.setCpuUser(cpuUsage * 0.6);
+        metric.setCpuSystem(cpuUsage * 0.25);
+        metric.setCpuWait(cpuUsage * 0.08);
+        metric.setCpuNice(cpuUsage * 0.03);
+        metric.setCpuIrq(cpuUsage * 0.02);
+        metric.setCpuSoftirq(cpuUsage * 0.015);
+        metric.setCpuSteal(cpuUsage * 0.005);
 
-        double baseLoad = cpuUsage / 25.0;
-        metric.setLoadAvg1(baseLoad + rand.nextDouble() * 0.5);
-        metric.setLoadAvg5(baseLoad * 0.9 + rand.nextDouble() * 0.3);
-        metric.setLoadAvg15(baseLoad * 0.8 + rand.nextDouble() * 0.2);
+        double loadAvg = cpuUsage / 100.0 * 4;
+        metric.setLoadAvg1(loadAvg + rand.nextDouble() * 0.5);
+        metric.setLoadAvg5(loadAvg + rand.nextDouble() * 0.3);
+        metric.setLoadAvg15(loadAvg + rand.nextDouble() * 0.2);
 
-        String contextKey = "context_" + equipmentId;
-        long prevContext = cumulativeContextSwitches.getOrDefault(contextKey, 0L);
-        long contextInc = (long)(cpuUsage * 100 + rand.nextInt(15000));
-        long newContext = prevContext + contextInc;
-        cumulativeContextSwitches.put(contextKey, newContext);
-        metric.setContextSwitches(newContext);
+        long contextSwitches = (long)(1000 + rand.nextDouble() * 9000);
+        metric.setContextSwitches(contextSwitches);
 
         long totalMemory = 16L * 1024 * 1024 * 1024;
         double baseMemUsage = 40 + rand.nextDouble() * 20;
@@ -510,13 +599,18 @@ public class ServerRoomDataSimulator {
         metric.setFreeMemory(freeMemory);
         metric.setUsedMemoryPercentage(memUsagePercent);
 
-        metric.setMemoryActive(usedMemory / 2);
-        metric.setMemoryInactive(usedMemory / 4);
-        metric.setMemoryBuffers(usedMemory / 10);
-        metric.setMemoryCached(usedMemory / 5);
+        long buffers = (long)(totalMemory * 0.05);
+        long cached = (long)(totalMemory * 0.15);
+        long active = (long)(usedMemory * 0.6);
+        long inactive = (long)(usedMemory * 0.4);
+
+        metric.setMemoryBuffers(buffers);
+        metric.setMemoryCached(cached);
+        metric.setMemoryActive(active);
+        metric.setMemoryInactive(inactive);
 
         long totalSwap = 8L * 1024 * 1024 * 1024;
-        double swapUsagePercent = memUsagePercent > 85 ?
+        double swapUsagePercent = state.hasMemoryAnomaly ?
                 rand.nextDouble() * 50 : rand.nextDouble() * 5;
 
         long usedSwap = (long)(totalSwap * swapUsagePercent / 100);
@@ -616,49 +710,27 @@ public class ServerRoomDataSimulator {
                 Math.min(95, baseRxUsage + 50 + rand.nextDouble() * 25) : baseRxUsage;
 
         double txUsage = state.hasNetworkAnomaly ?
-                Math.min(95, baseTxUsage + 50 + rand.nextDouble() * 25) : baseTxUsage;
+                Math.min(95, baseTxUsage + 45 + rand.nextDouble() * 25) : baseTxUsage;
 
         metric.setRxUsage(rxUsage);
         metric.setTxUsage(txUsage);
 
-        double inBytesPerSec = (bandwidthBps / 8) * (rxUsage / 100.0);
-        double outBytesPerSec = (bandwidthBps / 8) * (txUsage / 100.0);
-
-        metric.setInBytesPerSec(inBytesPerSec);
-        metric.setOutBytesPerSec(outBytesPerSec);
-
-        double inPktsPerSec = inBytesPerSec / 1500;
-        double outPktsPerSec = outBytesPerSec / 1500;
-
-        metric.setInPktsPerSec(inPktsPerSec);
-        metric.setOutPktsPerSec(outPktsPerSec);
-
-        String key = equipmentId + "_" + nicName;
+        String key = "network_" + equipmentId + "_" + nicName;
 
         long prevInPackets = cumulativeInPackets.getOrDefault(key, 0L);
         long prevOutPackets = cumulativeOutPackets.getOrDefault(key, 0L);
-        long prevInBytes = cumulativeInBytes.getOrDefault(key, 0L);
-        long prevOutBytes = cumulativeOutBytes.getOrDefault(key, 0L);
 
-        long inPacketsInc = (long)(inPktsPerSec * 15);
-        long outPacketsInc = (long)(outPktsPerSec * 15);
-        long inBytesInc = (long)(inBytesPerSec * 15);
-        long outBytesInc = (long)(outBytesPerSec * 15);
+        long inPacketsInc = (long)(bandwidthBps * rxUsage / 100.0 / 1500 * 5);
+        long outPacketsInc = (long)(bandwidthBps * txUsage / 100.0 / 1500 * 5);
 
         long newInPackets = prevInPackets + inPacketsInc;
         long newOutPackets = prevOutPackets + outPacketsInc;
-        long newInBytes = prevInBytes + inBytesInc;
-        long newOutBytes = prevOutBytes + outBytesInc;
 
         cumulativeInPackets.put(key, newInPackets);
         cumulativeOutPackets.put(key, newOutPackets);
-        cumulativeInBytes.put(key, newInBytes);
-        cumulativeOutBytes.put(key, newOutBytes);
 
         metric.setInPktsTot(newInPackets);
         metric.setOutPktsTot(newOutPackets);
-        metric.setInBytesTot(newInBytes);
-        metric.setOutBytesTot(newOutBytes);
 
         long inErrorInc = state.hasNetworkAnomaly ? rand.nextLong(100) : rand.nextLong(5);
         long outErrorInc = state.hasNetworkAnomaly ? rand.nextLong(100) : rand.nextLong(5);
@@ -703,85 +775,76 @@ public class ServerRoomDataSimulator {
 
         double currentTemperature;
         if (state.hasTemperatureAnomaly) {
-            currentTemperature = 28.0 + rand.nextDouble() * 7.0;
+            currentTemperature = Math.min(45.0, baseTemperature + 10 + rand.nextDouble() * 8);
         } else {
-            currentTemperature = baseTemperature + (rand.nextDouble() - 0.5) * 2.0;
+            currentTemperature = baseTemperature;
         }
 
-        metric.setTemperature(Math.round(currentTemperature * 100.0) / 100.0);
+        metric.setTemperature(currentTemperature);
 
-        double currentMin = minTemperatureTracker.get(rackId);
-        double currentMax = maxTemperatureTracker.get(rackId);
+        Double prevMinTemp = minTemperatureTracker.get(rackId);
+        Double prevMaxTemp = maxTemperatureTracker.get(rackId);
 
-        if (currentTemperature < currentMin) {
-            minTemperatureTracker.put(rackId, currentTemperature);
-            currentMin = currentTemperature;
-        }
-        if (currentTemperature > currentMax) {
-            maxTemperatureTracker.put(rackId, currentTemperature);
-            currentMax = currentTemperature;
-        }
+        double minTemp = Math.min(prevMinTemp, currentTemperature);
+        double maxTemp = Math.max(prevMaxTemp, currentTemperature);
 
-        metric.setMinTemperature(Math.round(currentMin * 100.0) / 100.0);
-        metric.setMaxTemperature(Math.round(currentMax * 100.0) / 100.0);
+        minTemperatureTracker.put(rackId, minTemp);
+        maxTemperatureTracker.put(rackId, maxTemp);
 
-        metric.setTemperatureWarning(currentTemperature >= 26.0);
+        metric.setMinTemperature(minTemp);
+        metric.setMaxTemperature(maxTemp);
 
-        double baseHumidity = 45.0 + rand.nextDouble() * 10.0;
+        double baseHumidity = 40.0 + rand.nextDouble() * 15.0;
 
         double currentHumidity;
         if (state.hasHumidityAnomaly) {
             if (rand.nextBoolean()) {
-                currentHumidity = 65.0 + rand.nextDouble() * 15.0;
+                currentHumidity = Math.max(20.0, baseHumidity - 15 - rand.nextDouble() * 10);
             } else {
-                currentHumidity = 20.0 + rand.nextDouble() * 15.0;
+                currentHumidity = Math.min(80.0, baseHumidity + 15 + rand.nextDouble() * 15);
             }
         } else {
-            currentHumidity = baseHumidity + (rand.nextDouble() - 0.5) * 5.0;
+            currentHumidity = baseHumidity;
         }
 
-        metric.setHumidity(Math.round(currentHumidity * 100.0) / 100.0);
+        metric.setHumidity(currentHumidity);
 
-        double currentMinHumidity = minHumidityTracker.get(rackId);
-        double currentMaxHumidity = maxHumidityTracker.get(rackId);
+        Double prevMinHumidity = minHumidityTracker.get(rackId);
+        Double prevMaxHumidity = maxHumidityTracker.get(rackId);
 
-        if (currentHumidity < currentMinHumidity) {
-            minHumidityTracker.put(rackId, currentHumidity);
-            currentMinHumidity = currentHumidity;
-        }
-        if (currentHumidity > currentMaxHumidity) {
-            maxHumidityTracker.put(rackId, currentHumidity);
-            currentMaxHumidity = currentHumidity;
-        }
+        double minHumidity = Math.min(prevMinHumidity, currentHumidity);
+        double maxHumidity = Math.max(prevMaxHumidity, currentHumidity);
 
-        metric.setMinHumidity(Math.round(currentMinHumidity * 100.0) / 100.0);
-        metric.setMaxHumidity(Math.round(currentMaxHumidity * 100.0) / 100.0);
+        minHumidityTracker.put(rackId, minHumidity);
+        maxHumidityTracker.put(rackId, maxHumidity);
 
-        metric.setHumidityWarning(currentHumidity < 40.0 || currentHumidity > 60.0);
+        metric.setMinHumidity(minHumidity);
+        metric.setMaxHumidity(maxHumidity);
+
+        boolean tempWarning = currentTemperature > 28.0;
+        boolean humidityWarning = currentHumidity < 35.0 || currentHumidity > 65.0;
+
+        metric.setTemperatureWarning(tempWarning);
+        metric.setHumidityWarning(humidityWarning);
 
         return metric;
     }
 
-    /**
-     * ✅ 이상 징후 시뮬레이션 - 한 시간에 한 번 정도로 발생
-     */
     private void maybeUpdateAnomalies() {
         long currentTime = System.currentTimeMillis();
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-
-        // ✅ 5초마다 체크, 1시간 = 720번 체크, 확률 = 1/720 ≈ 0.0014
-        final double HOURLY_PROBABILITY = 0.0014;
 
         for (Equipment equipment : activeEquipments) {
             Long equipmentId = equipment.getId();
 
-            if (excludedEquipmentIds.contains(equipmentId) ||
-                    DelYN.Y.equals(equipment.getDelYn())) {
+            if (excludedEquipmentIds.contains(equipmentId)) {
+                continue;
+            }
+
+            if (DelYN.Y.equals(equipment.getDelYn())) {
                 continue;
             }
 
             AnomalyState state = anomalyStates.get(equipmentId);
-            if (state == null) continue;
 
             // CPU 이상 징후 (약 1시간에 한 번)
             if (state.hasCpuAnomaly) {

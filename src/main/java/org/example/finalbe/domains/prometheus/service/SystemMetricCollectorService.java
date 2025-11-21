@@ -71,14 +71,13 @@ public class SystemMetricCollectorService {
         collectMemoryMetric(dataMap, "node_memory_MemTotal_bytes", MetricRawData::setTotalMemory);
         collectMemoryMetric(dataMap, "node_memory_MemFree_bytes", MetricRawData::setFreeMemory);
         collectMemoryMetric(dataMap, "node_memory_MemAvailable_bytes", MetricRawData::setAvailableMemory);
-        collectMemoryMetric(dataMap, "node_memory_Buffers_bytes", MetricRawData::setBuffersMemory);
-        collectMemoryMetric(dataMap, "node_memory_Cached_bytes", MetricRawData::setCachedMemory);
-        collectMemoryMetric(dataMap, "node_memory_Active_bytes", MetricRawData::setActiveMemory);
-        collectMemoryMetric(dataMap, "node_memory_Inactive_bytes", MetricRawData::setInactiveMemory);
+        collectMemoryMetric(dataMap, "node_memory_Buffers_bytes", MetricRawData::setMemoryBuffers);
+        collectMemoryMetric(dataMap, "node_memory_Cached_bytes", MetricRawData::setMemoryCached);
+        collectMemoryMetric(dataMap, "node_memory_Active_bytes", MetricRawData::setMemoryActive);
+        collectMemoryMetric(dataMap, "node_memory_Inactive_bytes", MetricRawData::setMemoryInactive);
         collectMemoryMetric(dataMap, "node_memory_SwapTotal_bytes", MetricRawData::setTotalSwap);
-        collectMemoryMetric(dataMap, "node_memory_SwapFree_bytes", MetricRawData::setFreeSwap);
+        collectMemoryMetric(dataMap, "node_memory_SwapUsed_bytes", MetricRawData::setUsedSwap);
     }
-
     private void collectMemoryMetric(Map<Long, MetricRawData> dataMap, String metric,
                                      java.util.function.BiConsumer<MetricRawData, Long> setter) {
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(metric);
@@ -203,12 +202,13 @@ public class SystemMetricCollectorService {
         Double usedMemoryPercentage = (totalMemory != null && totalMemory > 0 && usedMemory != null)
                 ? (usedMemory * 100.0 / totalMemory) : null;
 
-        Long totalSwap = data.getTotalSwap();
-        Long freeSwap = data.getFreeSwap();
-        Long usedSwap = (totalSwap != null && freeSwap != null) ? totalSwap - freeSwap : null;
+        // ✅ Swap 관련 변수들 - null 안전하게 처리
+        Long swapTotal = data.getTotalSwap();
+        Long swapUsed = data.getUsedSwap() != null ? data.getUsedSwap() : 0L;  // ← 여기서 미리 0L 처리
 
-        Double usedSwapPercentage = (totalSwap != null && totalSwap > 0 && usedSwap != null)
-                ? (usedSwap * 100.0 / totalSwap) : null;
+        // swapUsed는 이제 절대 null이 아니므로 안전하게 계산
+        Double swapUsedPercentage = (swapTotal != null && swapTotal > 0)
+                ? (swapUsed * 100.0 / swapTotal) : 0.0;  // ← null 대신 0.0 사용
 
         return SystemMetric.builder()
                 .equipmentId(data.getEquipmentId())
@@ -229,13 +229,13 @@ public class SystemMetricCollectorService {
                 .usedMemory(usedMemory)
                 .freeMemory(data.getFreeMemory())
                 .usedMemoryPercentage(usedMemoryPercentage)
-                .memoryBuffers(data.getBuffersMemory())
-                .memoryCached(data.getCachedMemory())
-                .memoryActive(data.getActiveMemory())
-                .memoryInactive(data.getInactiveMemory())
-                .totalSwap(data.getTotalSwap())
-                .usedSwap(usedSwap)
-                .usedSwapPercentage(usedSwapPercentage)
+                .memoryBuffers(data.getMemoryBuffers())
+                .memoryCached(data.getMemoryCached())
+                .memoryActive(data.getMemoryActive())
+                .memoryInactive(data.getMemoryInactive())
+                .totalSwap(swapTotal)
+                .usedSwap(swapUsed)  // ✅ 이미 안전하게 처리된 변수 사용
+                .usedSwapPercentage(swapUsedPercentage)  // ✅ 안전하게 계산된 값 사용
                 .build();
     }
 

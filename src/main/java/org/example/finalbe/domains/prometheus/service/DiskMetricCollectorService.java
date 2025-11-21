@@ -44,7 +44,7 @@ public class DiskMetricCollectorService {
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
-                    data.setDiskTotalBytes(value.longValue());
+                    data.setTotalDisk(value.longValue());  // ✅ setDiskTotalBytes → setTotalDisk
                 }
             }
         }
@@ -59,9 +59,9 @@ public class DiskMetricCollectorService {
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
-                    data.setDiskFreeBytes(value.longValue());
-                    if (data.getDiskTotalBytes() != null) {
-                        data.setDiskUsedBytes(data.getDiskTotalBytes() - value.longValue());
+                    data.setFreeDisk(value.longValue());  // ✅ setDiskFreeBytes → setFreeDisk
+                    if (data.getTotalDisk() != null) {    // ✅ getDiskTotalBytes → getTotalDisk
+                        data.setUsedDisk(data.getTotalDisk() - value.longValue());  // ✅ setDiskUsedBytes → setUsedDisk
                     }
                 }
             }
@@ -79,7 +79,7 @@ public class DiskMetricCollectorService {
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
-                    data.setDiskTotalInodes(value.longValue());
+                    data.setTotalInodes(value.longValue());  // ✅ setDiskTotalInodes → setTotalInodes
                 }
             }
         }
@@ -94,7 +94,7 @@ public class DiskMetricCollectorService {
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
-                    data.setDiskFreeInodes(value.longValue());
+                    data.setFreeInodes(value.longValue());  // ✅ setDiskFreeInodes → setFreeInodes
                 }
             }
         }
@@ -188,15 +188,15 @@ public class DiskMetricCollectorService {
         return DiskMetric.builder()
                 .equipmentId(data.getEquipmentId())
                 .generateTime(generateTime)
-                .totalBytes(data.getDiskTotalBytes())
-                .usedBytes(data.getDiskUsedBytes())
-                .freeBytes(data.getDiskFreeBytes())
+                .totalBytes(data.getTotalDisk())
+                .usedBytes(data.getUsedDisk())
+                .freeBytes(data.getFreeDisk())
                 .ioReadBps(data.getDiskReadBps())
                 .ioWriteBps(data.getDiskWriteBps())
                 .ioReadCount(data.getDiskReadCount())
                 .ioWriteCount(data.getDiskWriteCount())
-                .totalInodes(data.getDiskTotalInodes())
-                .freeInodes(data.getDiskFreeInodes())
+                .totalInodes(data.getTotalInodes())
+                .freeInodes(data.getFreeInodes())
                 .build();
     }
 

@@ -1,23 +1,27 @@
 spring:
-  application:
-    name: Final-BE
-
   datasource:
-    driver-class-driver: org.postgresql.Driver
+    driver-class-name: org.postgresql.Driver
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 10
+      maximum-pool-size: 50
+
+      minimum-idle: 20
+
       connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      keepalive-time: 300000
+
+      idle-timeout: 300000
+
+      max-lifetime: 600000
+
+      keepalive-time: 60000
+
       validation-timeout: 5000
       connection-test-query: SELECT 1
-      leak-detection-threshold: 60000
+
+      leak-detection-threshold: 30000
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -29,23 +33,17 @@ spring:
         format_sql: true
         use_sql_comments: true
         jdbc:
-          batch_size: 100          # 50 → 100 증가
+          batch_size: 100
         order_inserts: true
         order_updates: true
     open-in-view: false
 
-  jackson:
-    time-zone: Asia/Seoul
-    serialization:
-      write-dates-as-timestamps: false
-    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
-
   task:
     execution:
       pool:
-        core-size: 8               # 4 → 8 증가
-        max-size: 16               # 8 → 16 증가
-        queue-capacity: 200        # 100 → 200 증가
+        core-size: 8
+        max-size: 16
+        queue-capacity: 200
         thread-name-prefix: async-executor-
       shutdown:
         await-termination: true
@@ -53,11 +51,28 @@ spring:
 
     scheduling:
       pool:
-        size: 10                   # 5 → 10 증가
+        size: 10
       thread-name-prefix: scheduler-
       shutdown:
         await-termination: true
         await-termination-period: 30s
+
+monitoring:
+  simulator:
+    enabled: true
+    interval-seconds: 10
+    device-count: 9
+    excluded-equipment-ids: 256,257,258,259
+
+prometheus:
+  base-url: http://112.221.184.61:9090
+  timeout: 15s
+  collection:
+    enabled: true
+    interval: 10000
+  client:
+    connect-timeout: 15000
+    read-timeout: 60000
 
 jwt:
   secret: ${JWT_SECRET}
@@ -67,25 +82,12 @@ jwt:
 cookie:
   secure: true
 
-monitoring:
-  simulator:
-    enabled: true
-    interval-seconds: 10           # 5 → 10초로 증가
-    device-count: 9
-    excluded-equipment-ids: 256,257,258,259
-
-prometheus:
-  base-url: http://112.221.184.61:9090
-  timeout: 15s                     # 10s → 15s 증가
-  collection:
-    enabled: true
-    interval: 10000                # 5000 → 10000 (5초 → 10초로 증가)
-
 #logging:
 #  level:
-#    root: INFO
+#    root: WARN
 #    org.example.finalbe.domains.prometheus: INFO
 #    org.example.finalbe.domains.monitoring: INFO
+#    org.example.finalbe.domains.alert: WARN
 #    org.hibernate.SQL: WARN
 #    org.hibernate.type.descriptor.sql.BasicBinder: WARN
 #    com.zaxxer.hikari: INFO

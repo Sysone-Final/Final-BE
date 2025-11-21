@@ -1,23 +1,26 @@
 package org.example.finalbe.domains.common.enumdir;
 
+/**
+ * 알림 상태 Enum
+ */
 public enum AlertStatus {
-    TRIGGERED("발생", "알림이 발생했습니다"),
-    ACKNOWLEDGED("확인됨", "관리자가 확인했습니다"),
-    RESOLVED("해결됨", "문제가 해결되었습니다");
+    TRIGGERED("발생", "알림이 발생됨"),
+    ACKNOWLEDGED("확인됨", "알림이 확인됨"),
+    RESOLVED("해결됨", "알림이 해결됨");
 
+    private final String displayName;
     private final String description;
-    private final String message;
 
-    AlertStatus(String description, String message) {
+    AlertStatus(String displayName, String description) {
+        this.displayName = displayName;
         this.description = description;
-        this.message = message;
+    }
+
+    public String getDisplayName() {
+        return displayName;
     }
 
     public String getDescription() {
         return description;
-    }
-
-    public String getMessage() {
-        return message;
     }
 }

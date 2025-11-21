@@ -23,23 +23,23 @@ public class MetricRawData {
     private Long totalMemory;
     private Long freeMemory;
     private Long availableMemory;
-    private Long buffersMemory;
-    private Long cachedMemory;
-    private Long activeMemory;
-    private Long inactiveMemory;
+    private Long memoryBuffers;
+    private Long memoryCached;
+    private Long memoryActive;
+    private Long memoryInactive;
     private Long totalSwap;
-    private Long freeSwap;
+    private Long usedSwap;
     private Double loadAvg1;
     private Double loadAvg5;
     private Double loadAvg15;
     private Long contextSwitches;
 
     // Disk Metrics
-    private Long diskTotalBytes;
-    private Long diskUsedBytes;
-    private Long diskFreeBytes;
-    private Long diskTotalInodes;
-    private Long diskFreeInodes;
+    private Long totalDisk;            // diskTotalBytes → totalDisk
+    private Long usedDisk;             // diskUsedBytes → usedDisk
+    private Long freeDisk;             // diskFreeBytes → freeDisk
+    private Long totalInodes;          // diskTotalInodes → totalInodes
+    private Long freeInodes;           // diskFreeInodes → freeInodes
     private Double diskReadBps;
     private Double diskWriteBps;
     private Long diskReadCount;

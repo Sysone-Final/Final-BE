@@ -100,11 +100,10 @@ public record MetricStreamDto(
                                 .build())
                         .swap(SwapDto.builder()
                                 .total(raw.getTotalSwap())
-                                .used(raw.getTotalSwap() != null && raw.getFreeSwap() != null
-                                        ? raw.getTotalSwap() - raw.getFreeSwap() : null)
+                                .used(raw.getUsedSwap())  // ✅ getFreeSwap() → getUsedSwap()
                                 .usedPercentage(raw.getTotalSwap() != null && raw.getTotalSwap() > 0
-                                        && raw.getFreeSwap() != null
-                                        ? ((raw.getTotalSwap() - raw.getFreeSwap()) * 100.0) / raw.getTotalSwap()
+                                        && raw.getUsedSwap() != null
+                                        ? (raw.getUsedSwap() * 100.0) / raw.getTotalSwap()
                                         : null)
                                 .build())
                         .load(LoadDto.builder()
@@ -115,12 +114,12 @@ public record MetricStreamDto(
                         .contextSwitches(raw.getContextSwitches())
                         .build())
                 .disk(DiskMetricDto.builder()
-                        .totalBytes(raw.getDiskTotalBytes())
-                        .usedBytes(raw.getDiskUsedBytes())
-                        .freeBytes(raw.getDiskFreeBytes())
-                        .usedPercentage(raw.getDiskTotalBytes() != null && raw.getDiskTotalBytes() > 0
-                                && raw.getDiskUsedBytes() != null
-                                ? (raw.getDiskUsedBytes() * 100.0) / raw.getDiskTotalBytes()
+                        .totalBytes(raw.getTotalDisk())       // ✅ getDiskTotalBytes() → getTotalDisk()
+                        .usedBytes(raw.getUsedDisk())         // ✅ getDiskUsedBytes() → getUsedDisk()
+                        .freeBytes(raw.getFreeDisk())         // ✅ getDiskFreeBytes() → getFreeDisk()
+                        .usedPercentage(raw.getTotalDisk() != null && raw.getTotalDisk() > 0
+                                && raw.getUsedDisk() != null
+                                ? (raw.getUsedDisk() * 100.0) / raw.getTotalDisk()
                                 : null)
                         .io(IoDto.builder()
                                 .readBps(raw.getDiskReadBps())

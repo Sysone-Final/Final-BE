@@ -141,6 +141,188 @@ public class AlertEvaluationService {
     }
 
     /**
+     * Network 메트릭 평가
+     */
+    @Async("alertExecutor")
+    @Transactional
+    public void evaluateNetworkMetric(NetworkMetric metric) {
+        if (metric == null || metric.getEquipmentId() == null) {
+            return;
+        }
+
+        try {
+            Equipment equipment = equipmentRepository.findById(metric.getEquipmentId())
+                    .orElse(null);
+
+            if (equipment == null || !Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+                return;
+            }
+
+            AlertSettingsDto settings = getAlertSettings();
+
+            // RX 사용률 평가
+            if (metric.getRxUsage() != null) {
+                evaluateNetworkUsage(
+                        equipment,
+                        "rx_usage",
+                        metric.getRxUsage(),
+                        metric.getNicName(),
+                        metric.getGenerateTime(),
+                        settings
+                );
+            }
+
+            // TX 사용률 평가
+            if (metric.getTxUsage() != null) {
+                evaluateNetworkUsage(
+                        equipment,
+                        "tx_usage",
+                        metric.getTxUsage(),
+                        metric.getNicName(),
+                        metric.getGenerateTime(),
+                        settings
+                );
+            }
+
+            // 에러율 평가 (RX)
+            if (metric.getInErrorPktsTot() != null && metric.getInPktsTot() != null &&
+                    metric.getInPktsTot() > 0) {
+                double errorRate = (metric.getInErrorPktsTot() * 100.0) / metric.getInPktsTot();
+                evaluateNetworkErrorRate(
+                        equipment,
+                        "rx_error_rate",
+                        errorRate,
+                        metric.getNicName(),
+                        metric.getGenerateTime(),
+                        settings
+                );
+            }
+
+            // 에러율 평가 (TX)
+            if (metric.getOutErrorPktsTot() != null && metric.getOutPktsTot() != null &&
+                    metric.getOutPktsTot() > 0) {
+                double errorRate = (metric.getOutErrorPktsTot() * 100.0) / metric.getOutPktsTot();
+                evaluateNetworkErrorRate(
+                        equipment,
+                        "tx_error_rate",
+                        errorRate,
+                        metric.getNicName(),
+                        metric.getGenerateTime(),
+                        settings
+                );
+            }
+
+            // 드롭율 평가 (RX)
+            if (metric.getInDiscardPktsTot() != null && metric.getInPktsTot() != null &&
+                    metric.getInPktsTot() > 0) {
+                double dropRate = (metric.getInDiscardPktsTot() * 100.0) / metric.getInPktsTot();
+                evaluateNetworkDropRate(
+                        equipment,
+                        "rx_drop_rate",
+                        dropRate,
+                        metric.getNicName(),
+                        metric.getGenerateTime(),
+                        settings
+                );
+            }
+
+            // 드롭율 평가 (TX)
+            if (metric.getOutDiscardPktsTot() != null && metric.getOutPktsTot() != null &&
+                    metric.getOutPktsTot() > 0) {
+                double dropRate = (metric.getOutDiscardPktsTot() * 100.0) / metric.getOutPktsTot();
+                evaluateNetworkDropRate(
+                        equipment,
+                        "tx_drop_rate",
+                        dropRate,
+                        metric.getNicName(),
+                        metric.getGenerateTime(),
+                        settings
+                );
+            }
+
+        } catch (Exception e) {
+            log.error("❌ Network 메트릭 알림 평가 실패: equipmentId={}, nic={}",
+                    metric.getEquipmentId(), metric.getNicName(), e);
+        }
+    }
+
+    /**
+     * 네트워크 사용률 평가
+     */
+    private void evaluateNetworkUsage(
+            Equipment equipment,
+            String metricName,
+            Double usage,
+            String nicName,
+            LocalDateTime generateTime,
+            AlertSettingsDto settings) {
+
+        // 임계값이 설정되지 않은 경우 기본값 사용 (80% 경고, 90% 위험)
+        Double warningThreshold = 80.0;
+        Double criticalThreshold = 90.0;
+
+        evaluateMetric(
+                TargetType.EQUIPMENT,
+                equipment.getId(),
+                equipment.getName() + " [" + nicName + "]",
+                MetricType.NETWORK,
+                metricName,
+                usage,
+                warningThreshold,
+                criticalThreshold,
+                generateTime
+        );
+    }
+
+    /**
+     * 네트워크 에러율 평가
+     */
+    private void evaluateNetworkErrorRate(
+            Equipment equipment,
+            String metricName,
+            Double errorRate,
+            String nicName,
+            LocalDateTime generateTime,
+            AlertSettingsDto settings) {
+
+        evaluateMetric(
+                TargetType.EQUIPMENT,
+                equipment.getId(),
+                equipment.getName() + " [" + nicName + "]",
+                MetricType.NETWORK,
+                metricName,
+                errorRate,
+                settings.networkErrorRateWarning(),
+                settings.networkErrorRateCritical(),
+                generateTime
+        );
+    }
+
+    /**
+     * 네트워크 드롭율 평가
+     */
+    private void evaluateNetworkDropRate(
+            Equipment equipment,
+            String metricName,
+            Double dropRate,
+            String nicName,
+            LocalDateTime generateTime,
+            AlertSettingsDto settings) {
+
+        evaluateMetric(
+                TargetType.EQUIPMENT,
+                equipment.getId(),
+                equipment.getName() + " [" + nicName + "]",
+                MetricType.NETWORK,
+                metricName,
+                dropRate,
+                settings.networkDropRateWarning(),
+                settings.networkDropRateCritical(),
+                generateTime
+        );
+    }
+
+    /**
      * Environment 메트릭 평가 (Rack)
      */
     @Async("alertExecutor")

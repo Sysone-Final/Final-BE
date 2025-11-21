@@ -209,15 +209,21 @@ public class PrometheusSchedulerService {
     private DiskMetric convertToDiskMetric(MetricRawData data, LocalDateTime generateTime) {
         Long totalDisk = data.getTotalDisk();
         Long usedDisk = data.getUsedDisk();
+        Long freeDisk = data.getFreeDisk();
+
+        // freeDisk가 없으면 계산
+        if (freeDisk == null && totalDisk != null && usedDisk != null) {
+            freeDisk = totalDisk - usedDisk;
+        }
 
         return DiskMetric.builder()
                 .equipmentId(data.getEquipmentId())
                 .generateTime(generateTime)
                 .totalBytes(totalDisk)
                 .usedBytes(usedDisk)
-                .freeBytes(totalDisk - usedDisk)
+                .freeBytes(freeDisk)
                 .usedPercentage(
-                        (totalDisk != null && totalDisk > 0)
+                        (totalDisk != null && totalDisk > 0 && usedDisk != null)
                                 ? (usedDisk * 100.0 / totalDisk)
                                 : 0.0
                 )
@@ -284,4 +290,6 @@ public class PrometheusSchedulerService {
 
         return true;
     }
+
+
 }

@@ -256,13 +256,15 @@ public class ServerRoomDataSimulator {
                             monitoringMetricCache.updateNetworkMetric(nicMetric);
                             sseService.sendToEquipment(equipmentId, "network", nicMetric);
 
-                            // ✅ Network는 일단 모두 평가 (에러율/드롭율 체크 필요)
-                            try {
-                                alertEvaluationService.evaluateNetworkMetric(nicMetric);
-                                alertEvaluationCount++;
-                            } catch (Exception e) {
-                                log.warn("⚠️ Network 알림 평가 실패: equipmentId={}, nic={}, error={}",
-                                        equipmentId, nic, e.getMessage());
+                            // ✅ 임계값 근처일 때만 알림 평가
+                            if (needsNetworkAlertEvaluation(nicMetric, equipment)) {
+                                try {
+                                    alertEvaluationService.evaluateNetworkMetric(nicMetric);
+                                    alertEvaluationCount++;
+                                } catch (Exception e) {
+                                    log.warn("⚠️ Network 알림 평가 실패: equipmentId={}, nic={}, error={}",
+                                            equipmentId, nic, e.getMessage());
+                                }
                             }
                         }
                         log.debug("  → Network 메트릭 생성 완료 (equipmentId={}, NICs={})",
@@ -378,6 +380,65 @@ public class ServerRoomDataSimulator {
                 metric.getUsedPercentage() != null) {
             double threshold = equipment.getDiskThresholdWarning().doubleValue();
             if (metric.getUsedPercentage() >= threshold * 0.8) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Network 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsNetworkAlertEvaluation(NetworkMetric metric, Equipment equipment) {
+        // 모니터링 비활성화면 평가 안 함
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+
+        // 대역폭 사용률 체크 (임계값 80% 기준)
+        double bandwidthWarning = 80.0;  // AlertEvaluationService의 기본값
+
+        // RX 사용률 체크
+        if (metric.getRxUsage() != null && metric.getRxUsage() >= bandwidthWarning * 0.8) {
+            return true;
+        }
+
+        // TX 사용률 체크
+        if (metric.getTxUsage() != null && metric.getTxUsage() >= bandwidthWarning * 0.8) {
+            return true;
+        }
+
+        // 에러율 체크 (0.1% 이상이면 평가 필요)
+        if (metric.getInErrorPktsTot() != null && metric.getInPktsTot() != null &&
+                metric.getInPktsTot() > 0) {
+            double errorRate = (metric.getInErrorPktsTot() * 100.0) / metric.getInPktsTot();
+            if (errorRate >= 0.08) {  // Warning 임계값(0.1%)의 80%
+                return true;
+            }
+        }
+
+        if (metric.getOutErrorPktsTot() != null && metric.getOutPktsTot() != null &&
+                metric.getOutPktsTot() > 0) {
+            double errorRate = (metric.getOutErrorPktsTot() * 100.0) / metric.getOutPktsTot();
+            if (errorRate >= 0.08) {
+                return true;
+            }
+        }
+
+        // 드롭율 체크 (0.1% 이상이면 평가 필요)
+        if (metric.getInDiscardPktsTot() != null && metric.getInPktsTot() != null &&
+                metric.getInPktsTot() > 0) {
+            double dropRate = (metric.getInDiscardPktsTot() * 100.0) / metric.getInPktsTot();
+            if (dropRate >= 0.08) {
+                return true;
+            }
+        }
+
+        if (metric.getOutDiscardPktsTot() != null && metric.getOutPktsTot() != null &&
+                metric.getOutPktsTot() > 0) {
+            double dropRate = (metric.getOutDiscardPktsTot() * 100.0) / metric.getOutPktsTot();
+            if (dropRate >= 0.08) {
                 return true;
             }
         }

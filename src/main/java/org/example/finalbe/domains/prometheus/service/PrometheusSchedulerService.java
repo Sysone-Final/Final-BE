@@ -189,8 +189,8 @@ public class PrometheusSchedulerService {
                         sseService.sendToEquipment(equipmentId, "network", networkMetric);
                         log.debug("📡 Network SSE 전송: equipmentId={}", equipmentId);
 
-                        // ✅ Network는 일단 모두 평가 (에러율/드롭율 체크 필요)
-                        if (equipment != null && Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+                        // ✅ 임계값 근처일 때만 알림 평가
+                        if (equipment != null && needsNetworkAlertEvaluation(networkMetric, equipment)) {
                             try {
                                 alertEvaluationService.evaluateNetworkMetric(networkMetric);
                                 alertEvaluationCount++;
@@ -527,5 +527,60 @@ public class PrometheusSchedulerService {
         }
 
         return true;
+    }
+
+    /**
+     * Network 메트릭 알림 평가 필요 여부 체크
+     */
+    private boolean needsNetworkAlertEvaluation(NetworkMetric metric, Equipment equipment) {
+        if (equipment == null || !Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+
+        double bandwidthWarning = 80.0;
+
+        // RX/TX 사용률 체크
+        if (metric.getRxUsage() != null && metric.getRxUsage() >= bandwidthWarning * 0.8) {
+            return true;
+        }
+        if (metric.getTxUsage() != null && metric.getTxUsage() >= bandwidthWarning * 0.8) {
+            return true;
+        }
+
+        // 에러율 체크
+        if (metric.getInErrorPktsTot() != null && metric.getInPktsTot() != null &&
+                metric.getInPktsTot() > 0) {
+            double errorRate = (metric.getInErrorPktsTot() * 100.0) / metric.getInPktsTot();
+            if (errorRate >= 0.08) {
+                return true;
+            }
+        }
+
+        if (metric.getOutErrorPktsTot() != null && metric.getOutPktsTot() != null &&
+                metric.getOutPktsTot() > 0) {
+            double errorRate = (metric.getOutErrorPktsTot() * 100.0) / metric.getOutPktsTot();
+            if (errorRate >= 0.08) {
+                return true;
+            }
+        }
+
+        // 드롭율 체크
+        if (metric.getInDiscardPktsTot() != null && metric.getInPktsTot() != null &&
+                metric.getInPktsTot() > 0) {
+            double dropRate = (metric.getInDiscardPktsTot() * 100.0) / metric.getInPktsTot();
+            if (dropRate >= 0.08) {
+                return true;
+            }
+        }
+
+        if (metric.getOutDiscardPktsTot() != null && metric.getOutPktsTot() != null &&
+                metric.getOutPktsTot() > 0) {
+            double dropRate = (metric.getOutDiscardPktsTot() * 100.0) / metric.getOutPktsTot();
+            if (dropRate >= 0.08) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

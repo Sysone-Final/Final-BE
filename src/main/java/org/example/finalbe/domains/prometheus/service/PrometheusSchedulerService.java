@@ -49,7 +49,7 @@ public class PrometheusSchedulerService {
      * ✅ 통일된 수집 시간 사용
      * ✅ SSE 실시간 전송 추가
      */
-    @Scheduled(fixedRate = 5000, initialDelay = 1000)
+    @Scheduled(fixedRateString = "${monitoring.scheduler.metrics-interval:10000}")
     public void collectMetrics() {
         if (!properties.getCollection().isEnabled()) {
             return;

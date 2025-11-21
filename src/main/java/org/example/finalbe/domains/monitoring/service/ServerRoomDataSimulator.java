@@ -162,7 +162,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 2000)
+    @Scheduled(fixedRateString = "${monitoring.scheduler.metrics-interval:10000}")
     @Transactional
     public void generateRealtimeMetrics() {
         log.info("📊 =================================================");

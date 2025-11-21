@@ -29,11 +29,10 @@ spring:
         format_sql: true
         use_sql_comments: true
         jdbc:
-          batch_size: 50
+          batch_size: 100  # 50 → 100 증가
         order_inserts: true
         order_updates: true
     open-in-view: false
-
 
   jackson:
     time-zone: Asia/Seoul
@@ -41,16 +40,26 @@ spring:
       write-dates-as-timestamps: false
     date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
 
+  # ✅ 비동기 실행 스레드 풀 설정
   task:
     execution:
       pool:
-        core-size: 4
-        max-size: 8
-        queue-capacity: 100
-        thread-name-prefix: prometheus-collector-
+        core-size: 8           # 4 → 8 증가
+        max-size: 16           # 8 → 16 증가
+        queue-capacity: 200    # 100 → 200 증가
+        thread-name-prefix: async-executor-
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
+
+    # ✅ 스케줄러 스레드 풀 설정
     scheduling:
       pool:
-        size: 5
+        size: 10             # 5 → 10 증가 (스케줄러가 많으므로)
+      thread-name-prefix: scheduler-
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
 
 jwt:
   secret: ${JWT_SECRET}
@@ -60,26 +69,41 @@ jwt:
 cookie:
   secure: true
 
+# ✅ 모니터링 설정 최적화
 monitoring:
   simulator:
     enabled: true
-    interval-seconds: 5
+    interval-seconds: 10      # 5 → 10초로 증가 (CPU 부하 감소)
     device-count: 9
+  scheduler:
+    metrics-interval: 10000        # 10초 (메트릭 생성)
+    statistics-interval: 15000     # 15초 (통계 계산)
+    serverroom-interval: 10000     # 10초 (서버실 모니터링)
+    datacenter-interval: 15000     # 15초 (데이터센터 모니터링)
 
+# ✅ Prometheus 설정 최적화
 prometheus:
   base-url: http://112.221.184.61:9090
-  timeout: 10s
+  timeout: 15s              # 10s → 15s 증가
   collection:
     enabled: true
-    interval: 5000  # 5초
+    interval: 10000         # 5000 → 10000 (5초 → 10초로 증가)
+  executor:
+    core-pool-size: 4
+    max-pool-size: 8
+    queue-capacity: 100
+    thread-name-prefix: prometheus-
 
+## ✅ 로깅 설정 (주석 해제 및 최적화)
 #logging:
 #  level:
 #    root: INFO
-#    org.example.finalbe.domains.prometheus: DEBUG  # ← 이 줄 추가/수정
-#    org.hibernate.SQL: DEBUG
-#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-#    com.zaxxer.hikari: DEBUG
+#    org.example.finalbe.domains.prometheus: INFO      # DEBUG → INFO
+#    org.example.finalbe.domains.monitoring: INFO      # 추가
+#    org.hibernate.SQL: WARN                           # DEBUG → WARN
+#    org.hibernate.type.descriptor.sql.BasicBinder: WARN  # TRACE → WARN
+#    com.zaxxer.hikari: INFO                           # DEBUG → INFO
+#    org.springframework.scheduling: INFO               # 추가
 
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

@@ -33,7 +33,7 @@ public class AggregatedMonitoringScheduler {
     private List<Long> dataCenterIds = List.of(1L);
 
 
-    @Scheduled(fixedDelay = 5000)
+    @Scheduled(fixedDelayString = "${monitoring.scheduler.statistics-interval:15000}")
     public void updateServerRoomStatistics() {
         log.debug("=== ServerRoom 통합 모니터링 시작 ===");
 
@@ -60,7 +60,8 @@ public class AggregatedMonitoringScheduler {
         log.debug("ServerRoom 통합 모니터링 완료 - 성공: {}, 실패: {}", successCount, failCount);
     }
 
-    @Scheduled(fixedDelay = 5000)
+
+    @Scheduled(fixedDelayString = "${monitoring.scheduler.datacenter-interval:15000}")
     public void updateDataCenterStatistics() {
         log.debug("=== DataCenter 통합 모니터링 시작 ===");
 

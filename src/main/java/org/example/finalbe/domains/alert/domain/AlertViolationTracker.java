@@ -5,7 +5,6 @@ import lombok.*;
 import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.example.finalbe.domains.common.enumdir.TargetType;
 
-
 import java.time.LocalDateTime;
 
 @Entity

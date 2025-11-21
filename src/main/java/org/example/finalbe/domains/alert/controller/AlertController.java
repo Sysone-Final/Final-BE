@@ -1,5 +1,6 @@
 package org.example.finalbe.domains.alert.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.domain.AlertHistory;
@@ -8,20 +9,23 @@ import org.example.finalbe.domains.alert.dto.AlertStatisticsDto;
 import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
 import org.example.finalbe.domains.alert.service.AlertNotificationService;
 import org.example.finalbe.domains.common.enumdir.AlertStatus;
-import org.example.finalbe.domains.common.enumdir.TargetType;
+import org.example.finalbe.domains.member.domain.Member;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/alerts")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class AlertController {
 
     private final AlertNotificationService notificationService;
@@ -133,7 +137,7 @@ public class AlertController {
     @GetMapping("/{id}")
     public ResponseEntity<AlertHistoryDto> getAlertDetail(@PathVariable Long id) {
         AlertHistory alert = alertHistoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AlertNotFoundException(id));
 
         return ResponseEntity.ok(AlertHistoryDto.from(alert));
     }
@@ -143,38 +147,25 @@ public class AlertController {
      */
     @GetMapping("/statistics")
     public ResponseEntity<AlertStatisticsDto> getStatistics() {
-        List<AlertHistory> allAlerts = alertHistoryRepository.findAll();
+        long totalAlerts = alertHistoryRepository.count();
+        long triggeredAlerts = alertHistoryRepository.countByStatus(AlertStatus.TRIGGERED);
+        long acknowledgedAlerts = alertHistoryRepository.countByStatus(AlertStatus.ACKNOWLEDGED);
+        long resolvedAlerts = alertHistoryRepository.countByStatus(AlertStatus.RESOLVED);
 
-        long totalAlerts = (long) allAlerts.size();
-        long triggeredAlerts = allAlerts.stream()
-                .filter(a -> a.getStatus() == AlertStatus.TRIGGERED)
-                .count();
-        long acknowledgedAlerts = allAlerts.stream()
-                .filter(a -> a.getStatus() == AlertStatus.ACKNOWLEDGED)
-                .count();
-        long resolvedAlerts = allAlerts.stream()
-                .filter(a -> a.getStatus() == AlertStatus.RESOLVED)
-                .count();
-        long criticalAlerts = allAlerts.stream()
-                .filter(a -> a.getLevel().name().equals("CRITICAL"))
-                .count();
-        long warningAlerts = allAlerts.stream()
-                .filter(a -> a.getLevel().name().equals("WARNING"))
-                .count();
-        long equipmentAlerts = allAlerts.stream()
-                .filter(a -> a.getTargetType() == TargetType.EQUIPMENT)
-                .count();
-        long rackAlerts = allAlerts.stream()
-                .filter(a -> a.getTargetType() == TargetType.RACK)
-                .count();
-        long serverRoomAlerts = allAlerts.stream()
-                .filter(a -> a.getTargetType() == TargetType.SERVER_ROOM)
-                .count();
-        long dataCenterAlerts = allAlerts.stream()
-                .filter(a -> a.getTargetType() == TargetType.DATA_CENTER)
-                .count();
+        long criticalAlerts = alertHistoryRepository.countByLevel(
+                org.example.finalbe.domains.common.enumdir.AlertLevel.CRITICAL);
+        long warningAlerts = alertHistoryRepository.countByLevel(
+                org.example.finalbe.domains.common.enumdir.AlertLevel.WARNING);
 
-        // ✅ Record는 new 생성자로 직접 생성
+        long equipmentAlerts = alertHistoryRepository.countByTargetType(
+                org.example.finalbe.domains.common.enumdir.TargetType.EQUIPMENT);
+        long rackAlerts = alertHistoryRepository.countByTargetType(
+                org.example.finalbe.domains.common.enumdir.TargetType.RACK);
+        long serverRoomAlerts = alertHistoryRepository.countByTargetType(
+                org.example.finalbe.domains.common.enumdir.TargetType.SERVER_ROOM);
+        long dataCenterAlerts = alertHistoryRepository.countByTargetType(
+                org.example.finalbe.domains.common.enumdir.TargetType.DATA_CENTER);
+
         AlertStatisticsDto stats = new AlertStatisticsDto(
                 totalAlerts,
                 triggeredAlerts,
@@ -199,12 +190,13 @@ public class AlertController {
     @PostMapping("/{id}/acknowledge")
     public ResponseEntity<AlertHistoryDto> acknowledgeAlert(
             @PathVariable Long id,
-            @RequestBody Map<String, Long> body) {
+            Authentication authentication) {
+
+        Long userId = extractUserId(authentication);
 
         AlertHistory alert = alertHistoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AlertNotFoundException(id));
 
-        Long userId = body.get("userId");
         alert.acknowledge(userId);
         alertHistoryRepository.save(alert);
 
@@ -221,12 +213,13 @@ public class AlertController {
     @PostMapping("/{id}/resolve")
     public ResponseEntity<AlertHistoryDto> resolveAlert(
             @PathVariable Long id,
-            @RequestBody Map<String, Long> body) {
+            Authentication authentication) {
+
+        Long userId = extractUserId(authentication);
 
         AlertHistory alert = alertHistoryRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new AlertNotFoundException(id));
 
-        Long userId = body.get("userId");
         alert.resolve(userId);
         alertHistoryRepository.save(alert);
 
@@ -242,13 +235,16 @@ public class AlertController {
      */
     @PostMapping("/acknowledge-multiple")
     public ResponseEntity<List<AlertHistoryDto>> acknowledgeMultipleAlerts(
-            @RequestBody Map<String, Object> body) {
+            @Valid @RequestBody AcknowledgeMultipleRequest request,
+            Authentication authentication) {
 
-        @SuppressWarnings("unchecked")
-        List<Long> alertIds = (List<Long>) body.get("alertIds");
-        Long userId = ((Number) body.get("userId")).longValue();
+        Long userId = extractUserId(authentication);
 
-        List<AlertHistory> alerts = alertHistoryRepository.findAllById(alertIds);
+        List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
+
+        if (alerts.isEmpty()) {
+            throw new AlertNotFoundException("요청한 알림을 찾을 수 없습니다.");
+        }
 
         alerts.forEach(alert -> {
             alert.acknowledge(userId);
@@ -271,13 +267,16 @@ public class AlertController {
      */
     @PostMapping("/resolve-multiple")
     public ResponseEntity<List<AlertHistoryDto>> resolveMultipleAlerts(
-            @RequestBody Map<String, Object> body) {
+            @Valid @RequestBody ResolveMultipleRequest request,
+            Authentication authentication) {
 
-        @SuppressWarnings("unchecked")
-        List<Long> alertIds = (List<Long>) body.get("alertIds");
-        Long userId = ((Number) body.get("userId")).longValue();
+        Long userId = extractUserId(authentication);
 
-        List<AlertHistory> alerts = alertHistoryRepository.findAllById(alertIds);
+        List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
+
+        if (alerts.isEmpty()) {
+            throw new AlertNotFoundException("요청한 알림을 찾을 수 없습니다.");
+        }
 
         alerts.forEach(alert -> {
             alert.resolve(userId);
@@ -293,5 +292,23 @@ public class AlertController {
         log.info("여러 알림 해결됨: count={}, userId={}", alerts.size(), userId);
 
         return ResponseEntity.ok(dtos);
+    }
+
+    // ========== Private Methods ==========
+
+    /**
+     * JWT 토큰에서 userId 추출
+     * (프로젝트의 JWT 구현 방식에 따라 수정 필요)
+     */
+    private Long extractUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalStateException("인증되지 않은 사용자입니다.");
+        }
+        String member = SecurityContextHolder.getContext().getAuthentication().getName();
+        try {
+            return Long.parseLong(member);
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("유효하지 않은 사용자 ID입니다.", e);
+        }
     }
 }

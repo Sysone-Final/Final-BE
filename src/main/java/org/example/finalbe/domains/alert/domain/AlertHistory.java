@@ -7,7 +7,6 @@ import org.example.finalbe.domains.common.enumdir.AlertStatus;
 import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.example.finalbe.domains.common.enumdir.TargetType;
 
-
 import java.time.LocalDateTime;
 
 @Entity

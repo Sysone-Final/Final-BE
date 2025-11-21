@@ -2,6 +2,9 @@ package org.example.finalbe.domains.prometheus.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.alert.service.AlertEvaluationService;
+import org.example.finalbe.domains.monitoring.domain.DiskMetric;
+import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import org.example.finalbe.domains.prometheus.config.PrometheusProperties;
 import org.example.finalbe.domains.prometheus.dto.MetricRawData;
 import org.example.finalbe.domains.prometheus.dto.MetricStreamDto;
@@ -12,7 +15,6 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +33,7 @@ public class PrometheusSchedulerService {
     private final NetworkMetricCollectorService networkMetricCollector;
     private final EnvironmentMetricCollectorService environmentMetricCollector;
     private final SseEmitterService sseEmitterService;
+    private final AlertEvaluationService alertEvaluationService;
 
     /**
      * ✅ fixedRate로 변경: 정확히 5초마다 실행 (이전 작업 완료 여부 무관)
@@ -102,6 +105,15 @@ public class PrometheusSchedulerService {
             networkMetricCollector.saveMetrics(validDataList);
             environmentMetricCollector.saveMetrics(validDataList);
 
+            // ✅ 알림 평가 추가!
+            for (MetricRawData data : validDataList) {
+                try {
+                    evaluateMetricsForAlert(data, collectionTime);
+                } catch (Exception e) {
+                    log.error("❌ 알림 평가 실패: equipmentId={}", data.getEquipmentId(), e);
+                }
+            }
+
             // SSE로 실시간 전송
             if (sseEmitterService.getActiveConnectionCount() > 0) {
                 List<MetricStreamDto> streamData = validDataList.stream()
@@ -122,6 +134,97 @@ public class PrometheusSchedulerService {
     }
 
     /**
+     * ✅ 메트릭 데이터를 SystemMetric, DiskMetric으로 변환하여 알림 평가
+     */
+    private void evaluateMetricsForAlert(MetricRawData data, LocalDateTime generateTime) {
+        // System 메트릭 변환 및 평가
+        if (data.getCpuModes() != null && !data.getCpuModes().isEmpty()) {
+            SystemMetric systemMetric = convertToSystemMetric(data, generateTime);
+            alertEvaluationService.evaluateSystemMetric(systemMetric);
+        }
+
+        // Disk 메트릭 변환 및 평가
+        if (data.getTotalDisk() != null && data.getUsedDisk() != null) {
+            DiskMetric diskMetric = convertToDiskMetric(data, generateTime);
+            alertEvaluationService.evaluateDiskMetric(diskMetric);
+        }
+    }
+
+    /**
+     * ✅ MetricRawData → SystemMetric 변환
+     */
+    private SystemMetric convertToSystemMetric(MetricRawData data, LocalDateTime generateTime) {
+        Map<String, Double> cpuModes = data.getCpuModes();
+
+        // CPU Idle 계산
+        Double cpuIdle = cpuModes.getOrDefault("idle", 0.0);
+
+        // 메모리 계산
+        Long totalMemory = data.getTotalMemory();
+        Long availableMemory = data.getAvailableMemory();
+        Long usedMemory = (totalMemory != null && availableMemory != null)
+                ? (totalMemory - availableMemory)
+                : 0L;
+
+        Double memoryUsagePercent = (totalMemory != null && totalMemory > 0)
+                ? ((usedMemory * 100.0) / totalMemory)
+                : 0.0;
+
+        return SystemMetric.builder()
+                .equipmentId(data.getEquipmentId())
+                .generateTime(generateTime)
+                .cpuIdle(cpuIdle)
+                .cpuUser(cpuModes.getOrDefault("user", 0.0))
+                .cpuSystem(cpuModes.getOrDefault("system", 0.0))
+                .cpuWait(cpuModes.getOrDefault("iowait", 0.0))
+                .cpuNice(cpuModes.getOrDefault("nice", 0.0))
+                .cpuIrq(cpuModes.getOrDefault("irq", 0.0))
+                .cpuSoftirq(cpuModes.getOrDefault("softirq", 0.0))
+                .cpuSteal(cpuModes.getOrDefault("steal", 0.0))
+                .loadAvg1(data.getLoadAvg1())
+                .loadAvg5(data.getLoadAvg5())
+                .loadAvg15(data.getLoadAvg15())
+                .contextSwitches(data.getContextSwitches())
+                .totalMemory(totalMemory)
+                .usedMemory(usedMemory)
+                .freeMemory(data.getFreeMemory())
+                .usedMemoryPercentage(memoryUsagePercent)
+                .memoryBuffers(data.getMemoryBuffers())
+                .memoryCached(data.getMemoryCached())
+                .memoryActive(data.getMemoryActive())
+                .memoryInactive(data.getMemoryInactive())
+                .totalSwap(data.getTotalSwap())
+                .usedSwap(data.getUsedSwap())
+                .usedSwapPercentage(
+                        (data.getTotalSwap() != null && data.getTotalSwap() > 0)
+                                ? (data.getUsedSwap() * 100.0 / data.getTotalSwap())
+                                : 0.0
+                )
+                .build();
+    }
+
+    /**
+     * ✅ MetricRawData → DiskMetric 변환
+     */
+    private DiskMetric convertToDiskMetric(MetricRawData data, LocalDateTime generateTime) {
+        Long totalDisk = data.getTotalDisk();
+        Long usedDisk = data.getUsedDisk();
+
+        return DiskMetric.builder()
+                .equipmentId(data.getEquipmentId())
+                .generateTime(generateTime)
+                .totalBytes(totalDisk)
+                .usedBytes(usedDisk)
+                .freeBytes(totalDisk - usedDisk)
+                .usedPercentage(
+                        (totalDisk != null && totalDisk > 0)
+                                ? (usedDisk * 100.0 / totalDisk)
+                                : 0.0
+                )
+                .build();
+    }
+
+    /**
      * ✅ 통일된 타임스탬프를 사용하여 초기화
      */
     private Map<Long, MetricRawData> initializeDataMap(long timestamp) {
@@ -134,7 +237,7 @@ public class PrometheusSchedulerService {
                 MetricRawData data = MetricRawData.builder()
                         .equipmentId(equipmentId)
                         .instance(instance)
-                        .timestamp(timestamp)  // ✅ 통일된 타임스탬프
+                        .timestamp(timestamp)
                         .build();
                 dataMap.put(equipmentId, data);
             });
@@ -173,7 +276,7 @@ public class PrometheusSchedulerService {
                 .mapToDouble(Double::doubleValue)
                 .sum();
 
-        if (totalCpu > 110.0) { // 110% 이상이면 비정상
+        if (totalCpu > 110.0) {
             log.warn("⚠️ 무효 메트릭: equipmentId={} - CPU 합계 {}% (비정상)",
                     data.getEquipmentId(), totalCpu);
             return false;

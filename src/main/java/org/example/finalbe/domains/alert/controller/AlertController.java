@@ -6,10 +6,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.domain.AlertHistory;
 import org.example.finalbe.domains.alert.dto.AlertHistoryDto;
 import org.example.finalbe.domains.alert.dto.AlertStatisticsDto;
+import org.example.finalbe.domains.alert.dto.AcknowledgeMultipleRequest;
+import org.example.finalbe.domains.alert.dto.ResolveMultipleRequest;
 import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
 import org.example.finalbe.domains.alert.service.AlertNotificationService;
+import org.example.finalbe.domains.common.enumdir.AlertLevel;
 import org.example.finalbe.domains.common.enumdir.AlertStatus;
-import org.example.finalbe.domains.member.domain.Member;
+import org.example.finalbe.domains.common.enumdir.TargetType;
+import org.example.finalbe.domains.common.exception.AlertNotFoundException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -141,7 +145,6 @@ public class AlertController {
 
         return ResponseEntity.ok(AlertHistoryDto.from(alert));
     }
-
     /**
      * 알림 통계 조회
      */
@@ -152,19 +155,13 @@ public class AlertController {
         long acknowledgedAlerts = alertHistoryRepository.countByStatus(AlertStatus.ACKNOWLEDGED);
         long resolvedAlerts = alertHistoryRepository.countByStatus(AlertStatus.RESOLVED);
 
-        long criticalAlerts = alertHistoryRepository.countByLevel(
-                org.example.finalbe.domains.common.enumdir.AlertLevel.CRITICAL);
-        long warningAlerts = alertHistoryRepository.countByLevel(
-                org.example.finalbe.domains.common.enumdir.AlertLevel.WARNING);
+        long criticalAlerts = alertHistoryRepository.countByLevel(AlertLevel.CRITICAL);
+        long warningAlerts = alertHistoryRepository.countByLevel(AlertLevel.WARNING);
 
-        long equipmentAlerts = alertHistoryRepository.countByTargetType(
-                org.example.finalbe.domains.common.enumdir.TargetType.EQUIPMENT);
-        long rackAlerts = alertHistoryRepository.countByTargetType(
-                org.example.finalbe.domains.common.enumdir.TargetType.RACK);
-        long serverRoomAlerts = alertHistoryRepository.countByTargetType(
-                org.example.finalbe.domains.common.enumdir.TargetType.SERVER_ROOM);
-        long dataCenterAlerts = alertHistoryRepository.countByTargetType(
-                org.example.finalbe.domains.common.enumdir.TargetType.DATA_CENTER);
+        long equipmentAlerts = alertHistoryRepository.countByTargetType(TargetType.EQUIPMENT);
+        long rackAlerts = alertHistoryRepository.countByTargetType(TargetType.RACK);
+        long serverRoomAlerts = alertHistoryRepository.countByTargetType(TargetType.SERVER_ROOM);
+        long dataCenterAlerts = alertHistoryRepository.countByTargetType(TargetType.DATA_CENTER);
 
         AlertStatisticsDto stats = new AlertStatisticsDto(
                 totalAlerts,
@@ -188,11 +185,8 @@ public class AlertController {
      * 알림 확인
      */
     @PostMapping("/{id}/acknowledge")
-    public ResponseEntity<AlertHistoryDto> acknowledgeAlert(
-            @PathVariable Long id,
-            Authentication authentication) {
-
-        Long userId = extractUserId(authentication);
+    public ResponseEntity<AlertHistoryDto> acknowledgeAlert(@PathVariable Long id) {
+        Long userId = extractUserId();
 
         AlertHistory alert = alertHistoryRepository.findById(id)
                 .orElseThrow(() -> new AlertNotFoundException(id));
@@ -211,11 +205,8 @@ public class AlertController {
      * 알림 해결
      */
     @PostMapping("/{id}/resolve")
-    public ResponseEntity<AlertHistoryDto> resolveAlert(
-            @PathVariable Long id,
-            Authentication authentication) {
-
-        Long userId = extractUserId(authentication);
+    public ResponseEntity<AlertHistoryDto> resolveAlert(@PathVariable Long id) {
+        Long userId = extractUserId();
 
         AlertHistory alert = alertHistoryRepository.findById(id)
                 .orElseThrow(() -> new AlertNotFoundException(id));
@@ -235,10 +226,9 @@ public class AlertController {
      */
     @PostMapping("/acknowledge-multiple")
     public ResponseEntity<List<AlertHistoryDto>> acknowledgeMultipleAlerts(
-            @Valid @RequestBody AcknowledgeMultipleRequest request,
-            Authentication authentication) {
+            @Valid @RequestBody AcknowledgeMultipleRequest request) {
 
-        Long userId = extractUserId(authentication);
+        Long userId = extractUserId();
 
         List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
 
@@ -267,10 +257,9 @@ public class AlertController {
      */
     @PostMapping("/resolve-multiple")
     public ResponseEntity<List<AlertHistoryDto>> resolveMultipleAlerts(
-            @Valid @RequestBody ResolveMultipleRequest request,
-            Authentication authentication) {
+            @Valid @RequestBody ResolveMultipleRequest request) {
 
-        Long userId = extractUserId(authentication);
+        Long userId = extractUserId();
 
         List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
 
@@ -298,15 +287,18 @@ public class AlertController {
 
     /**
      * JWT 토큰에서 userId 추출
-     * (프로젝트의 JWT 구현 방식에 따라 수정 필요)
      */
-    private Long extractUserId(Authentication authentication) {
+    private Long extractUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }
-        String member = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        String userId = authentication.getName();
+
         try {
-            return Long.parseLong(member);
+            return Long.parseLong(userId);
         } catch (NumberFormatException e) {
             throw new IllegalStateException("유효하지 않은 사용자 ID입니다.", e);
         }

@@ -15,6 +15,7 @@ import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -184,6 +185,7 @@ public class ServerRoomDataSimulator {
         int skippedExcluded = 0;
         int skippedDeleted = 0;
         int processed = 0;
+        int alertEvaluationErrors = 0; // ✅ 알림 평가 에러 카운트 추가
 
         try {
             for (Equipment equipment : activeEquipments) {
@@ -212,8 +214,15 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateSystemMetric(sysMetric);
                     sseService.sendToEquipment(equipmentId, "system", sysMetric);
 
-                    // ✅ 알림 평가 추가!
-                    alertEvaluationService.evaluateSystemMetric(sysMetric);
+                    // ✅ 알림 평가 - 에러 방지 처리
+                    try {
+                        alertEvaluationService.evaluateSystemMetric(sysMetric);
+                    } catch (TaskRejectedException e) {
+                        alertEvaluationErrors++;
+                        log.debug("⚠️ System 알림 평가 작업 거부 (큐 포화): equipmentId={}", equipmentId);
+                    } catch (Exception e) {
+                        log.warn("⚠️ System 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                    }
 
                     log.debug("  → System 메트릭 생성 완료 (equipmentId={})", equipmentId);
                 }
@@ -225,8 +234,15 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateDiskMetric(diskMetric);
                     sseService.sendToEquipment(equipmentId, "disk", diskMetric);
 
-                    // ✅ 알림 평가 추가!
-                    alertEvaluationService.evaluateDiskMetric(diskMetric);
+                    // ✅ 알림 평가 - 에러 방지 처리
+                    try {
+                        alertEvaluationService.evaluateDiskMetric(diskMetric);
+                    } catch (TaskRejectedException e) {
+                        alertEvaluationErrors++;
+                        log.debug("⚠️ Disk 알림 평가 작업 거부 (큐 포화): equipmentId={}", equipmentId);
+                    } catch (Exception e) {
+                        log.warn("⚠️ Disk 알림 평가 실패: equipmentId={}, error={}", equipmentId, e.getMessage());
+                    }
 
                     log.debug("  → Disk 메트릭 생성 완료 (equipmentId={})", equipmentId);
                 }
@@ -241,8 +257,15 @@ public class ServerRoomDataSimulator {
                             monitoringMetricCache.updateNetworkMetric(nicMetric);
                             sseService.sendToEquipment(equipmentId, "network", nicMetric);
 
-                            // ✅ 알림 평가 추가!
-                            alertEvaluationService.evaluateNetworkMetric(nicMetric);
+                            // ✅ 알림 평가 - 에러 방지 처리
+                            try {
+                                alertEvaluationService.evaluateNetworkMetric(nicMetric);
+                            } catch (TaskRejectedException e) {
+                                alertEvaluationErrors++;
+                                log.debug("⚠️ Network 알림 평가 작업 거부 (큐 포화): equipmentId={}, nic={}", equipmentId, nic);
+                            } catch (Exception e) {
+                                log.warn("⚠️ Network 알림 평가 실패: equipmentId={}, nic={}, error={}", equipmentId, nic, e.getMessage());
+                            }
                         }
                         log.debug("  → Network 메트릭 생성 완료 (equipmentId={}, NICs={})",
                                 equipmentId, nics.size());
@@ -258,8 +281,15 @@ public class ServerRoomDataSimulator {
                 monitoringMetricCache.updateEnvironmentMetric(envMetric);
                 sseService.sendToRack(rackId, "environment", envMetric);
 
-                // ✅ 알림 평가 추가!
-                alertEvaluationService.evaluateEnvironmentMetric(envMetric);
+                // ✅ 알림 평가 - 에러 방지 처리
+                try {
+                    alertEvaluationService.evaluateEnvironmentMetric(envMetric);
+                } catch (TaskRejectedException e) {
+                    alertEvaluationErrors++;
+                    log.debug("⚠️ Environment 알림 평가 작업 거부 (큐 포화): rackId={}", rackId);
+                } catch (Exception e) {
+                    log.warn("⚠️ Environment 알림 평가 실패: rackId={}, error={}", rackId, e.getMessage());
+                }
             }
 
             // DB에 한 번에 저장 (Batch Insert)
@@ -287,6 +317,10 @@ public class ServerRoomDataSimulator {
             log.info("  - Disk 메트릭: {}", diskMetricsToSave.size());
             log.info("  - Network 메트릭: {}", networkMetricsToSave.size());
             log.info("  - Environment 메트릭: {}", environmentMetricsToSave.size());
+            // ✅ 알림 평가 에러 로그 추가
+            if (alertEvaluationErrors > 0) {
+                log.warn("  ⚠️ 알림 평가 작업 거부 (큐 포화): {} 건", alertEvaluationErrors);
+            }
             log.info("🚀 SSE 전송 완료 & DB 작업 할당 끝: {}ms 소요", duration);
             log.info("📊 =================================================");
 

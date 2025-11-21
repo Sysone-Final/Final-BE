@@ -202,12 +202,13 @@ public class SystemMetricCollectorService {
         Double usedMemoryPercentage = (totalMemory != null && totalMemory > 0 && usedMemory != null)
                 ? (usedMemory * 100.0 / totalMemory) : null;
 
+        // ✅ Swap 관련 변수들 - null 안전하게 처리
         Long swapTotal = data.getTotalSwap();
-        Long swapUsed = data.getUsedSwap();
+        Long swapUsed = data.getUsedSwap() != null ? data.getUsedSwap() : 0L;  // ← 여기서 미리 0L 처리
 
-        // swapUsed가 null일 경우를 대비한 안전한 처리
-        Double swapUsedPercentage = (swapTotal != null && swapTotal > 0 && swapUsed != null)
-                ? (swapUsed * 100.0 / swapTotal) : null;
+        // swapUsed는 이제 절대 null이 아니므로 안전하게 계산
+        Double swapUsedPercentage = (swapTotal != null && swapTotal > 0)
+                ? (swapUsed * 100.0 / swapTotal) : 0.0;  // ← null 대신 0.0 사용
 
         return SystemMetric.builder()
                 .equipmentId(data.getEquipmentId())
@@ -233,8 +234,8 @@ public class SystemMetricCollectorService {
                 .memoryActive(data.getMemoryActive())
                 .memoryInactive(data.getMemoryInactive())
                 .totalSwap(swapTotal)
-                .usedSwap(swapUsed)
-                .usedSwapPercentage(swapUsedPercentage)
+                .usedSwap(swapUsed)  // ✅ 이미 안전하게 처리된 변수 사용
+                .usedSwapPercentage(swapUsedPercentage)  // ✅ 안전하게 계산된 값 사용
                 .build();
     }
 

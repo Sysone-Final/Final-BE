@@ -103,4 +103,13 @@ public interface ServerRoomRepository extends JpaRepository<ServerRoom, Long> {
      */
     List<ServerRoom> findByDataCenter_IdAndDelYn(Long dataCenterId, DelYN delYn);
 
+    /**
+     * ServerRoom 조회 with DataCenter (Fetch Join)
+     * LazyInitializationException 방지를 위한 메서드
+     */
+    @Query("SELECT sr FROM ServerRoom sr " +
+            "LEFT JOIN FETCH sr.dataCenter dc " +
+            "WHERE sr.id = :serverRoomId")
+    Optional<ServerRoom> findByIdWithDataCenter(@Param("serverRoomId") Long serverRoomId);
+
 }

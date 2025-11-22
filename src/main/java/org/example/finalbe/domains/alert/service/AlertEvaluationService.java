@@ -45,6 +45,7 @@ public class AlertEvaluationService {
     private final AlertSettingsRepository alertSettingsRepository;
     private final AlertNotificationService alertNotificationService;
 
+
     /**
      * System 메트릭 평가 (CPU, Memory)
      */
@@ -596,12 +597,7 @@ public class AlertEvaluationService {
                         measuredValue, thresholdValue))
                 .build();
 
-        switch (targetType) {
-            case EQUIPMENT -> alert.setEquipmentId(targetId);
-            case RACK -> alert.setRackId(targetId);
-            case SERVER_ROOM -> alert.setServerRoomId(targetId);
-            case DATA_CENTER -> alert.setDataCenterId(targetId);
-        }
+        populateHierarchyIds(alert, targetType, targetId);
 
         alertHistoryRepository.save(alert);
         alertNotificationService.sendAlert(alert);
@@ -691,5 +687,71 @@ public class AlertEvaluationService {
         return alertSettingsRepository.findById(1L)
                 .map(AlertSettingsDto::from)
                 .orElseGet(AlertSettingsDto::getDefault);
+    }
+    /**
+     * 계층 구조에 따라 Alert의 ID들을 자동으로 채움
+     * Equipment < Rack < ServerRoom < DataCenter
+     *
+     * ✅ Fetch Join을 사용하여 LazyInitializationException 방지
+     *
+     * @param alert AlertHistory 엔티티
+     * @param targetType 대상 타입
+     * @param targetId 대상 ID
+     */
+    private void populateHierarchyIds(AlertHistory alert, TargetType targetType, Long targetId) {
+        switch (targetType) {
+            case EQUIPMENT -> {
+                // Equipment의 경우: Equipment -> Rack -> ServerRoom -> DataCenter 순으로 채움
+                alert.setEquipmentId(targetId);
+
+                // ✅ Fetch Join으로 한 번에 로드
+                equipmentRepository.findByIdWithFullHierarchy(targetId).ifPresent(equipment -> {
+                    if (equipment.getRack() != null) {
+                        Rack rack = equipment.getRack();
+                        alert.setRackId(rack.getId());
+
+                        if (rack.getServerRoom() != null) {
+                            ServerRoom serverRoom = rack.getServerRoom();
+                            alert.setServerRoomId(serverRoom.getId());
+
+                            if (serverRoom.getDataCenter() != null) {
+                                alert.setDataCenterId(serverRoom.getDataCenter().getId());
+                            }
+                        }
+                    }
+                });
+            }
+            case RACK -> {
+                // Rack의 경우: Rack -> ServerRoom -> DataCenter만 채움 (Equipment는 null)
+                alert.setRackId(targetId);
+
+                // ✅ Fetch Join으로 한 번에 로드
+                rackRepository.findByIdWithServerRoomAndDataCenter(targetId).ifPresent(rack -> {
+                    if (rack.getServerRoom() != null) {
+                        ServerRoom serverRoom = rack.getServerRoom();
+                        alert.setServerRoomId(serverRoom.getId());
+
+                        if (serverRoom.getDataCenter() != null) {
+                            alert.setDataCenterId(serverRoom.getDataCenter().getId());
+                        }
+                    }
+                });
+            }
+            case SERVER_ROOM -> {
+                // ServerRoom의 경우: ServerRoom -> DataCenter만 채움 (Equipment, Rack은 null)
+                alert.setServerRoomId(targetId);
+
+                // ✅ Fetch Join으로 한 번에 로드
+                serverRoomRepository.findByIdWithDataCenter(targetId).ifPresent(serverRoom -> {
+                    if (serverRoom.getDataCenter() != null) {
+                        alert.setDataCenterId(serverRoom.getDataCenter().getId());
+                    }
+                });
+            }
+            case DATA_CENTER -> {
+                // DataCenter의 경우: DataCenter만 채움 (나머지는 모두 null)
+                alert.setDataCenterId(targetId);
+            }
+        }
     }
 }

@@ -271,60 +271,26 @@ public class PrometheusSchedulerService {
         }
     }
 
-    // ========== ✅ 새로 추가: 알림 평가 필요 여부 판단 메서드 ==========
 
-    /**
-     * System 메트릭 알림 평가 필요 여부 체크
-     */
     private boolean needsSystemAlertEvaluation(SystemMetric metric, Equipment equipment) {
-        // 모니터링 비활성화면 평가 안 함
         if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
             return false;
         }
 
-        // CPU 체크 (임계값의 80% 이상만 평가)
-        if (equipment.getCpuThresholdWarning() != null && metric.getCpuIdle() != null) {
-            double cpuUsage = 100.0 - metric.getCpuIdle();
-            double threshold = equipment.getCpuThresholdWarning().doubleValue();
-            if (cpuUsage >= threshold * 0.8) {
-                return true;
-            }
-        }
-
-        // Memory 체크 (임계값의 80% 이상만 평가)
-        if (equipment.getMemoryThresholdWarning() != null &&
-                metric.getUsedMemoryPercentage() != null) {
-            double threshold = equipment.getMemoryThresholdWarning().doubleValue();
-            if (metric.getUsedMemoryPercentage() >= threshold * 0.8) {
-                return true;
-            }
-        }
-
-        return false;
+        // ✅ 항상 평가 (최적화 로직 제거)
+        return equipment.getCpuThresholdWarning() != null ||
+                equipment.getMemoryThresholdWarning() != null;
     }
 
-    /**
-     * Disk 메트릭 알림 평가 필요 여부 체크
-     */
     private boolean needsDiskAlertEvaluation(DiskMetric metric, Equipment equipment) {
-        // 모니터링 비활성화면 평가 안 함
         if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
             return false;
         }
 
-        // Disk 사용률 체크 (임계값의 80% 이상만 평가)
-        if (equipment.getDiskThresholdWarning() != null &&
-                metric.getUsedPercentage() != null) {
-            double threshold = equipment.getDiskThresholdWarning().doubleValue();
-            if (metric.getUsedPercentage() >= threshold * 0.8) {
-                return true;
-            }
-        }
-
-        return false;
+        // ✅ 항상 평가
+        return equipment.getDiskThresholdWarning() != null;
     }
 
-    // ========== 기존 메서드들 ==========
 
     /**
      * ✅ MetricRawData → SystemMetric 변환

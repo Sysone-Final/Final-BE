@@ -7,6 +7,7 @@ import org.example.finalbe.domains.common.exception.BusinessException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.prometheus.service.EquipmentMappingService;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.dto.*;
 import org.example.finalbe.domains.rack.repository.RackRepository;
@@ -18,10 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 랙 실장도 관리 서비스
- * 실장도(Elevation View): 랙의 1U~42U 유닛을 시각적으로 표시하고 장비를 배치/이동
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,25 +27,19 @@ public class RackElevationService {
 
     private final RackRepository rackRepository;
     private final EquipmentRepository equipmentRepository;
+    private final EquipmentMappingService equipmentMappingService; // ✅ 추가
 
-    /**
-     * 랙 실장도 조회
-     */
     public RackElevationResponse getRackElevation(Long id, String view) {
         log.debug("Fetching rack elevation for id: {}, view: {}", id, view);
 
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));
 
-        // 랙에 장착된 장비 목록 조회
         List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(id, DelYN.N);
 
         return RackElevationResponse.from(rack, equipments, view);
     }
 
-    /**
-     * 장비 배치 (드래그 앤 드롭)
-     */
     @Transactional
     public void placeEquipment(Long rackId, Long equipmentId, EquipmentPlacementRequest request) {
         log.info("Placing equipment {} on rack {} at unit {}", equipmentId, rackId, request.startUnit());
@@ -78,12 +69,11 @@ public class RackElevationService {
         equipment.setStartUnit(request.startUnit());
         equipment.setUnitSize(request.unitSize());
 
-        log.info("Equipment placed successfully");
+        // ✅ 추가: 랙에 배치되면 메트릭 수집 시작
+        equipmentMappingService.addEquipmentMapping(equipment);
+        log.info("✅ Equipment placed successfully - 메트릭 수집 시작됨");
     }
 
-    /**
-     * 장비 이동
-     */
     @Transactional
     public void moveEquipment(Long rackId, Long equipmentId, EquipmentMoveRequest request) {
         log.info("Moving equipment {} on rack {} from unit {} to unit {}",
@@ -113,9 +103,6 @@ public class RackElevationService {
         log.info("Equipment moved successfully");
     }
 
-    /**
-     * 장비 배치 검증
-     */
     public Map<String, Object> validateEquipmentPlacement(Long rackId, EquipmentPlacementRequest request) {
         Map<String, Object> result = new HashMap<>();
 
@@ -164,9 +151,6 @@ public class RackElevationService {
         return result;
     }
 
-    /**
-     * 랙 사용률 조회
-     */
     public RackUtilizationResponse getRackUtilization(Long id) {
         log.debug("Fetching rack utilization for id: {}", id);
 

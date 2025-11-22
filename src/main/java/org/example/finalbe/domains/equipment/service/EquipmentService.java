@@ -13,6 +13,8 @@ import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.history.service.EquipmentHistoryRecorder;
 import org.example.finalbe.domains.member.domain.Member;
 import org.example.finalbe.domains.member.repository.MemberRepository;
+import org.example.finalbe.domains.monitoring.service.ServerRoomDataSimulator;
+import org.example.finalbe.domains.prometheus.service.EquipmentMappingService;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.springframework.data.domain.Page;
@@ -42,7 +44,8 @@ public class EquipmentService {
     private final MemberRepository memberRepository;
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final EquipmentHistoryRecorder equipmentHistoryRecorder;
-    // private final ServerRoomDataSimulator serverRoomDataSimulator; // 시뮬레이터 주석처리
+    private final ServerRoomDataSimulator serverRoomDataSimulator;
+    private final EquipmentMappingService equipmentMappingService;
 
     /**
      * 메인 조회: 페이지네이션 + 전체 필터
@@ -241,18 +244,26 @@ public class EquipmentService {
         // 랙이 있을 때만 placeEquipment 호출
         if (rack != null) {
             rack.placeEquipment(savedEquipment, request.startUnit(), request.unitSize());
+
+            // ✅ 추가: 랙에 배치되면 메트릭 수집 시작
+            equipmentMappingService.addEquipmentMapping(savedEquipment);
+            log.info("✅ 장비가 랙에 배치되어 메트릭 수집이 시작됩니다. (Equipment ID: {}, Rack ID: {})",
+                    savedEquipment.getId(), rack.getId());
+        } else {
+            log.info("⊘ 장비가 랙에 배치되지 않아 메트릭 수집이 시작되지 않습니다. (Equipment ID: {})",
+                    savedEquipment.getId());
         }
 
         equipmentHistoryRecorder.recordCreate(savedEquipment, currentMember);
 
-        // ========== 시뮬레이터 등록 (주석처리) ==========
-        // if (savedEquipment.getType() == EquipmentType.SERVER || savedEquipment.getType() == EquipmentType.STORAGE) {
-        //     try {
-        //         serverRoomDataSimulator.addEquipment(savedEquipment);
-        //     } catch (Exception e) {
-        //         log.error("⚠️ 시뮬레이터 등록 실패 (모니터링 데이터 생성 안됨): {}", e.getMessage());
-        //     }
-        // }
+        // ========== 시뮬레이터 등록 ==========
+        if (savedEquipment.getType() == EquipmentType.SERVER || savedEquipment.getType() == EquipmentType.STORAGE) {
+            try {
+                serverRoomDataSimulator.addEquipment(savedEquipment);
+            } catch (Exception e) {
+                log.error("⚠️ 시뮬레이터 등록 실패 (모니터링 데이터 생성 안됨): {}", e.getMessage());
+            }
+        }
 
         log.info("Equipment created successfully with id: {} for company: {}",
                 savedEquipment.getId(), savedEquipment.getCompanyId());
@@ -291,6 +302,9 @@ public class EquipmentService {
 
         // === 수정 전 상태 저장 ===
         Equipment oldEquipment = cloneEquipment(equipment);
+
+        // ✅ 추가: 랙 변경 감지
+        Long oldRackId = equipment.getRack() != null ? equipment.getRack().getId() : null;
 
         // === 상태 변경 감지 ===
         boolean isStatusChanged = false;
@@ -332,6 +346,20 @@ public class EquipmentService {
         );
 
         Equipment updatedEquipment = equipmentRepository.save(equipment);
+
+        // ✅ 추가: 랙 변경 확인 및 메트릭 수집 매핑 업데이트
+        Long newRackId = updatedEquipment.getRack() != null ? updatedEquipment.getRack().getId() : null;
+        boolean rackChanged = !Objects.equals(oldRackId, newRackId);
+
+        if (rackChanged) {
+            equipmentMappingService.updateEquipmentMapping(updatedEquipment);
+            if (newRackId != null) {
+                log.info("✅ 장비가 랙에 배치되어 메트릭 수집 시작 (Equipment ID: {}, Rack ID: {})",
+                        id, newRackId);
+            } else {
+                log.info("⊘ 장비가 랙에서 제거되어 메트릭 수집 중단 (Equipment ID: {})", id);
+            }
+        }
 
         // === 히스토리 기록 ===
         if (isStatusChanged) {
@@ -377,6 +405,10 @@ public class EquipmentService {
                 rack.subtractPowerUsage(equipment.getPowerConsumption());
             }
         }
+
+        // ✅ 추가: 메트릭 수집 매핑 제거
+        equipmentMappingService.removeEquipmentMapping(id);
+        log.info("✅ 장비 삭제로 메트릭 수집 중단 (Equipment ID: {})", id);
 
         equipment.softDelete();
 

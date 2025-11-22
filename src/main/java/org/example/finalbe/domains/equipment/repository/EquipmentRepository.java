@@ -193,4 +193,15 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("status") EquipmentStatus status,
             @Param("delYn") DelYN delYn
     );
+
+    /**
+     * Equipment 조회 with Rack, ServerRoom, DataCenter (Fetch Join)
+     * LazyInitializationException 방지를 위한 메서드
+     */
+    @Query("SELECT e FROM Equipment e " +
+            "LEFT JOIN FETCH e.rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "LEFT JOIN FETCH sr.dataCenter dc " +
+            "WHERE e.id = :equipmentId")
+    Optional<Equipment> findByIdWithFullHierarchy(@Param("equipmentId") Long equipmentId);
 }

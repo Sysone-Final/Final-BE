@@ -7,20 +7,13 @@ spring:
 
     hikari:
       maximum-pool-size: 50
-
       minimum-idle: 20
-
       connection-timeout: 30000
-
       idle-timeout: 300000
-
       max-lifetime: 600000
-
       keepalive-time: 60000
-
       validation-timeout: 5000
       connection-test-query: SELECT 1
-
       leak-detection-threshold: 30000
 
   jpa:
@@ -63,16 +56,20 @@ monitoring:
     interval-seconds: 5000
     device-count: 9
     excluded-equipment-ids: 256,257,258,259
+  scheduler:
+    metrics-interval: 5000         # ✅ 메트릭 수집 간격 5초 고정
+    statistics-interval: 5000      # 통계 수집 간격 5초
+    datacenter-interval: 5000      # 데이터센터 통계 간격 5초
 
 prometheus:
   base-url: http://112.221.184.61:9090
-  timeout: 15s
+  timeout: 30s                     # 30초 타임아웃
   collection:
     enabled: true
-    interval: 10000
+    interval: 5000                 # ✅ 5초로 고정
   client:
-    connect-timeout: 15000
-    read-timeout: 60000
+    connect-timeout: 10000         # 연결 타임아웃 10초
+    read-timeout: 30000            # 읽기 타임아웃 30초
 
 jwt:
   secret: ${JWT_SECRET}
@@ -84,14 +81,15 @@ cookie:
 
 #logging:
 #  level:
-#    root: WARN
+#    root: INFO
 #    org.example.finalbe.domains.prometheus: INFO
 #    org.example.finalbe.domains.monitoring: INFO
-#    org.example.finalbe.domains.alert: WARN
+#    org.example.finalbe.domains.alert: INFO
 #    org.hibernate.SQL: WARN
 #    org.hibernate.type.descriptor.sql.BasicBinder: WARN
 #    com.zaxxer.hikari: INFO
 #    org.springframework.scheduling: INFO
+#    reactor.netty: WARN
 
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

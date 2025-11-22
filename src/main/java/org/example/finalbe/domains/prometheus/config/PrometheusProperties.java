@@ -13,13 +13,21 @@ import java.time.Duration;
 @Setter
 public class PrometheusProperties {
     private String baseUrl;
-    private Duration timeout = Duration.ofSeconds(10);
+    private Duration timeout = Duration.ofSeconds(30);
     private Collection collection = new Collection();
+    private Client client = new Client();
 
     @Getter
     @Setter
     public static class Collection {
         private boolean enabled = true;
         private long interval = 5000;
+    }
+
+    @Getter
+    @Setter
+    public static class Client {
+        private int connectTimeout = 10000;
+        private int readTimeout = 30000;
     }
 }

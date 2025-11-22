@@ -111,7 +111,14 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     @Query("SELECT r FROM Rack r WHERE r.id = :id AND r.delYn = 'N'")
     Optional<Rack> findActiveById(@Param("id") Long id);
 
-    // 아래 두 메서드 삭제 (중복)
-    // List<Rack> findByServerRoom_IdAndDelYn(Long serverRoomId, DelYN delYn);
-    // long countByServerRoom_IdAndDelYn(Long serverRoomId, DelYN delYn);
+    /**
+     * Rack 조회 with ServerRoom and DataCenter (Fetch Join)
+     * LazyInitializationException 방지를 위한 메서드
+     */
+    @Query("SELECT r FROM Rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "LEFT JOIN FETCH sr.dataCenter dc " +
+            "WHERE r.id = :rackId")
+    Optional<Rack> findByIdWithServerRoomAndDataCenter(@Param("rackId") Long rackId);
+
 }

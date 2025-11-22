@@ -3,10 +3,12 @@ package org.example.finalbe.domains.rack.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.common.enumdir.DelYN;
+import org.example.finalbe.domains.common.enumdir.EquipmentType;
 import org.example.finalbe.domains.common.exception.BusinessException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.monitoring.service.ServerRoomDataSimulator;
 import org.example.finalbe.domains.prometheus.service.EquipmentMappingService;
 import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.dto.*;
@@ -27,7 +29,8 @@ public class RackElevationService {
 
     private final RackRepository rackRepository;
     private final EquipmentRepository equipmentRepository;
-    private final EquipmentMappingService equipmentMappingService; // ✅ 추가
+    private final EquipmentMappingService equipmentMappingService;
+    private final ServerRoomDataSimulator serverRoomDataSimulator;
 
     public RackElevationResponse getRackElevation(Long id, String view) {
         log.debug("Fetching rack elevation for id: {}, view: {}", id, view);
@@ -40,6 +43,10 @@ public class RackElevationService {
         return RackElevationResponse.from(rack, equipments, view);
     }
 
+    /**
+     * 장비를 랙에 배치
+     * ✅ 수정: 배치 시 Simulator에 자동 등록
+     */
     @Transactional
     public void placeEquipment(Long rackId, Long equipmentId, EquipmentPlacementRequest request) {
         log.info("Placing equipment {} on rack {} at unit {}", equipmentId, rackId, request.startUnit());
@@ -69,8 +76,19 @@ public class RackElevationService {
         equipment.setStartUnit(request.startUnit());
         equipment.setUnitSize(request.unitSize());
 
-        // ✅ 추가: 랙에 배치되면 메트릭 수집 시작
         equipmentMappingService.addEquipmentMapping(equipment);
+
+
+        if (equipment.getType() == EquipmentType.SERVER ||
+                equipment.getType() == EquipmentType.STORAGE) {
+            try {
+                serverRoomDataSimulator.addEquipment(equipment);
+                log.info("✅ Simulator에 장비 등록 완료 (Equipment ID: {})", equipmentId);
+            } catch (Exception e) {
+                log.error("⚠️ 시뮬레이터 등록 실패: {}", e.getMessage());
+            }
+        }
+
         log.info("✅ Equipment placed successfully - 메트릭 수집 시작됨");
     }
 

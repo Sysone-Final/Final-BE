@@ -86,9 +86,10 @@ public class ServerRoomDataSimulator {
         }
         log.info("🚫 더미 데이터 생성 제외 장비 ID: {}", excludedEquipmentIds);
 
-        // DB에서 삭제되지 않은 장비만 로드
+        // ✅ 수정: 랙에 배치된 장비만 로드
         activeEquipments = equipmentRepository.findAll().stream()
                 .filter(e -> DelYN.N.equals(e.getDelYn()))
+                .filter(e -> e.getRack() != null)  // ← 랙 배치 체크 추가
                 .collect(java.util.stream.Collectors.toCollection(CopyOnWriteArrayList::new));
 
         // DB에서 삭제되지 않은 랙만 로드
@@ -96,11 +97,11 @@ public class ServerRoomDataSimulator {
                 .filter(r -> DelYN.N.equals(r.getDelYn()))
                 .collect(java.util.stream.Collectors.toCollection(CopyOnWriteArrayList::new));
 
-        log.info("📊 DB에서 로드된 장비 총 개수: {}", activeEquipments.size());
+        log.info("📊 DB에서 로드된 장비 총 개수: {} (랙 배치된 장비만)", activeEquipments.size());
         log.info("📊 DB에서 로드된 랙 총 개수: {}", activeRacks.size());
 
         if (activeEquipments.isEmpty()) {
-            log.warn("⚠️ DB에 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
+            log.warn("⚠️ DB에 랙에 배치된 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
             return;
         }
 
@@ -110,11 +111,6 @@ public class ServerRoomDataSimulator {
 
             if (excludedEquipmentIds.contains(equipmentId)) {
                 log.info("⏭️ 장비 ID {}는 실제 Prometheus 데이터 사용 - 더미 생성 제외", equipmentId);
-                continue;
-            }
-
-            if (DelYN.Y.equals(equipment.getDelYn())) {
-                log.info("⏭️ 장비 ID {}는 삭제됨(del_yn=Y) - 더미 생성 제외", equipmentId);
                 continue;
             }
 
@@ -136,29 +132,10 @@ public class ServerRoomDataSimulator {
 
         int activeCount = (int) activeEquipments.stream()
                 .filter(e -> !excludedEquipmentIds.contains(e.getId()))
-                .filter(e -> !DelYN.Y.equals(e.getDelYn()))
                 .count();
 
-        log.info("✅ 초기화 완료! {}개 장비(실제 더미 생성 대상) + {}개 랙 모니터링 시작",
+        log.info("✅ 초기화 완료! {}개 장비(랙 배치 + 더미 생성 대상) + {}개 랙 모니터링 시작",
                 activeCount, activeRacks.size());
-    }
-
-    private List<String> generateDefaultNics(EquipmentType type) {
-        switch (type) {
-            case SERVER:
-                return Arrays.asList("eth0", "eth1");
-            case SWITCH:
-                return Arrays.asList("GigabitEthernet1/0/1", "GigabitEthernet1/0/2",
-                        "GigabitEthernet1/0/3", "GigabitEthernet1/0/4");
-            case ROUTER:
-                return Arrays.asList("GigabitEthernet0/0", "GigabitEthernet0/1", "GigabitEthernet0/2");
-            case FIREWALL:
-                return Arrays.asList("port1", "port2", "port3", "port4");
-            case LOAD_BALANCER:
-                return Arrays.asList("nic1", "nic2");
-            default:
-                return Arrays.asList("eth0");
-        }
     }
 
     @Scheduled(fixedDelayString = "${monitoring.simulator.interval-seconds:5000}", initialDelay = 2000)
@@ -183,13 +160,21 @@ public class ServerRoomDataSimulator {
 
         int skippedExcluded = 0;
         int skippedDeleted = 0;
+        int skippedNoRack = 0;  // ✅ 추가
         int processed = 0;
-        int alertEvaluationCount = 0;  // ✅ 실제 평가된 알림 수
+        int alertEvaluationCount = 0;
 
         try {
             for (Equipment equipment : activeEquipments) {
                 Long equipmentId = equipment.getId();
                 EquipmentType type = equipment.getType();
+
+                // ✅ 추가: 랙 배치 여부 체크
+                if (equipment.getRack() == null) {
+                    log.debug("⏭️ 장비 ID {} 건너뜀 (랙에 배치되지 않음)", equipmentId);
+                    skippedNoRack++;
+                    continue;
+                }
 
                 if (excludedEquipmentIds.contains(equipmentId)) {
                     log.debug("⏭️ 장비 ID {} 건너뜀 (excluded)", equipmentId);
@@ -213,7 +198,6 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateSystemMetric(sysMetric);
                     sseService.sendToEquipment(equipmentId, "system", sysMetric);
 
-                    // ✅ 임계값 근처일 때만 알림 평가
                     if (needsSystemAlertEvaluation(sysMetric, equipment)) {
                         try {
                             alertEvaluationService.evaluateSystemMetric(sysMetric);
@@ -233,7 +217,6 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateDiskMetric(diskMetric);
                     sseService.sendToEquipment(equipmentId, "disk", diskMetric);
 
-                    // ✅ 임계값 근처일 때만 알림 평가
                     if (needsDiskAlertEvaluation(diskMetric, equipment)) {
                         try {
                             alertEvaluationService.evaluateDiskMetric(diskMetric);
@@ -256,7 +239,6 @@ public class ServerRoomDataSimulator {
                             monitoringMetricCache.updateNetworkMetric(nicMetric);
                             sseService.sendToEquipment(equipmentId, "network", nicMetric);
 
-                            // ✅ 임계값 근처일 때만 알림 평가
                             if (needsNetworkAlertEvaluation(nicMetric, equipment)) {
                                 try {
                                     alertEvaluationService.evaluateNetworkMetric(nicMetric);
@@ -281,7 +263,6 @@ public class ServerRoomDataSimulator {
                 monitoringMetricCache.updateEnvironmentMetric(envMetric);
                 sseService.sendToRack(rackId, "environment", envMetric);
 
-                // ✅ 임계값 근처일 때만 알림 평가
                 if (needsEnvironmentAlertEvaluation(envMetric, rack)) {
                     try {
                         alertEvaluationService.evaluateEnvironmentMetric(envMetric);
@@ -312,6 +293,7 @@ public class ServerRoomDataSimulator {
             log.info("  - 전체 장비: {}", activeEquipments.size());
             log.info("  - Excluded 제외: {}", skippedExcluded);
             log.info("  - 삭제됨 제외: {}", skippedDeleted);
+            log.info("  - 랙 미배치 제외: {}", skippedNoRack);  // ✅ 추가
             log.info("  - 실제 처리: {}", processed);
             log.info("  - System 메트릭: {}", systemMetricsToSave.size());
             log.info("  - Disk 메트릭: {}", diskMetricsToSave.size());
@@ -334,195 +316,85 @@ public class ServerRoomDataSimulator {
         }
     }
 
-
     /**
-     * System 메트릭 알림 평가 필요 여부 체크
+     * ✅ 장비를 activeEquipments에 추가
      */
-    private boolean needsSystemAlertEvaluation(SystemMetric metric, Equipment equipment) {
-        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
-            return false;
+    public void addEquipment(Equipment equipment) {
+        if (equipment == null) {
+            log.warn("⚠️ addEquipment: equipment가 null입니다.");
+            return;
         }
 
-        // ✅ 항상 평가 (최적화 로직 제거)
-        return equipment.getCpuThresholdWarning() != null ||
-                equipment.getMemoryThresholdWarning() != null;
-    }
-
-    /**
-     * Disk 메트릭 알림 평가 필요 여부 체크
-     */
-    private boolean needsDiskAlertEvaluation(DiskMetric metric, Equipment equipment) {
-        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
-            return false;
+        // ✅ 랙 배치 여부 체크
+        if (equipment.getRack() == null) {
+            log.info("⊘ 장비 ID {}는 랙에 배치되지 않아 시뮬레이터에 등록하지 않습니다.", equipment.getId());
+            return;
         }
 
-        // ✅ 항상 평가
-        return equipment.getDiskThresholdWarning() != null;
-    }
-
-    /**
-     * Network 메트릭 알림 평가 필요 여부 체크
-     */
-    private boolean needsNetworkAlertEvaluation(NetworkMetric metric, Equipment equipment) {
-        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
-            return false;
+        if (excludedEquipmentIds.contains(equipment.getId())) {
+            log.info("⏭️ 장비 ID {}는 제외 목록에 있어 시뮬레이터에 등록하지 않습니다.", equipment.getId());
+            return;
         }
 
-        // ✅ 항상 평가
-        return true;
-    }
-    /**
-     * Environment 메트릭 알림 평가 필요 여부 체크
-     */
-    private boolean needsEnvironmentAlertEvaluation(EnvironmentMetric metric, Rack rack) {
-        // 모니터링 비활성화면 평가 안 함
-        if (!Boolean.TRUE.equals(rack.getMonitoringEnabled())) {
-            return false;
-        }
+        // 이미 존재하는지 확인
+        boolean exists = activeEquipments.stream()
+                .anyMatch(e -> e.getId().equals(equipment.getId()));
 
-        // 온도 체크 (임계값의 90% 이상만 평가)
-        if (rack.getTemperatureThresholdWarning() != null &&
-                metric.getTemperature() != null) {
-            double threshold = rack.getTemperatureThresholdWarning().doubleValue();
-            if (metric.getTemperature() >= threshold * 0.9) {
-                return true;
+        if (!exists) {
+            activeEquipments.add(equipment);
+
+            // 네트워크 타입이면 NIC 정보 추가
+            if (hasNetworkMetric(equipment.getType())) {
+                EQUIPMENT_NICS.put(equipment.getId(), generateDefaultNics(equipment.getType()));
             }
+
+            // Anomaly 상태 초기화
+            anomalyStates.put(equipment.getId(), new AnomalyState());
+
+            log.info("✅ 시뮬레이터에 장비 추가: ID={}, Type={}, Rack={}",
+                    equipment.getId(), equipment.getType(), equipment.getRack().getId());
+        } else {
+            log.debug("이미 등록된 장비입니다: ID={}", equipment.getId());
+        }
+    }
+
+    /**
+     * ✅ 장비를 activeEquipments에서 제거
+     */
+    public void removeEquipment(Long equipmentId) {
+        if (equipmentId == null) {
+            log.warn("⚠️ removeEquipment: equipmentId가 null입니다.");
+            return;
         }
 
-        // 습도 최소값 체크 (임계값의 110% 이하만 평가)
-        if (rack.getHumidityThresholdMinWarning() != null &&
-                metric.getHumidity() != null) {
-            double threshold = rack.getHumidityThresholdMinWarning().doubleValue();
-            if (metric.getHumidity() <= threshold * 1.1) {
-                return true;
-            }
+        boolean removed = activeEquipments.removeIf(e -> e.getId().equals(equipmentId));
+
+        if (removed) {
+            EQUIPMENT_NICS.remove(equipmentId);
+            anomalyStates.remove(equipmentId);
+
+            log.info("✅ 시뮬레이터에서 장비 제거: ID={}", equipmentId);
+        } else {
+            log.debug("제거할 장비가 없습니다: ID={}", equipmentId);
         }
+    }
 
-        // 습도 최대값 체크 (임계값의 90% 이상만 평가)
-        if (rack.getHumidityThresholdMaxWarning() != null &&
-                metric.getHumidity() != null) {
-            double threshold = rack.getHumidityThresholdMaxWarning().doubleValue();
-            if (metric.getHumidity() >= threshold * 0.9) {
-                return true;
-            }
+    private List<String> generateDefaultNics(EquipmentType type) {
+        switch (type) {
+            case SERVER:
+                return Arrays.asList("eth0", "eth1");
+            case SWITCH:
+                return Arrays.asList("GigabitEthernet1/0/1", "GigabitEthernet1/0/2",
+                        "GigabitEthernet1/0/3", "GigabitEthernet1/0/4");
+            case ROUTER:
+                return Arrays.asList("GigabitEthernet0/0", "GigabitEthernet0/1", "GigabitEthernet0/2");
+            case FIREWALL:
+                return Arrays.asList("port1", "port2", "port3", "port4");
+            case LOAD_BALANCER:
+                return Arrays.asList("nic1", "nic2");
+            default:
+                return Arrays.asList("eth0");
         }
-
-        return false;
-    }
-
-    // ========== 기존 메서드들 ==========
-
-    private void batchInsertSystemMetrics(List<SystemMetric> metrics) {
-        String sql = "INSERT INTO system_metrics (equipment_id, generate_time, " +
-                "cpu_idle, cpu_user, cpu_system, cpu_wait, cpu_nice, cpu_irq, cpu_softirq, cpu_steal, " +
-                "load_avg1, load_avg5, load_avg15, context_switches, " +
-                "total_memory, used_memory, free_memory, used_memory_percentage, " +
-                "memory_buffers, memory_cached, memory_active, memory_inactive, " +
-                "total_swap, used_swap, used_swap_percentage) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
-                (ps, metric) -> {
-                    ps.setLong(1, metric.getEquipmentId());
-                    ps.setObject(2, metric.getGenerateTime());
-                    ps.setObject(3, metric.getCpuIdle());
-                    ps.setObject(4, metric.getCpuUser());
-                    ps.setObject(5, metric.getCpuSystem());
-                    ps.setObject(6, metric.getCpuWait());
-                    ps.setObject(7, metric.getCpuNice());
-                    ps.setObject(8, metric.getCpuIrq());
-                    ps.setObject(9, metric.getCpuSoftirq());
-                    ps.setObject(10, metric.getCpuSteal());
-                    ps.setObject(11, metric.getLoadAvg1());
-                    ps.setObject(12, metric.getLoadAvg5());
-                    ps.setObject(13, metric.getLoadAvg15());
-                    ps.setObject(14, metric.getContextSwitches());
-                    ps.setObject(15, metric.getTotalMemory());
-                    ps.setObject(16, metric.getUsedMemory());
-                    ps.setObject(17, metric.getFreeMemory());
-                    ps.setObject(18, metric.getUsedMemoryPercentage());
-                    ps.setObject(19, metric.getMemoryBuffers());
-                    ps.setObject(20, metric.getMemoryCached());
-                    ps.setObject(21, metric.getMemoryActive());
-                    ps.setObject(22, metric.getMemoryInactive());
-                    ps.setObject(23, metric.getTotalSwap());
-                    ps.setObject(24, metric.getUsedSwap());
-                    ps.setObject(25, metric.getUsedSwapPercentage());
-                });
-    }
-
-    private void batchInsertDiskMetrics(List<DiskMetric> metrics) {
-        String sql = "INSERT INTO disk_metrics (equipment_id, generate_time, " +
-                "total_bytes, used_bytes, free_bytes, used_percentage, " +
-                "io_read_bps, io_write_bps, io_time_percentage, " +
-                "io_read_count, io_write_count, " +
-                "total_inodes, used_inodes, free_inodes, used_inode_percentage) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
-                (ps, metric) -> {
-                    ps.setLong(1, metric.getEquipmentId());
-                    ps.setObject(2, metric.getGenerateTime());
-                    ps.setObject(3, metric.getTotalBytes());
-                    ps.setObject(4, metric.getUsedBytes());
-                    ps.setObject(5, metric.getFreeBytes());
-                    ps.setObject(6, metric.getUsedPercentage());
-                    ps.setObject(7, metric.getIoReadBps());
-                    ps.setObject(8, metric.getIoWriteBps());
-                    ps.setObject(9, metric.getIoTimePercentage());
-                    ps.setObject(10, metric.getIoReadCount());
-                    ps.setObject(11, metric.getIoWriteCount());
-                    ps.setObject(12, metric.getTotalInodes());
-                    ps.setObject(13, metric.getUsedInodes());
-                    ps.setObject(14, metric.getFreeInodes());
-                    ps.setObject(15, metric.getUsedInodePercentage());
-                });
-    }
-
-    private void batchInsertNetworkMetrics(List<NetworkMetric> metrics) {
-        String sql = "INSERT INTO network_metrics (equipment_id, nic_name, generate_time, " +
-                "rx_usage, tx_usage, in_pkts_tot, out_pkts_tot, " +
-                "in_error_pkts_tot, out_error_pkts_tot, in_discard_pkts_tot, out_discard_pkts_tot, " +
-                "oper_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
-                (ps, metric) -> {
-                    ps.setLong(1, metric.getEquipmentId());
-                    ps.setString(2, metric.getNicName());
-                    ps.setObject(3, metric.getGenerateTime());
-                    ps.setObject(4, metric.getRxUsage());
-                    ps.setObject(5, metric.getTxUsage());
-                    ps.setObject(6, metric.getInPktsTot());
-                    ps.setObject(7, metric.getOutPktsTot());
-                    ps.setObject(8, metric.getInErrorPktsTot());
-                    ps.setObject(9, metric.getOutErrorPktsTot());
-                    ps.setObject(10, metric.getInDiscardPktsTot());
-                    ps.setObject(11, metric.getOutDiscardPktsTot());
-                    ps.setObject(12, metric.getOperStatus());
-                });
-    }
-
-    private void batchInsertEnvironmentMetrics(List<EnvironmentMetric> metrics) {
-        String sql = "INSERT INTO environment_metrics (rack_id, generate_time, " +
-                "temperature, min_temperature, max_temperature, " +
-                "humidity, min_humidity, max_humidity, " +
-                "temperature_warning, humidity_warning) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
-                (ps, metric) -> {
-                    ps.setLong(1, metric.getRackId());
-                    ps.setObject(2, metric.getGenerateTime());
-                    ps.setObject(3, metric.getTemperature());
-                    ps.setObject(4, metric.getMinTemperature());
-                    ps.setObject(5, metric.getMaxTemperature());
-                    ps.setObject(6, metric.getHumidity());
-                    ps.setObject(7, metric.getMinHumidity());
-                    ps.setObject(8, metric.getMaxHumidity());
-                    ps.setObject(9, metric.getTemperatureWarning());
-                    ps.setObject(10, metric.getHumidityWarning());
-                });
     }
 
     private boolean hasSystemMetric(EquipmentType type) {
@@ -816,6 +688,173 @@ public class ServerRoomDataSimulator {
         return metric;
     }
 
+    private void batchInsertSystemMetrics(List<SystemMetric> metrics) {
+        String sql = "INSERT INTO system_metrics (equipment_id, generate_time, " +
+                "cpu_idle, cpu_user, cpu_system, cpu_wait, cpu_nice, cpu_irq, cpu_softirq, cpu_steal, " +
+                "load_avg1, load_avg5, load_avg15, context_switches, " +
+                "total_memory, used_memory, free_memory, used_memory_percentage, " +
+                "memory_buffers, memory_cached, memory_active, memory_inactive, " +
+                "total_swap, used_swap, used_swap_percentage) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getEquipmentId());
+                    ps.setObject(2, metric.getGenerateTime());
+                    ps.setObject(3, metric.getCpuIdle());
+                    ps.setObject(4, metric.getCpuUser());
+                    ps.setObject(5, metric.getCpuSystem());
+                    ps.setObject(6, metric.getCpuWait());
+                    ps.setObject(7, metric.getCpuNice());
+                    ps.setObject(8, metric.getCpuIrq());
+                    ps.setObject(9, metric.getCpuSoftirq());
+                    ps.setObject(10, metric.getCpuSteal());
+                    ps.setObject(11, metric.getLoadAvg1());
+                    ps.setObject(12, metric.getLoadAvg5());
+                    ps.setObject(13, metric.getLoadAvg15());
+                    ps.setObject(14, metric.getContextSwitches());
+                    ps.setObject(15, metric.getTotalMemory());
+                    ps.setObject(16, metric.getUsedMemory());
+                    ps.setObject(17, metric.getFreeMemory());
+                    ps.setObject(18, metric.getUsedMemoryPercentage());
+                    ps.setObject(19, metric.getMemoryBuffers());
+                    ps.setObject(20, metric.getMemoryCached());
+                    ps.setObject(21, metric.getMemoryActive());
+                    ps.setObject(22, metric.getMemoryInactive());
+                    ps.setObject(23, metric.getTotalSwap());
+                    ps.setObject(24, metric.getUsedSwap());
+                    ps.setObject(25, metric.getUsedSwapPercentage());
+                });
+    }
+
+    private void batchInsertDiskMetrics(List<DiskMetric> metrics) {
+        String sql = "INSERT INTO disk_metrics (equipment_id, generate_time, " +
+                "total_bytes, used_bytes, free_bytes, used_percentage, " +
+                "io_read_bps, io_write_bps, io_time_percentage, " +
+                "io_read_count, io_write_count, " +
+                "total_inodes, used_inodes, free_inodes, used_inode_percentage) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getEquipmentId());
+                    ps.setObject(2, metric.getGenerateTime());
+                    ps.setObject(3, metric.getTotalBytes());
+                    ps.setObject(4, metric.getUsedBytes());
+                    ps.setObject(5, metric.getFreeBytes());
+                    ps.setObject(6, metric.getUsedPercentage());
+                    ps.setObject(7, metric.getIoReadBps());
+                    ps.setObject(8, metric.getIoWriteBps());
+                    ps.setObject(9, metric.getIoTimePercentage());
+                    ps.setObject(10, metric.getIoReadCount());
+                    ps.setObject(11, metric.getIoWriteCount());
+                    ps.setObject(12, metric.getTotalInodes());
+                    ps.setObject(13, metric.getUsedInodes());
+                    ps.setObject(14, metric.getFreeInodes());
+                    ps.setObject(15, metric.getUsedInodePercentage());
+                });
+    }
+
+    private void batchInsertNetworkMetrics(List<NetworkMetric> metrics) {
+        String sql = "INSERT INTO network_metrics (equipment_id, nic_name, generate_time, " +
+                "rx_usage, tx_usage, in_pkts_tot, out_pkts_tot, " +
+                "in_error_pkts_tot, out_error_pkts_tot, in_discard_pkts_tot, out_discard_pkts_tot, " +
+                "oper_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getEquipmentId());
+                    ps.setString(2, metric.getNicName());
+                    ps.setObject(3, metric.getGenerateTime());
+                    ps.setObject(4, metric.getRxUsage());
+                    ps.setObject(5, metric.getTxUsage());
+                    ps.setObject(6, metric.getInPktsTot());
+                    ps.setObject(7, metric.getOutPktsTot());
+                    ps.setObject(8, metric.getInErrorPktsTot());
+                    ps.setObject(9, metric.getOutErrorPktsTot());
+                    ps.setObject(10, metric.getInDiscardPktsTot());
+                    ps.setObject(11, metric.getOutDiscardPktsTot());
+                    ps.setObject(12, metric.getOperStatus());
+                });
+    }
+
+    private void batchInsertEnvironmentMetrics(List<EnvironmentMetric> metrics) {
+        String sql = "INSERT INTO environment_metrics (rack_id, generate_time, " +
+                "temperature, min_temperature, max_temperature, " +
+                "humidity, min_humidity, max_humidity, " +
+                "temperature_warning, humidity_warning) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
+                (ps, metric) -> {
+                    ps.setLong(1, metric.getRackId());
+                    ps.setObject(2, metric.getGenerateTime());
+                    ps.setObject(3, metric.getTemperature());
+                    ps.setObject(4, metric.getMinTemperature());
+                    ps.setObject(5, metric.getMaxTemperature());
+                    ps.setObject(6, metric.getHumidity());
+                    ps.setObject(7, metric.getMinHumidity());
+                    ps.setObject(8, metric.getMaxHumidity());
+                    ps.setObject(9, metric.getTemperatureWarning());
+                    ps.setObject(10, metric.getHumidityWarning());
+                });
+    }
+
+    private boolean needsSystemAlertEvaluation(SystemMetric metric, Equipment equipment) {
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+        return equipment.getCpuThresholdWarning() != null ||
+                equipment.getMemoryThresholdWarning() != null;
+    }
+
+    private boolean needsDiskAlertEvaluation(DiskMetric metric, Equipment equipment) {
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+        return equipment.getDiskThresholdWarning() != null;
+    }
+
+    private boolean needsNetworkAlertEvaluation(NetworkMetric metric, Equipment equipment) {
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean needsEnvironmentAlertEvaluation(EnvironmentMetric metric, Rack rack) {
+        if (!Boolean.TRUE.equals(rack.getMonitoringEnabled())) {
+            return false;
+        }
+
+        if (rack.getTemperatureThresholdWarning() != null &&
+                metric.getTemperature() != null) {
+            double threshold = rack.getTemperatureThresholdWarning().doubleValue();
+            if (metric.getTemperature() >= threshold * 0.9) {
+                return true;
+            }
+        }
+
+        if (rack.getHumidityThresholdMinWarning() != null &&
+                metric.getHumidity() != null) {
+            double threshold = rack.getHumidityThresholdMinWarning().doubleValue();
+            if (metric.getHumidity() <= threshold * 1.1) {
+                return true;
+            }
+        }
+
+        if (rack.getHumidityThresholdMaxWarning() != null &&
+                metric.getHumidity() != null) {
+            double threshold = rack.getHumidityThresholdMaxWarning().doubleValue();
+            if (metric.getHumidity() >= threshold * 0.9) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void maybeUpdateAnomalies() {
         long currentTime = System.currentTimeMillis();
 
@@ -832,7 +871,6 @@ public class ServerRoomDataSimulator {
 
             AnomalyState state = anomalyStates.get(equipmentId);
 
-            // CPU 이상 징후 (약 1시간에 한 번)
             if (state.hasCpuAnomaly) {
                 if (currentTime - state.cpuAnomalyStartTime > state.cpuAnomalyDuration) {
                     state.hasCpuAnomaly = false;
@@ -841,12 +879,11 @@ public class ServerRoomDataSimulator {
             } else if (random.nextDouble() < HOURLY_PROBABILITY) {
                 state.hasCpuAnomaly = true;
                 state.cpuAnomalyStartTime = currentTime;
-                state.cpuAnomalyDuration = 60_000 + random.nextInt(120_000);
+                state.cpuAnomalyDuration = 30_000 + random.nextInt(120_000);
                 log.error("🚨 [Equipment {}] CPU 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.cpuAnomalyDuration / 1000);
             }
 
-            // 메모리 이상 징후 (약 1시간에 한 번)
             if (state.hasMemoryAnomaly) {
                 if (currentTime - state.memoryAnomalyStartTime > state.memoryAnomalyDuration) {
                     state.hasMemoryAnomaly = false;
@@ -855,12 +892,11 @@ public class ServerRoomDataSimulator {
             } else if (random.nextDouble() < HOURLY_PROBABILITY) {
                 state.hasMemoryAnomaly = true;
                 state.memoryAnomalyStartTime = currentTime;
-                state.memoryAnomalyDuration = 40_000 + random.nextInt(80_000);
+                state.memoryAnomalyDuration = 35_000 + random.nextInt(125_000);
                 log.error("🚨 [Equipment {}] 메모리 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.memoryAnomalyDuration / 1000);
             }
 
-            // 디스크 I/O 이상 징후 (약 1시간에 한 번)
             if (state.hasDiskAnomaly) {
                 if (currentTime - state.diskAnomalyStartTime > state.diskAnomalyDuration) {
                     state.hasDiskAnomaly = false;
@@ -869,12 +905,11 @@ public class ServerRoomDataSimulator {
             } else if (random.nextDouble() < HOURLY_PROBABILITY) {
                 state.hasDiskAnomaly = true;
                 state.diskAnomalyStartTime = currentTime;
-                state.diskAnomalyDuration = 30_000 + random.nextInt(90_000);
+                state.diskAnomalyDuration = 25_000 + random.nextInt(75_000);
                 log.error("🚨 [Equipment {}] 디스크 I/O 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.diskAnomalyDuration / 1000);
             }
 
-            // 네트워크 이상 징후 (약 1시간에 한 번)
             if (state.hasNetworkAnomaly) {
                 if (currentTime - state.networkAnomalyStartTime > state.networkAnomalyDuration) {
                     state.hasNetworkAnomaly = false;
@@ -889,12 +924,10 @@ public class ServerRoomDataSimulator {
             }
         }
 
-        // 랙별 환경 이상 징후 (약 1시간에 한 번)
         for (Rack rack : activeRacks) {
             Long rackId = rack.getId();
             AnomalyState state = rackAnomalyStates.get(rackId);
 
-            // 온도 이상 징후 (약 1시간에 한 번)
             if (state.hasTemperatureAnomaly) {
                 if (currentTime - state.temperatureAnomalyStartTime > state.temperatureAnomalyDuration) {
                     state.hasTemperatureAnomaly = false;
@@ -908,7 +941,6 @@ public class ServerRoomDataSimulator {
                         rackId, state.temperatureAnomalyDuration / 1000);
             }
 
-            // 습도 이상 징후 (약 1시간에 한 번)
             if (state.hasHumidityAnomaly) {
                 if (currentTime - state.humidityAnomalyStartTime > state.humidityAnomalyDuration) {
                     state.hasHumidityAnomaly = false;
@@ -948,30 +980,5 @@ public class ServerRoomDataSimulator {
         boolean hasHumidityAnomaly = false;
         long humidityAnomalyStartTime = 0;
         long humidityAnomalyDuration = 0;
-    }
-
-    public void addEquipment(Equipment newEquipment) {
-        this.activeEquipments.add(newEquipment);
-
-        Long equipmentId = newEquipment.getId();
-        EquipmentType type = newEquipment.getType();
-
-        if (excludedEquipmentIds.contains(equipmentId)) {
-            log.info("⏭️ 장비 ID {}는 실제 Prometheus 데이터 사용 - 시뮬레이터 등록 제외", equipmentId);
-            return;
-        }
-
-        if (DelYN.Y.equals(newEquipment.getDelYn())) {
-            log.info("⏭️ 장비 ID {}는 삭제됨(del_yn=Y) - 시뮬레이터 등록 제외", equipmentId);
-            return;
-        }
-
-        if (hasNetworkMetric(type)) {
-            EQUIPMENT_NICS.put(equipmentId, generateDefaultNics(type));
-        }
-
-        anomalyStates.put(equipmentId, new AnomalyState());
-
-        log.info("🆕 새 장비 시뮬레이터 등록 완료: ID={}, Name={}", equipmentId, newEquipment.getName());
     }
 }

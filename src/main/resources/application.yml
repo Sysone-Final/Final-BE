@@ -60,7 +60,7 @@ spring:
 monitoring:
   simulator:
     enabled: true
-    interval-seconds: 10
+    interval-seconds: 5000
     device-count: 9
     excluded-equipment-ids: 256,257,258,259
 

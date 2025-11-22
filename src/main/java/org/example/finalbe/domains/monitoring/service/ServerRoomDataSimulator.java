@@ -161,7 +161,7 @@ public class ServerRoomDataSimulator {
         }
     }
 
-    @Scheduled(fixedDelayString = "${monitoring.simulator.interval-seconds:10}000", initialDelay = 2000)
+    @Scheduled(fixedDelayString = "${monitoring.simulator.interval-seconds:5000}", initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
         log.info("📊 =================================================");

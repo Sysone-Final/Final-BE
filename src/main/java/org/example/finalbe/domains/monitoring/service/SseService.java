@@ -1,10 +1,14 @@
 package org.example.finalbe.domains.monitoring.service;
 
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.monitoring.domain.DiskMetric;
+import org.example.finalbe.domains.monitoring.domain.EnvironmentMetric;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
+import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import org.example.finalbe.domains.monitoring.dto.DataCenterStatisticsDto;
 import org.example.finalbe.domains.monitoring.dto.ServerRoomStatisticsDto;
 import org.example.finalbe.domains.monitoring.repository.DiskMetricRepository;
@@ -12,6 +16,7 @@ import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository
 import org.example.finalbe.domains.monitoring.repository.SystemMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.EnvironmentMetricRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -59,6 +64,7 @@ public class SseService {
 
     /**
      * 비동기로 초기 데이터 전송
+     * ✅ DB 조회와 SSE 전송을 분리하여 커넥션 누수 방지
      */
     @Async("taskExecutor")
     void asyncSendInitialData(Long equipmentId, SseEmitter emitter) {
@@ -73,12 +79,71 @@ public class SseService {
 
             boolean sentFromCache = sendFromCache(equipmentId, rackId, emitter);
             if (!sentFromCache) {
-                sendFromDatabase(equipmentId, rackId, emitter);
+                // ✅ DB 조회를 별도 메서드로 분리 (트랜잭션 범위 축소)
+                InitialMetricData data = loadInitialDataFromDatabase(equipmentId, rackId);
+                sendInitialData(emitter, data);
             }
             log.info("🚀 [Equipment-{}] 초기 데이터 전송 완료 (RackID: {})", equipmentId, rackId);
         } catch (Exception e) {
             log.error("❌ [Equipment-{}] 초기 데이터 전송 실패", equipmentId, e);
         }
+    }
+
+    /**
+     * ✅ DB에서 데이터 조회만 수행 (트랜잭션 범위 최소화)
+     */
+    @Transactional(readOnly = true)
+    InitialMetricData loadInitialDataFromDatabase(Long equipmentId, Long rackId) {
+        InitialMetricData data = new InitialMetricData();
+
+        // System
+        systemMetricRepository.findLatestByEquipmentId(equipmentId)
+                .ifPresent(data::setSystemMetric);
+
+        // Disk
+        diskMetricRepository.findLatestByEquipmentId(equipmentId)
+                .ifPresent(data::setDiskMetric);
+
+        // Network
+        List<NetworkMetric> networks = networkMetricRepository.findLatestByEquipmentId(equipmentId);
+        data.setNetworkMetrics(networks);
+
+        // Environment
+        if (rackId != null) {
+            environmentMetricRepository.findLatestByRackId(rackId)
+                    .ifPresent(data::setEnvironmentMetric);
+        }
+
+        return data;
+    }
+
+    /**
+     * ✅ 조회된 데이터를 SSE로 전송 (DB 커넥션 없이 수행)
+     */
+    private void sendInitialData(SseEmitter emitter, InitialMetricData data) {
+        if (data.getSystemMetric() != null) {
+            emitSafely(emitter, "system", data.getSystemMetric());
+        }
+        if (data.getDiskMetric() != null) {
+            emitSafely(emitter, "disk", data.getDiskMetric());
+        }
+        if (data.getNetworkMetrics() != null && !data.getNetworkMetrics().isEmpty()) {
+            emitSafely(emitter, "network", data.getNetworkMetrics());
+        }
+        if (data.getEnvironmentMetric() != null) {
+            emitSafely(emitter, "environment", data.getEnvironmentMetric());
+        }
+    }
+
+    /**
+     * ✅ 초기 데이터 DTO (DB 조회 결과를 담는 객체)
+     */
+    @Data
+    private static class InitialMetricData {
+        private SystemMetric systemMetric;
+        private DiskMetric diskMetric;
+        private List<NetworkMetric> networkMetrics;
+        private EnvironmentMetric environmentMetric;
     }
 
     /**
@@ -105,30 +170,6 @@ public class SseService {
             sent |= emitSafely(emitter, "environment", monitoringMetricCache.getEnvironmentMetric(rackId).get());
         }
         return sent;
-    }
-
-    /**
-     * DB에서 데이터 전송
-     */
-    private void sendFromDatabase(Long equipmentId, Long rackId, SseEmitter emitter) {
-        // System
-        systemMetricRepository.findLatestByEquipmentId(equipmentId)
-                .ifPresent(data -> emitSafely(emitter, "system", data));
-        // Disk
-        diskMetricRepository.findLatestByEquipmentId(equipmentId)
-                .ifPresent(data -> emitSafely(emitter, "disk", data));
-
-        // Network: 리스트 전체를 한 번에 전송
-        List<NetworkMetric> networks = networkMetricRepository.findLatestByEquipmentId(equipmentId);
-        if (!networks.isEmpty()) {
-            emitSafely(emitter, "network", networks);
-        }
-
-        // Environment: Rack ID로 조회하여 전송
-        if (rackId != null) {
-            environmentMetricRepository.findLatestByRackId(rackId)
-                    .ifPresent(data -> emitSafely(emitter, "environment", data));
-        }
     }
 
     /**

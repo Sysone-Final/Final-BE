@@ -12,10 +12,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 서버실/데이터센터 통계 주기적 갱신 스케줄러
- * 5초마다 모든 서버실과 데이터센터의 통계를 계산하고 SSE로 전송
+ * 5초마다 모든 활성 서버실과 데이터센터의 통계를 계산하고 SSE로 전송
  */
 @Slf4j
 @Service
@@ -29,13 +30,26 @@ public class AggregatedMonitoringScheduler {
     private final SseService sseService;
     private final AlertEvaluationService alertEvaluationService;
 
-    private List<Long> serverRoomIds = List.of(1L, 2L, 3L);
-    private List<Long> dataCenterIds = List.of(1L);
-
-
+    /**
+     * 서버실 통계 갱신 스케줄러
+     * ✅ DB에서 활성 서버실을 동적으로 조회하여 처리
+     */
     @Scheduled(fixedDelayString = "${monitoring.scheduler.statistics-interval:5000}")
     public void updateServerRoomStatistics() {
         log.debug("=== ServerRoom 통합 모니터링 시작 ===");
+
+        // ✅ DB에서 활성 서버실 목록 동적 조회
+        List<Long> serverRoomIds = serverRoomRepository.findAllByDelYn(DelYN.N)
+                .stream()
+                .map(serverRoom -> serverRoom.getId())
+                .collect(Collectors.toList());
+
+        if (serverRoomIds.isEmpty()) {
+            log.debug("처리할 활성 서버실이 없습니다.");
+            return;
+        }
+
+        log.debug("처리 대상 서버실: {} (총 {}개)", serverRoomIds, serverRoomIds.size());
 
         int successCount = 0;
         int failCount = 0;
@@ -47,7 +61,7 @@ public class AggregatedMonitoringScheduler {
 
                 sseService.sendToServerRoom(serverRoomId, "serverroom-statistics", statistics);
 
-                // ✅ 알림 평가 호출 추가
+                // ✅ 알림 평가 호출
                 alertEvaluationService.evaluateServerRoomStatistics(statistics);
 
                 successCount++;
@@ -60,10 +74,26 @@ public class AggregatedMonitoringScheduler {
         log.debug("ServerRoom 통합 모니터링 완료 - 성공: {}, 실패: {}", successCount, failCount);
     }
 
-
+    /**
+     * 데이터센터 통계 갱신 스케줄러
+     * ✅ DB에서 활성 데이터센터를 동적으로 조회하여 처리
+     */
     @Scheduled(fixedDelayString = "${monitoring.scheduler.datacenter-interval:5000}")
     public void updateDataCenterStatistics() {
         log.debug("=== DataCenter 통합 모니터링 시작 ===");
+
+        // ✅ DB에서 활성 데이터센터 목록 동적 조회
+        List<Long> dataCenterIds = dataCenterRepository.findAllByDelYn(DelYN.N)
+                .stream()
+                .map(dataCenter -> dataCenter.getId())
+                .collect(Collectors.toList());
+
+        if (dataCenterIds.isEmpty()) {
+            log.debug("처리할 활성 데이터센터가 없습니다.");
+            return;
+        }
+
+        log.debug("처리 대상 데이터센터: {} (총 {}개)", dataCenterIds, dataCenterIds.size());
 
         int successCount = 0;
         int failCount = 0;
@@ -75,7 +105,7 @@ public class AggregatedMonitoringScheduler {
 
                 sseService.sendToDataCenter(dataCenterId, "datacenter-statistics", statistics);
 
-                // ✅ 알림 평가 호출 추가
+                // ✅ 알림 평가 호출
                 alertEvaluationService.evaluateDataCenterStatistics(statistics);
 
                 successCount++;

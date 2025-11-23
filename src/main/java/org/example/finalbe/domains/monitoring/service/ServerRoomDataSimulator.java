@@ -70,7 +70,7 @@ public class ServerRoomDataSimulator {
     private List<Equipment> activeEquipments = new CopyOnWriteArrayList<>();
     private List<Rack> activeRacks = new CopyOnWriteArrayList<>();
 
-    private static final double HOURLY_PROBABILITY = 1.0 / 720.0;
+    private static final double HOURLY_PROBABILITY = 1.0 / 4320.0;
 
     @PostConstruct
     public void init() {

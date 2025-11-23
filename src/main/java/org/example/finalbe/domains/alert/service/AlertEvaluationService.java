@@ -23,6 +23,7 @@ import org.example.finalbe.domains.rack.domain.Rack;
 import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -185,7 +186,7 @@ public class AlertEvaluationService {
             // 에러율 평가 (RX)
             if (metric.getInErrorPktsTot() != null && metric.getInPktsTot() != null &&
                     metric.getInPktsTot() > 0) {
-                double errorRate = (metric.getInErrorPktsTot() * 100.0) / metric.getInPktsTot();
+                double errorRate = (metric.getInErrorPktsTot().doubleValue() / metric.getInPktsTot().doubleValue()) * 100;
                 evaluateNetworkErrorRate(
                         equipment,
                         "rx_error_rate",
@@ -199,7 +200,7 @@ public class AlertEvaluationService {
             // 에러율 평가 (TX)
             if (metric.getOutErrorPktsTot() != null && metric.getOutPktsTot() != null &&
                     metric.getOutPktsTot() > 0) {
-                double errorRate = (metric.getOutErrorPktsTot() * 100.0) / metric.getOutPktsTot();
+                double errorRate = (metric.getOutErrorPktsTot().doubleValue() / metric.getOutPktsTot().doubleValue()) * 100;
                 evaluateNetworkErrorRate(
                         equipment,
                         "tx_error_rate",
@@ -213,7 +214,7 @@ public class AlertEvaluationService {
             // 드롭율 평가 (RX)
             if (metric.getInDiscardPktsTot() != null && metric.getInPktsTot() != null &&
                     metric.getInPktsTot() > 0) {
-                double dropRate = (metric.getInDiscardPktsTot() * 100.0) / metric.getInPktsTot();
+                double dropRate = (metric.getInDiscardPktsTot().doubleValue() / metric.getInPktsTot().doubleValue()) * 100;
                 evaluateNetworkDropRate(
                         equipment,
                         "rx_drop_rate",
@@ -227,7 +228,7 @@ public class AlertEvaluationService {
             // 드롭율 평가 (TX)
             if (metric.getOutDiscardPktsTot() != null && metric.getOutPktsTot() != null &&
                     metric.getOutPktsTot() > 0) {
-                double dropRate = (metric.getOutDiscardPktsTot() * 100.0) / metric.getOutPktsTot();
+                double dropRate = (metric.getOutDiscardPktsTot().doubleValue() / metric.getOutPktsTot().doubleValue()) * 100;
                 evaluateNetworkDropRate(
                         equipment,
                         "tx_drop_rate",
@@ -249,11 +250,14 @@ public class AlertEvaluationService {
      */
     private void evaluateNetworkUsage(
             Equipment equipment,
-            String metricName,
+            String baseMetricName,
             Double usage,
             String nicName,
             LocalDateTime generateTime,
             AlertSettingsDto settings) {
+
+        // ✅ NIC 정보를 포함한 고유한 metricName 생성
+        String metricName = baseMetricName + "_" + nicName;
 
         // 임계값이 설정되지 않은 경우 기본값 사용 (80% 경고, 90% 위험)
         Double warningThreshold = 80.0;
@@ -277,11 +281,14 @@ public class AlertEvaluationService {
      */
     private void evaluateNetworkErrorRate(
             Equipment equipment,
-            String metricName,
+            String baseMetricName,
             Double errorRate,
             String nicName,
             LocalDateTime generateTime,
             AlertSettingsDto settings) {
+
+        // ✅ NIC 정보를 포함한 고유한 metricName 생성
+        String metricName = baseMetricName + "_" + nicName;
 
         evaluateMetric(
                 TargetType.EQUIPMENT,
@@ -301,11 +308,14 @@ public class AlertEvaluationService {
      */
     private void evaluateNetworkDropRate(
             Equipment equipment,
-            String metricName,
+            String baseMetricName,
             Double dropRate,
             String nicName,
             LocalDateTime generateTime,
             AlertSettingsDto settings) {
+
+        // ✅ NIC 정보를 포함한 고유한 metricName 생성
+        String metricName = baseMetricName + "_" + nicName;
 
         evaluateMetric(
                 TargetType.EQUIPMENT,
@@ -318,6 +328,66 @@ public class AlertEvaluationService {
                 settings.networkDropRateCritical(),
                 generateTime
         );
+    }
+
+    /**
+     * Tracker 조회 또는 생성 (동시성 처리 추가)
+     */
+    private AlertViolationTracker getOrCreateTracker(
+            TargetType targetType, Long targetId,
+            MetricType metricType, String metricName) {
+
+        Optional<AlertViolationTracker> existing = switch (targetType) {
+            case EQUIPMENT -> violationTrackerRepository.findByEquipmentIdAndMetric(
+                    targetId, metricType, metricName);
+            case RACK -> violationTrackerRepository.findByRackIdAndMetric(
+                    targetId, metricType, metricName);
+            case SERVER_ROOM -> violationTrackerRepository.findByServerRoomIdAndMetric(
+                    targetId, metricType, metricName);
+            case DATA_CENTER -> violationTrackerRepository.findByDataCenterIdAndMetric(
+                    targetId, metricType, metricName);
+        };
+
+        return existing.orElseGet(() -> {
+            try {
+                AlertViolationTracker newTracker = AlertViolationTracker.builder()
+                        .targetType(targetType)
+                        .metricType(metricType)
+                        .metricName(metricName)
+                        .consecutiveViolations(0)
+                        .lastViolationTime(LocalDateTime.now())
+                        .build();
+
+                switch (targetType) {
+                    case EQUIPMENT -> newTracker.setEquipmentId(targetId);
+                    case RACK -> newTracker.setRackId(targetId);
+                    case SERVER_ROOM -> newTracker.setServerRoomId(targetId);
+                    case DATA_CENTER -> newTracker.setDataCenterId(targetId);
+                }
+
+                return violationTrackerRepository.save(newTracker);
+
+            } catch (DataIntegrityViolationException e) {
+                // ✅ 동시에 생성된 경우 다시 조회
+                log.warn("⚠️ Tracker 중복 생성 감지, 재조회: targetType={}, targetId={}, metric={}",
+                        targetType, targetId, metricName);
+
+                return switch (targetType) {
+                    case EQUIPMENT -> violationTrackerRepository
+                            .findByEquipmentIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                    case RACK -> violationTrackerRepository
+                            .findByRackIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                    case SERVER_ROOM -> violationTrackerRepository
+                            .findByServerRoomIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                    case DATA_CENTER -> violationTrackerRepository
+                            .findByDataCenterIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                };
+            }
+        });
     }
 
     /**
@@ -629,40 +699,6 @@ public class AlertEvaluationService {
         }
     }
 
-    private AlertViolationTracker getOrCreateTracker(
-            TargetType targetType, Long targetId,
-            MetricType metricType, String metricName) {
-
-        Optional<AlertViolationTracker> existing = switch (targetType) {
-            case EQUIPMENT -> violationTrackerRepository.findByEquipmentIdAndMetric(
-                    targetId, metricType, metricName);
-            case RACK -> violationTrackerRepository.findByRackIdAndMetric(
-                    targetId, metricType, metricName);
-            case SERVER_ROOM -> violationTrackerRepository.findByServerRoomIdAndMetric(
-                    targetId, metricType, metricName);
-            case DATA_CENTER -> violationTrackerRepository.findByDataCenterIdAndMetric(
-                    targetId, metricType, metricName);
-        };
-
-        return existing.orElseGet(() -> {
-            AlertViolationTracker newTracker = AlertViolationTracker.builder()
-                    .targetType(targetType)
-                    .metricType(metricType)
-                    .metricName(metricName)
-                    .consecutiveViolations(0)
-                    .lastViolationTime(LocalDateTime.now())
-                    .build();
-
-            switch (targetType) {
-                case EQUIPMENT -> newTracker.setEquipmentId(targetId);
-                case RACK -> newTracker.setRackId(targetId);
-                case SERVER_ROOM -> newTracker.setServerRoomId(targetId);
-                case DATA_CENTER -> newTracker.setDataCenterId(targetId);
-            }
-
-            return violationTrackerRepository.save(newTracker);
-        });
-    }
 
     private String buildAlertMessage(
             TargetType targetType, String targetName,
@@ -688,15 +724,16 @@ public class AlertEvaluationService {
                 .map(AlertSettingsDto::from)
                 .orElseGet(AlertSettingsDto::getDefault);
     }
+
     /**
      * 계층 구조에 따라 Alert의 ID들을 자동으로 채움
      * Equipment < Rack < ServerRoom < DataCenter
-     *
+     * <p>
      * ✅ Fetch Join을 사용하여 LazyInitializationException 방지
      *
-     * @param alert AlertHistory 엔티티
+     * @param alert      AlertHistory 엔티티
      * @param targetType 대상 타입
-     * @param targetId 대상 ID
+     * @param targetId   대상 ID
      */
     private void populateHierarchyIds(AlertHistory alert, TargetType targetType, Long targetId) {
         switch (targetType) {

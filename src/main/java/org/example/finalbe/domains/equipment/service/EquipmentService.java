@@ -196,6 +196,7 @@ public class EquipmentService {
 
     /**
      * 장비 생성
+     * ✅ 수정: 랙에 배치된 경우에만 Simulator에 등록
      */
     @Transactional
     public EquipmentDetailResponse createEquipment(EquipmentCreateRequest request) {
@@ -236,17 +237,28 @@ public class EquipmentService {
 
         Equipment equipment = request.toEntity(rack);
 
-        // ✅ 회사 ID 자동 설정
+        // 회사 ID 자동 설정
         equipment.setCompanyId(currentMember.getCompany().getId());
 
         Equipment savedEquipment = equipmentRepository.save(equipment);
 
-        // 랙이 있을 때만 placeEquipment 호출
+        // ✅ 수정: 랙이 있을 때만 메트릭 수집 시작
         if (rack != null) {
             rack.placeEquipment(savedEquipment, request.startUnit(), request.unitSize());
 
-            // ✅ 추가: 랙에 배치되면 메트릭 수집 시작
+            // Prometheus 매핑 추가
             equipmentMappingService.addEquipmentMapping(savedEquipment);
+
+            // ✅ 수정: Simulator 등록 (랙 배치 필수 - addEquipment 내부에서 체크됨)
+            if (savedEquipment.getType() == EquipmentType.SERVER ||
+                    savedEquipment.getType() == EquipmentType.STORAGE) {
+                try {
+                    serverRoomDataSimulator.addEquipment(savedEquipment);
+                } catch (Exception e) {
+                    log.error("⚠️ 시뮬레이터 등록 실패: {}", e.getMessage());
+                }
+            }
+
             log.info("✅ 장비가 랙에 배치되어 메트릭 수집이 시작됩니다. (Equipment ID: {}, Rack ID: {})",
                     savedEquipment.getId(), rack.getId());
         } else {
@@ -256,15 +268,6 @@ public class EquipmentService {
 
         equipmentHistoryRecorder.recordCreate(savedEquipment, currentMember);
 
-        // ========== 시뮬레이터 등록 ==========
-        if (savedEquipment.getType() == EquipmentType.SERVER || savedEquipment.getType() == EquipmentType.STORAGE) {
-            try {
-                serverRoomDataSimulator.addEquipment(savedEquipment);
-            } catch (Exception e) {
-                log.error("⚠️ 시뮬레이터 등록 실패 (모니터링 데이터 생성 안됨): {}", e.getMessage());
-            }
-        }
-
         log.info("Equipment created successfully with id: {} for company: {}",
                 savedEquipment.getId(), savedEquipment.getCompanyId());
         return EquipmentDetailResponse.from(savedEquipment);
@@ -272,6 +275,7 @@ public class EquipmentService {
 
     /**
      * 장비 수정
+     * ✅ 수정: 랙 변경 시 Simulator 등록/제거 처리
      */
     @Transactional
     public EquipmentDetailResponse updateEquipment(Long id, EquipmentUpdateRequest request) {
@@ -303,7 +307,7 @@ public class EquipmentService {
         // === 수정 전 상태 저장 ===
         Equipment oldEquipment = cloneEquipment(equipment);
 
-        // ✅ 추가: 랙 변경 감지
+        // ✅ 랙 변경 감지
         Long oldRackId = equipment.getRack() != null ? equipment.getRack().getId() : null;
 
         // === 상태 변경 감지 ===
@@ -347,17 +351,35 @@ public class EquipmentService {
 
         Equipment updatedEquipment = equipmentRepository.save(equipment);
 
-        // ✅ 추가: 랙 변경 확인 및 메트릭 수집 매핑 업데이트
+        // ✅ 수정: 랙 변경 확인 및 메트릭 수집 매핑 업데이트
         Long newRackId = updatedEquipment.getRack() != null ? updatedEquipment.getRack().getId() : null;
         boolean rackChanged = !Objects.equals(oldRackId, newRackId);
 
         if (rackChanged) {
+            // Prometheus 매핑 업데이트
             equipmentMappingService.updateEquipmentMapping(updatedEquipment);
-            if (newRackId != null) {
-                log.info("✅ 장비가 랙에 배치되어 메트릭 수집 시작 (Equipment ID: {}, Rack ID: {})",
-                        id, newRackId);
-            } else {
-                log.info("⊘ 장비가 랙에서 제거되어 메트릭 수집 중단 (Equipment ID: {})", id);
+
+            // ✅ 수정: Simulator 등록/제거
+            EquipmentType type = updatedEquipment.getType();
+            if (type == EquipmentType.SERVER || type == EquipmentType.STORAGE) {
+                if (newRackId != null) {
+                    // 랙에 배치됨 → Simulator에 추가
+                    try {
+                        serverRoomDataSimulator.addEquipment(updatedEquipment);
+                        log.info("✅ 장비가 랙에 배치되어 메트릭 수집 시작 (Equipment ID: {}, Rack ID: {})",
+                                id, newRackId);
+                    } catch (Exception e) {
+                        log.error("⚠️ 시뮬레이터 등록 실패: {}", e.getMessage());
+                    }
+                } else {
+                    // 랙에서 제거됨 → Simulator에서 제거
+                    try {
+                        serverRoomDataSimulator.removeEquipment(id);
+                        log.info("⊘ 장비가 랙에서 제거되어 메트릭 수집 중단 (Equipment ID: {})", id);
+                    } catch (Exception e) {
+                        log.error("⚠️ 시뮬레이터 제거 실패: {}", e.getMessage());
+                    }
+                }
             }
         }
 

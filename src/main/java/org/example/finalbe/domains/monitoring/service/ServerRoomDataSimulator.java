@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -58,6 +59,8 @@ public class ServerRoomDataSimulator {
     private final Map<String, Long> cumulativeOutDiscards = new HashMap<>();
     private final Map<String, Long> cumulativeIoReads = new HashMap<>();
     private final Map<String, Long> cumulativeIoWrites = new HashMap<>();
+    private final Map<String, Long> cumulativeInBytes = new ConcurrentHashMap<>();
+    private final Map<String, Long> cumulativeOutBytes = new ConcurrentHashMap<>();
 
     private final Map<Long, Double> minTemperatureTracker = new HashMap<>();
     private final Map<Long, Double> maxTemperatureTracker = new HashMap<>();
@@ -86,9 +89,10 @@ public class ServerRoomDataSimulator {
         }
         log.info("🚫 더미 데이터 생성 제외 장비 ID: {}", excludedEquipmentIds);
 
-        // DB에서 삭제되지 않은 장비만 로드
+
         activeEquipments = equipmentRepository.findAll().stream()
                 .filter(e -> DelYN.N.equals(e.getDelYn()))
+                .filter(e -> e.getRack() != null)
                 .collect(java.util.stream.Collectors.toCollection(CopyOnWriteArrayList::new));
 
         // DB에서 삭제되지 않은 랙만 로드
@@ -96,11 +100,11 @@ public class ServerRoomDataSimulator {
                 .filter(r -> DelYN.N.equals(r.getDelYn()))
                 .collect(java.util.stream.Collectors.toCollection(CopyOnWriteArrayList::new));
 
-        log.info("📊 DB에서 로드된 장비 총 개수: {}", activeEquipments.size());
+        log.info("📊 DB에서 로드된 장비 총 개수: {} (랙 배치된 장비만)", activeEquipments.size());
         log.info("📊 DB에서 로드된 랙 총 개수: {}", activeRacks.size());
 
         if (activeEquipments.isEmpty()) {
-            log.warn("⚠️ DB에 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
+            log.warn("⚠️ DB에 랙에 배치된 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
             return;
         }
 
@@ -110,11 +114,6 @@ public class ServerRoomDataSimulator {
 
             if (excludedEquipmentIds.contains(equipmentId)) {
                 log.info("⏭️ 장비 ID {}는 실제 Prometheus 데이터 사용 - 더미 생성 제외", equipmentId);
-                continue;
-            }
-
-            if (DelYN.Y.equals(equipment.getDelYn())) {
-                log.info("⏭️ 장비 ID {}는 삭제됨(del_yn=Y) - 더미 생성 제외", equipmentId);
                 continue;
             }
 
@@ -136,29 +135,10 @@ public class ServerRoomDataSimulator {
 
         int activeCount = (int) activeEquipments.stream()
                 .filter(e -> !excludedEquipmentIds.contains(e.getId()))
-                .filter(e -> !DelYN.Y.equals(e.getDelYn()))
                 .count();
 
-        log.info("✅ 초기화 완료! {}개 장비(실제 더미 생성 대상) + {}개 랙 모니터링 시작",
+        log.info("✅ 초기화 완료! {}개 장비(랙 배치 + 더미 생성 대상) + {}개 랙 모니터링 시작",
                 activeCount, activeRacks.size());
-    }
-
-    private List<String> generateDefaultNics(EquipmentType type) {
-        switch (type) {
-            case SERVER:
-                return Arrays.asList("eth0", "eth1");
-            case SWITCH:
-                return Arrays.asList("GigabitEthernet1/0/1", "GigabitEthernet1/0/2",
-                        "GigabitEthernet1/0/3", "GigabitEthernet1/0/4");
-            case ROUTER:
-                return Arrays.asList("GigabitEthernet0/0", "GigabitEthernet0/1", "GigabitEthernet0/2");
-            case FIREWALL:
-                return Arrays.asList("port1", "port2", "port3", "port4");
-            case LOAD_BALANCER:
-                return Arrays.asList("nic1", "nic2");
-            default:
-                return Arrays.asList("eth0");
-        }
     }
 
     @Scheduled(fixedDelayString = "${monitoring.simulator.interval-seconds:5000}", initialDelay = 2000)
@@ -183,13 +163,20 @@ public class ServerRoomDataSimulator {
 
         int skippedExcluded = 0;
         int skippedDeleted = 0;
+        int skippedNoRack = 0;
         int processed = 0;
-        int alertEvaluationCount = 0;  // ✅ 실제 평가된 알림 수
+        int alertEvaluationCount = 0;
 
         try {
             for (Equipment equipment : activeEquipments) {
                 Long equipmentId = equipment.getId();
                 EquipmentType type = equipment.getType();
+
+                if (equipment.getRack() == null) {
+                    log.debug("⏭️ 장비 ID {} 건너뜀 (랙에 배치되지 않음)", equipmentId);
+                    skippedNoRack++;
+                    continue;
+                }
 
                 if (excludedEquipmentIds.contains(equipmentId)) {
                     log.debug("⏭️ 장비 ID {} 건너뜀 (excluded)", equipmentId);
@@ -213,7 +200,6 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateSystemMetric(sysMetric);
                     sseService.sendToEquipment(equipmentId, "system", sysMetric);
 
-                    // ✅ 임계값 근처일 때만 알림 평가
                     if (needsSystemAlertEvaluation(sysMetric, equipment)) {
                         try {
                             alertEvaluationService.evaluateSystemMetric(sysMetric);
@@ -233,7 +219,6 @@ public class ServerRoomDataSimulator {
                     monitoringMetricCache.updateDiskMetric(diskMetric);
                     sseService.sendToEquipment(equipmentId, "disk", diskMetric);
 
-                    // ✅ 임계값 근처일 때만 알림 평가
                     if (needsDiskAlertEvaluation(diskMetric, equipment)) {
                         try {
                             alertEvaluationService.evaluateDiskMetric(diskMetric);
@@ -256,7 +241,6 @@ public class ServerRoomDataSimulator {
                             monitoringMetricCache.updateNetworkMetric(nicMetric);
                             sseService.sendToEquipment(equipmentId, "network", nicMetric);
 
-                            // ✅ 임계값 근처일 때만 알림 평가
                             if (needsNetworkAlertEvaluation(nicMetric, equipment)) {
                                 try {
                                     alertEvaluationService.evaluateNetworkMetric(nicMetric);
@@ -271,23 +255,27 @@ public class ServerRoomDataSimulator {
                                 equipmentId, nics.size());
                     }
                 }
-            }
 
-            // 랙별 환경 메트릭 생성
-            for (Rack rack : activeRacks) {
-                Long rackId = rack.getId();
-                EnvironmentMetric envMetric = generateEnvironmentMetric(rackId, now);
-                environmentMetricsToSave.add(envMetric);
-                monitoringMetricCache.updateEnvironmentMetric(envMetric);
-                sseService.sendToRack(rackId, "environment", envMetric);
+                // ✅ Environment 메트릭 (ENVIRONMENTAL_SENSOR만)
+                if (type == EquipmentType.ENVIRONMENTAL_SENSOR) {
+                    EnvironmentMetric envMetric = generateEnvironmentMetric(equipmentId, now);
+                    if (envMetric != null) {
+                        environmentMetricsToSave.add(envMetric);
+                        monitoringMetricCache.updateEnvironmentMetric(envMetric);
+                        sseService.sendToRack(envMetric.getRackId(), "environment", envMetric);
 
-                // ✅ 임계값 근처일 때만 알림 평가
-                if (needsEnvironmentAlertEvaluation(envMetric, rack)) {
-                    try {
-                        alertEvaluationService.evaluateEnvironmentMetric(envMetric);
-                        alertEvaluationCount++;
-                    } catch (Exception e) {
-                        log.warn("⚠️ Environment 알림 평가 실패: rackId={}, error={}", rackId, e.getMessage());
+                        if (needsEnvironmentAlertEvaluation(envMetric, equipment.getRack())) {
+                            try {
+                                alertEvaluationService.evaluateEnvironmentMetric(envMetric);
+                                alertEvaluationCount++;
+                            } catch (Exception e) {
+                                log.warn("⚠️ Environment 알림 평가 실패: equipmentId={}, rackId={}, error={}",
+                                        equipmentId, envMetric.getRackId(), e.getMessage());
+                            }
+                        }
+
+                        log.debug("  → Environment 메트릭 생성 완료 (equipmentId={}, rackId={})",
+                                equipmentId, envMetric.getRackId());
                     }
                 }
             }
@@ -312,6 +300,7 @@ public class ServerRoomDataSimulator {
             log.info("  - 전체 장비: {}", activeEquipments.size());
             log.info("  - Excluded 제외: {}", skippedExcluded);
             log.info("  - 삭제됨 제외: {}", skippedDeleted);
+            log.info("  - 랙 미배치 제외: {}", skippedNoRack);
             log.info("  - 실제 처리: {}", processed);
             log.info("  - System 메트릭: {}", systemMetricsToSave.size());
             log.info("  - Disk 메트릭: {}", diskMetricsToSave.size());
@@ -334,83 +323,448 @@ public class ServerRoomDataSimulator {
         }
     }
 
-
-    /**
-     * System 메트릭 알림 평가 필요 여부 체크
-     */
-    private boolean needsSystemAlertEvaluation(SystemMetric metric, Equipment equipment) {
-        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
-            return false;
+    public void addEquipment(Equipment equipment) {
+        if (equipment == null) {
+            log.warn("⚠️ addEquipment: equipment가 null입니다.");
+            return;
         }
 
-        // ✅ 항상 평가 (최적화 로직 제거)
-        return equipment.getCpuThresholdWarning() != null ||
-                equipment.getMemoryThresholdWarning() != null;
-    }
-
-    /**
-     * Disk 메트릭 알림 평가 필요 여부 체크
-     */
-    private boolean needsDiskAlertEvaluation(DiskMetric metric, Equipment equipment) {
-        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
-            return false;
+        // ✅ 랙 배치 여부 체크
+        if (equipment.getRack() == null) {
+            log.info("⊘ 장비 ID {}는 랙에 배치되지 않아 시뮬레이터에 등록하지 않습니다.", equipment.getId());
+            return;
         }
 
-        // ✅ 항상 평가
-        return equipment.getDiskThresholdWarning() != null;
-    }
-
-    /**
-     * Network 메트릭 알림 평가 필요 여부 체크
-     */
-    private boolean needsNetworkAlertEvaluation(NetworkMetric metric, Equipment equipment) {
-        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
-            return false;
+        if (excludedEquipmentIds.contains(equipment.getId())) {
+            log.info("⏭️ 장비 ID {}는 제외 목록에 있어 시뮬레이터에 등록하지 않습니다.", equipment.getId());
+            return;
         }
 
-        // ✅ 항상 평가
-        return true;
-    }
-    /**
-     * Environment 메트릭 알림 평가 필요 여부 체크
-     */
-    private boolean needsEnvironmentAlertEvaluation(EnvironmentMetric metric, Rack rack) {
-        // 모니터링 비활성화면 평가 안 함
-        if (!Boolean.TRUE.equals(rack.getMonitoringEnabled())) {
-            return false;
-        }
+        // 이미 존재하는지 확인
+        boolean exists = activeEquipments.stream()
+                .anyMatch(e -> e.getId().equals(equipment.getId()));
 
-        // 온도 체크 (임계값의 90% 이상만 평가)
-        if (rack.getTemperatureThresholdWarning() != null &&
-                metric.getTemperature() != null) {
-            double threshold = rack.getTemperatureThresholdWarning().doubleValue();
-            if (metric.getTemperature() >= threshold * 0.9) {
-                return true;
+        if (!exists) {
+            activeEquipments.add(equipment);
+
+            // 네트워크 타입이면 NIC 정보 추가
+            if (hasNetworkMetric(equipment.getType())) {
+                EQUIPMENT_NICS.put(equipment.getId(), generateDefaultNics(equipment.getType()));
             }
-        }
 
-        // 습도 최소값 체크 (임계값의 110% 이하만 평가)
-        if (rack.getHumidityThresholdMinWarning() != null &&
-                metric.getHumidity() != null) {
-            double threshold = rack.getHumidityThresholdMinWarning().doubleValue();
-            if (metric.getHumidity() <= threshold * 1.1) {
-                return true;
-            }
-        }
+            // Anomaly 상태 초기화
+            anomalyStates.put(equipment.getId(), new AnomalyState());
 
-        // 습도 최대값 체크 (임계값의 90% 이상만 평가)
-        if (rack.getHumidityThresholdMaxWarning() != null &&
-                metric.getHumidity() != null) {
-            double threshold = rack.getHumidityThresholdMaxWarning().doubleValue();
-            if (metric.getHumidity() >= threshold * 0.9) {
-                return true;
-            }
+            log.info("시뮬레이터에 장비 추가: ID={}, Type={}, Rack={}",
+                    equipment.getId(), equipment.getType(), equipment.getRack().getId());
+        } else {
+            log.debug("이미 등록된 장비입니다: ID={}", equipment.getId());
         }
-
-        return false;
     }
 
-    // ========== 기존 메서드들 ==========
+    public void removeEquipment(Long equipmentId) {
+        if (equipmentId == null) {
+            log.warn("⚠️ removeEquipment: equipmentId가 null입니다.");
+            return;
+        }
+
+        boolean removed = activeEquipments.removeIf(e -> e.getId().equals(equipmentId));
+
+        if (removed) {
+            EQUIPMENT_NICS.remove(equipmentId);
+            anomalyStates.remove(equipmentId);
+
+            log.info("✅ 시뮬레이터에서 장비 제거: ID={}", equipmentId);
+        } else {
+            log.debug("제거할 장비가 없습니다: ID={}", equipmentId);
+        }
+    }
+
+    private List<String> generateDefaultNics(EquipmentType type) {
+        switch (type) {
+            case SERVER:
+                return Arrays.asList("eth0", "eth1");
+            case STORAGE:
+                return Arrays.asList("mgmt0", "data0");
+            case SWITCH:
+                return Arrays.asList("GigabitEthernet1/0/1", "GigabitEthernet1/0/2",
+                        "GigabitEthernet1/0/3", "GigabitEthernet1/0/4");
+            case ROUTER:
+                return Arrays.asList("GigabitEthernet0/0", "GigabitEthernet0/1", "GigabitEthernet0/2");
+            case FIREWALL:
+                return Arrays.asList("port1", "port2", "port3", "port4");
+            case LOAD_BALANCER:
+                return Arrays.asList("nic1", "nic2");
+            case PDU:
+                return Arrays.asList("mgmt0");
+            case ENVIRONMENTAL_SENSOR:
+                return Arrays.asList("sensor0");
+            case KVM:
+                return Collections.emptyList();
+            default:
+                throw new IllegalArgumentException("지원하지 않는 장비 타입: " + type);
+        }
+    }
+
+    private boolean hasSystemMetric(EquipmentType type) {
+        return type == EquipmentType.SERVER ||
+                type == EquipmentType.STORAGE ||
+                type == EquipmentType.FIREWALL ||
+                type == EquipmentType.LOAD_BALANCER;
+    }
+
+
+    private boolean hasDiskMetric(EquipmentType type) {
+        return type == EquipmentType.SERVER || type == EquipmentType.STORAGE;
+    }
+
+    private boolean hasNetworkMetric(EquipmentType type) {
+        return type == EquipmentType.SERVER ||
+                type == EquipmentType.STORAGE ||
+                type == EquipmentType.SWITCH ||
+                type == EquipmentType.ROUTER ||
+                type == EquipmentType.FIREWALL ||
+                type == EquipmentType.LOAD_BALANCER ||
+                type == EquipmentType.PDU ||
+                type == EquipmentType.ENVIRONMENTAL_SENSOR;
+    }
+
+    private SystemMetric generateSystemMetric(Long equipmentId, LocalDateTime time) {
+        Equipment equipment = activeEquipments.stream()
+                .filter(e -> e.getId().equals(equipmentId))
+                .findFirst()
+                .orElse(null);
+
+        if (equipment == null) {
+            return null;
+        }
+
+        EquipmentType type = equipment.getType();
+        AnomalyState state = anomalyStates.get(equipmentId);
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        SystemMetric metric = SystemMetric.builder()
+                .equipmentId(equipmentId)
+                .generateTime(time)
+                .build();
+
+        // ==================== 장비 유형별 CPU 설정 ====================
+        double baseCpu, cpuUsage;
+
+        switch (type) {
+            case SERVER:
+                baseCpu = 30 + rand.nextDouble() * 35;  // 30~65%
+                break;
+            case STORAGE:
+                baseCpu = 10 + rand.nextDouble() * 20;  // 10~30% (낮음)
+                break;
+            case FIREWALL:
+                baseCpu = 20 + rand.nextDouble() * 30;  // 20~50% (패킷 처리)
+                break;
+            case LOAD_BALANCER:
+                baseCpu = 15 + rand.nextDouble() * 25;  // 15~40%
+                break;
+            default:
+                baseCpu = 15 + rand.nextDouble() * 20;
+        }
+
+        cpuUsage = state.hasCpuAnomaly ?
+                Math.min(95, baseCpu + 50 + rand.nextDouble() * 20) : baseCpu;
+
+        double cpuIdle = 100.0 - cpuUsage;
+        metric.setCpuIdle(cpuIdle);
+        metric.setCpuUser(cpuUsage * 0.6);
+        metric.setCpuSystem(cpuUsage * 0.25);
+        metric.setCpuWait(cpuUsage * 0.08);
+        metric.setCpuNice(cpuUsage * 0.03);
+        metric.setCpuIrq(cpuUsage * 0.02);
+        metric.setCpuSoftirq(cpuUsage * 0.015);
+        metric.setCpuSteal(cpuUsage * 0.005);
+
+        // ==================== Load Average (SERVER, STORAGE만) ====================
+        if (type == EquipmentType.SERVER || type == EquipmentType.STORAGE) {
+            double loadAvg = cpuUsage / 100.0 * 4;
+            metric.setLoadAvg1(loadAvg + rand.nextDouble() * 0.5);
+            metric.setLoadAvg5(loadAvg + rand.nextDouble() * 0.3);
+            metric.setLoadAvg15(loadAvg + rand.nextDouble() * 0.2);
+
+            long contextSwitches = (long)(1000 + rand.nextDouble() * 9000);
+            metric.setContextSwitches(contextSwitches);
+        } else {
+            // FIREWALL, LOAD_BALANCER는 NULL
+            metric.setLoadAvg1(null);
+            metric.setLoadAvg5(null);
+            metric.setLoadAvg15(null);
+            metric.setContextSwitches(null);
+        }
+
+        // ==================== 장비 유형별 메모리 설정 ====================
+        long totalMemory = 16L * 1024 * 1024 * 1024;  // 16GB
+        double baseMemUsage, memUsagePercent;
+
+        switch (type) {
+            case SERVER:
+                baseMemUsage = 40 + rand.nextDouble() * 30;  // 40~70%
+                break;
+            case STORAGE:
+                baseMemUsage = 30 + rand.nextDouble() * 20;  // 30~50%
+                break;
+            case FIREWALL:
+                baseMemUsage = 30 + rand.nextDouble() * 30;  // 30~60% (세션 테이블)
+                break;
+            case LOAD_BALANCER:
+                baseMemUsage = 25 + rand.nextDouble() * 25;  // 25~50%
+                break;
+            default:
+                baseMemUsage = 40 + rand.nextDouble() * 20;
+        }
+
+        memUsagePercent = state.hasMemoryAnomaly ?
+                Math.min(95, baseMemUsage + 30 + rand.nextDouble() * 15) : baseMemUsage;
+
+        long usedMemory = (long)(totalMemory * memUsagePercent / 100);
+        long freeMemory = totalMemory - usedMemory;
+
+        metric.setTotalMemory(totalMemory);
+        metric.setUsedMemory(usedMemory);
+        metric.setFreeMemory(freeMemory);
+        metric.setUsedMemoryPercentage(memUsagePercent);
+
+        long buffers = (long)(totalMemory * 0.05);
+        long cached = (long)(totalMemory * 0.15);
+        long active = (long)(usedMemory * 0.6);
+        long inactive = (long)(usedMemory * 0.4);
+
+        metric.setMemoryBuffers(buffers);
+        metric.setMemoryCached(cached);
+        metric.setMemoryActive(active);
+        metric.setMemoryInactive(inactive);
+
+        // ==================== Swap (SERVER, STORAGE만) ====================
+        if (type == EquipmentType.SERVER || type == EquipmentType.STORAGE) {
+            long totalSwap = 8L * 1024 * 1024 * 1024;
+            double swapUsagePercent = state.hasMemoryAnomaly ?
+                    Math.min(50, rand.nextDouble() * 30) : rand.nextDouble() * 10;
+
+            long usedSwap = (long)(totalSwap * swapUsagePercent / 100);
+
+            metric.setTotalSwap(totalSwap);
+            metric.setUsedSwap(usedSwap);
+            metric.setUsedSwapPercentage(swapUsagePercent);
+        } else {
+            // FIREWALL, LOAD_BALANCER는 NULL
+            metric.setTotalSwap(null);
+            metric.setUsedSwap(null);
+            metric.setUsedSwapPercentage(null);
+        }
+
+        return metric;
+    }
+
+    private NetworkMetric generateNetworkMetric(Long equipmentId, String nicName, LocalDateTime time) {
+        Equipment equipment = activeEquipments.stream()
+                .filter(e -> e.getId().equals(equipmentId))
+                .findFirst()
+                .orElse(null);
+
+        if (equipment == null) {
+            return null;
+        }
+
+        EquipmentType type = equipment.getType();
+        AnomalyState state = anomalyStates.get(equipmentId);
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        NetworkMetric metric = NetworkMetric.builder()
+                .equipmentId(equipmentId)
+                .nicName(nicName)
+                .generateTime(time)
+                .build();
+
+        double bandwidthBps = 1_000_000_000.0;  // 1Gbps
+
+        // ==================== 장비 유형별 사용률 차별화 ====================
+        double baseRxUsage, baseTxUsage;
+
+        switch (type) {
+            case SERVER:
+                baseRxUsage = 10 + rand.nextDouble() * 30;  // 10~40%
+                baseTxUsage = 5 + rand.nextDouble() * 25;   // 5~30%
+                break;
+            case STORAGE:
+                baseRxUsage = 15 + rand.nextDouble() * 35;  // 15~50% (높음)
+                baseTxUsage = 20 + rand.nextDouble() * 40;  // 20~60% (높음)
+                break;
+            case SWITCH:
+            case ROUTER:
+                baseRxUsage = 10 + rand.nextDouble() * 50;  // 10~60% (변동 큼)
+                baseTxUsage = 10 + rand.nextDouble() * 50;  // 10~60%
+                break;
+            case FIREWALL:
+                baseRxUsage = 15 + rand.nextDouble() * 35;  // 15~50%
+                baseTxUsage = 10 + rand.nextDouble() * 30;  // 10~40%
+                break;
+            case LOAD_BALANCER:
+                baseRxUsage = 20 + rand.nextDouble() * 40;  // 20~60% (높음)
+                baseTxUsage = 20 + rand.nextDouble() * 40;  // 20~60%
+                break;
+            case PDU:
+            case ENVIRONMENTAL_SENSOR:
+                baseRxUsage = 0.1 + rand.nextDouble() * 0.5;  // 0.1~0.6% (매우 낮음)
+                baseTxUsage = 0.1 + rand.nextDouble() * 0.5;  // 0.1~0.6%
+                break;
+            default:
+                baseRxUsage = 5 + rand.nextDouble() * 15;
+                baseTxUsage = 3 + rand.nextDouble() * 12;
+        }
+
+        double rxUsage = state.hasNetworkAnomaly ?
+                Math.min(95, baseRxUsage + 50 + rand.nextDouble() * 25) : baseRxUsage;
+
+        double txUsage = state.hasNetworkAnomaly ?
+                Math.min(95, baseTxUsage + 45 + rand.nextDouble() * 25) : baseTxUsage;
+
+        metric.setRxUsage(rxUsage);
+        metric.setTxUsage(txUsage);
+
+        String key = "network_" + equipmentId + "_" + nicName;
+
+        // ==================== 패킷 처리 ====================
+        long prevInPackets = cumulativeInPackets.getOrDefault(key, 0L);
+        long prevOutPackets = cumulativeOutPackets.getOrDefault(key, 0L);
+
+        long inPacketsInc = (long)(bandwidthBps * rxUsage / 100.0 / 1500 * 15);  // 15초 간격
+        long outPacketsInc = (long)(bandwidthBps * txUsage / 100.0 / 1500 * 15);
+
+        long newInPackets = prevInPackets + inPacketsInc;
+        long newOutPackets = prevOutPackets + outPacketsInc;
+
+        cumulativeInPackets.put(key, newInPackets);
+        cumulativeOutPackets.put(key, newOutPackets);
+
+        metric.setInPktsTot(newInPackets);
+        metric.setOutPktsTot(newOutPackets);
+
+        // ✅ 초당 패킷 수
+        metric.setInPktsPerSec((double) inPacketsInc / 15.0);
+        metric.setOutPktsPerSec((double) outPacketsInc / 15.0);
+
+        // ==================== 바이트 처리 (추가) ====================
+        long prevInBytes = cumulativeInBytes.getOrDefault(key, 0L);
+        long prevOutBytes = cumulativeOutBytes.getOrDefault(key, 0L);
+
+        // 평균 패킷 크기 1500바이트 가정
+        long inBytesInc = inPacketsInc * 1500;
+        long outBytesInc = outPacketsInc * 1500;
+
+        long newInBytes = prevInBytes + inBytesInc;
+        long newOutBytes = prevOutBytes + outBytesInc;
+
+        cumulativeInBytes.put(key, newInBytes);
+        cumulativeOutBytes.put(key, newOutBytes);
+
+        metric.setInBytesTot(newInBytes);
+        metric.setOutBytesTot(newOutBytes);
+
+        metric.setInBytesPerSec((double) inBytesInc / 15.0);
+        metric.setOutBytesPerSec((double) outBytesInc / 15.0);
+
+        // ==================== 에러/드롭 처리 ====================
+        long inErrorInc = state.hasNetworkAnomaly ? rand.nextLong(100) : rand.nextLong(5);
+        long outErrorInc = state.hasNetworkAnomaly ? rand.nextLong(100) : rand.nextLong(5);
+        long inDiscardInc = state.hasNetworkAnomaly ? rand.nextLong(50) : rand.nextLong(2);
+        long outDiscardInc = state.hasNetworkAnomaly ? rand.nextLong(50) : rand.nextLong(2);
+
+        long prevInErrors = cumulativeInErrors.getOrDefault(key, 0L);
+        long prevOutErrors = cumulativeOutErrors.getOrDefault(key, 0L);
+        long prevInDiscards = cumulativeInDiscards.getOrDefault(key, 0L);
+        long prevOutDiscards = cumulativeOutDiscards.getOrDefault(key, 0L);
+
+        long newInErrors = prevInErrors + inErrorInc;
+        long newOutErrors = prevOutErrors + outErrorInc;
+        long newInDiscards = prevInDiscards + inDiscardInc;
+        long newOutDiscards = prevOutDiscards + outDiscardInc;
+
+        cumulativeInErrors.put(key, newInErrors);
+        cumulativeOutErrors.put(key, newOutErrors);
+        cumulativeInDiscards.put(key, newInDiscards);
+        cumulativeOutDiscards.put(key, newOutDiscards);
+
+        metric.setInErrorPktsTot(newInErrors);
+        metric.setOutErrorPktsTot(newOutErrors);
+        metric.setInDiscardPktsTot(newInDiscards);
+        metric.setOutDiscardPktsTot(newOutDiscards);
+
+        metric.setOperStatus(1);
+
+        return metric;
+    }
+
+    private EnvironmentMetric generateEnvironmentMetric(Long equipmentId, LocalDateTime time) {
+        // Equipment에서 rack_id 가져오기
+        Equipment equipment = activeEquipments.stream()
+                .filter(e -> e.getId().equals(equipmentId))
+                .findFirst()
+                .orElse(null);
+
+        if (equipment == null || equipment.getRack() == null) {
+            // rack_id가 없으면 메트릭 생성 안 함
+            return null;
+        }
+
+        Long rackId = equipment.getRack().getId();
+        AnomalyState state = rackAnomalyStates.get(rackId);
+        if (state == null) {
+            // 해당 랙에 대한 anomaly 상태가 없으면 생성
+            state = new AnomalyState();
+            rackAnomalyStates.put(rackId, state);
+        }
+
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        EnvironmentMetric metric = EnvironmentMetric.builder()
+                .rackId(rackId)
+                .generateTime(time)
+                .build();
+
+        // 온도
+        double baseTemp = 22 + rand.nextDouble() * 4;  // 22~26°C
+        double temperature = state.hasTemperatureAnomaly ?
+                Math.min(35, baseTemp + 8 + rand.nextDouble() * 5) : baseTemp;
+
+        metric.setTemperature(temperature);
+        metric.setMinTemperature(temperature - rand.nextDouble() * 2);
+        metric.setMaxTemperature(temperature + rand.nextDouble() * 2);
+
+        // 습도
+        double baseHumidity = 45 + rand.nextDouble() * 10;  // 45~55%
+        double humidity = state.hasHumidityAnomaly ?
+                Math.min(75, baseHumidity + 15 + rand.nextDouble() * 10) : baseHumidity;
+
+        metric.setHumidity(humidity);
+        metric.setMinHumidity(humidity - rand.nextDouble() * 3);
+        metric.setMaxHumidity(humidity + rand.nextDouble() * 3);
+
+        // 경고 상태 (Rack의 임계치 확인)
+        Rack rack = equipment.getRack();
+        boolean tempWarning = false;
+        boolean humidityWarning = false;
+
+        if (rack.getTemperatureThresholdWarning() != null) {
+            tempWarning = temperature >= rack.getTemperatureThresholdWarning();
+        }
+        if (rack.getHumidityThresholdMaxWarning() != null) {
+            humidityWarning = humidity >= rack.getHumidityThresholdMaxWarning();
+        }
+        if (rack.getHumidityThresholdMinWarning() != null) {
+            humidityWarning = humidityWarning || humidity <= rack.getHumidityThresholdMinWarning();
+        }
+
+        metric.setTemperatureWarning(tempWarning);
+        metric.setHumidityWarning(humidityWarning);
+
+        return metric;
+    }
 
     private void batchInsertSystemMetrics(List<SystemMetric> metrics) {
         String sql = "INSERT INTO system_metrics (equipment_id, generate_time, " +
@@ -481,10 +835,15 @@ public class ServerRoomDataSimulator {
 
     private void batchInsertNetworkMetrics(List<NetworkMetric> metrics) {
         String sql = "INSERT INTO network_metrics (equipment_id, nic_name, generate_time, " +
-                "rx_usage, tx_usage, in_pkts_tot, out_pkts_tot, " +
-                "in_error_pkts_tot, out_error_pkts_tot, in_discard_pkts_tot, out_discard_pkts_tot, " +
+                "rx_usage, tx_usage, " +
+                "in_pkts_tot, out_pkts_tot, " +
+                "in_bytes_tot, out_bytes_tot, " +
+                "in_bytes_per_sec, out_bytes_per_sec, " +
+                "in_pkts_per_sec, out_pkts_per_sec, " +
+                "in_error_pkts_tot, out_error_pkts_tot, " +
+                "in_discard_pkts_tot, out_discard_pkts_tot, " +
                 "oper_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         jdbcTemplate.batchUpdate(sql, metrics, metrics.size(),
                 (ps, metric) -> {
@@ -495,11 +854,17 @@ public class ServerRoomDataSimulator {
                     ps.setObject(5, metric.getTxUsage());
                     ps.setObject(6, metric.getInPktsTot());
                     ps.setObject(7, metric.getOutPktsTot());
-                    ps.setObject(8, metric.getInErrorPktsTot());
-                    ps.setObject(9, metric.getOutErrorPktsTot());
-                    ps.setObject(10, metric.getInDiscardPktsTot());
-                    ps.setObject(11, metric.getOutDiscardPktsTot());
-                    ps.setObject(12, metric.getOperStatus());
+                    ps.setObject(8, metric.getInBytesTot());
+                    ps.setObject(9, metric.getOutBytesTot());
+                    ps.setObject(10, metric.getInBytesPerSec());
+                    ps.setObject(11, metric.getOutBytesPerSec());
+                    ps.setObject(12, metric.getInPktsPerSec());
+                    ps.setObject(13, metric.getOutPktsPerSec());
+                    ps.setObject(14, metric.getInErrorPktsTot());
+                    ps.setObject(15, metric.getOutErrorPktsTot());
+                    ps.setObject(16, metric.getInDiscardPktsTot());
+                    ps.setObject(17, metric.getOutDiscardPktsTot());
+                    ps.setObject(18, metric.getOperStatus());
                 });
     }
 
@@ -525,295 +890,58 @@ public class ServerRoomDataSimulator {
                 });
     }
 
-    private boolean hasSystemMetric(EquipmentType type) {
-        return type == EquipmentType.SERVER || type == EquipmentType.STORAGE;
+    private boolean needsSystemAlertEvaluation(SystemMetric metric, Equipment equipment) {
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+        return equipment.getCpuThresholdWarning() != null ||
+                equipment.getMemoryThresholdWarning() != null;
     }
 
-    private boolean hasDiskMetric(EquipmentType type) {
-        return type == EquipmentType.SERVER || type == EquipmentType.STORAGE;
+    private boolean needsDiskAlertEvaluation(DiskMetric metric, Equipment equipment) {
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+        return equipment.getDiskThresholdWarning() != null;
     }
 
-    private boolean hasNetworkMetric(EquipmentType type) {
-        return type == EquipmentType.SERVER ||
-                type == EquipmentType.SWITCH ||
-                type == EquipmentType.ROUTER ||
-                type == EquipmentType.FIREWALL ||
-                type == EquipmentType.LOAD_BALANCER;
+    private boolean needsNetworkAlertEvaluation(NetworkMetric metric, Equipment equipment) {
+        if (!Boolean.TRUE.equals(equipment.getMonitoringEnabled())) {
+            return false;
+        }
+        return true;
     }
 
-    private SystemMetric generateSystemMetric(Long equipmentId, LocalDateTime time) {
-        AnomalyState state = anomalyStates.get(equipmentId);
-        ThreadLocalRandom rand = ThreadLocalRandom.current();
-
-        SystemMetric metric = SystemMetric.builder()
-                .equipmentId(equipmentId)
-                .generateTime(time)
-                .build();
-
-        double baseCpu = 15 + rand.nextDouble() * 20;
-        double cpuUsage = state.hasCpuAnomaly ?
-                Math.min(95, baseCpu + 50 + rand.nextDouble() * 20) : baseCpu;
-
-        double cpuIdle = 100.0 - cpuUsage;
-        metric.setCpuIdle(cpuIdle);
-        metric.setCpuUser(cpuUsage * 0.6);
-        metric.setCpuSystem(cpuUsage * 0.25);
-        metric.setCpuWait(cpuUsage * 0.08);
-        metric.setCpuNice(cpuUsage * 0.03);
-        metric.setCpuIrq(cpuUsage * 0.02);
-        metric.setCpuSoftirq(cpuUsage * 0.015);
-        metric.setCpuSteal(cpuUsage * 0.005);
-
-        double loadAvg = cpuUsage / 100.0 * 4;
-        metric.setLoadAvg1(loadAvg + rand.nextDouble() * 0.5);
-        metric.setLoadAvg5(loadAvg + rand.nextDouble() * 0.3);
-        metric.setLoadAvg15(loadAvg + rand.nextDouble() * 0.2);
-
-        long contextSwitches = (long)(1000 + rand.nextDouble() * 9000);
-        metric.setContextSwitches(contextSwitches);
-
-        long totalMemory = 16L * 1024 * 1024 * 1024;
-        double baseMemUsage = 40 + rand.nextDouble() * 20;
-        double memUsagePercent = state.hasMemoryAnomaly ?
-                Math.min(95, baseMemUsage + 30 + rand.nextDouble() * 15) : baseMemUsage;
-
-        long usedMemory = (long)(totalMemory * memUsagePercent / 100);
-        long freeMemory = totalMemory - usedMemory;
-
-        metric.setTotalMemory(totalMemory);
-        metric.setUsedMemory(usedMemory);
-        metric.setFreeMemory(freeMemory);
-        metric.setUsedMemoryPercentage(memUsagePercent);
-
-        long buffers = (long)(totalMemory * 0.05);
-        long cached = (long)(totalMemory * 0.15);
-        long active = (long)(usedMemory * 0.6);
-        long inactive = (long)(usedMemory * 0.4);
-
-        metric.setMemoryBuffers(buffers);
-        metric.setMemoryCached(cached);
-        metric.setMemoryActive(active);
-        metric.setMemoryInactive(inactive);
-
-        long totalSwap = 8L * 1024 * 1024 * 1024;
-        double swapUsagePercent = state.hasMemoryAnomaly ?
-                rand.nextDouble() * 50 : rand.nextDouble() * 5;
-
-        long usedSwap = (long)(totalSwap * swapUsagePercent / 100);
-
-        metric.setTotalSwap(totalSwap);
-        metric.setUsedSwap(usedSwap);
-        metric.setUsedSwapPercentage(swapUsagePercent);
-
-        return metric;
-    }
-
-    private DiskMetric generateDiskMetric(Long equipmentId, LocalDateTime time) {
-        AnomalyState state = anomalyStates.get(equipmentId);
-        ThreadLocalRandom rand = ThreadLocalRandom.current();
-
-        DiskMetric metric = DiskMetric.builder()
-                .equipmentId(equipmentId)
-                .generateTime(time)
-                .build();
-
-        long totalBytes = 500L * 1024 * 1024 * 1024;
-        double baseUsage = 30 + rand.nextDouble() * 40;
-        double usedPercent = Math.min(95, baseUsage);
-
-        long usedBytes = (long)(totalBytes * usedPercent / 100);
-        long freeBytes = totalBytes - usedBytes;
-
-        metric.setTotalBytes(totalBytes);
-        metric.setUsedBytes(usedBytes);
-        metric.setFreeBytes(freeBytes);
-        metric.setUsedPercentage(usedPercent);
-
-        double baseReadBps = 5_000_000 + rand.nextDouble() * 10_000_000;
-        double baseWriteBps = 3_000_000 + rand.nextDouble() * 7_000_000;
-
-        double ioReadBps = state.hasDiskAnomaly ?
-                baseReadBps * (2 + rand.nextDouble() * 3) : baseReadBps;
-
-        double ioWriteBps = state.hasDiskAnomaly ?
-                baseWriteBps * (2 + rand.nextDouble() * 3) : baseWriteBps;
-
-        metric.setIoReadBps(ioReadBps);
-        metric.setIoWriteBps(ioWriteBps);
-
-        double ioTimePercentage = state.hasDiskAnomaly ?
-                Math.min(95, 30 + rand.nextDouble() * 50) : 5 + rand.nextDouble() * 20;
-
-        metric.setIoTimePercentage(ioTimePercentage);
-
-        String key = "disk_" + equipmentId;
-
-        long prevReadCount = cumulativeIoReads.getOrDefault(key, 0L);
-        long prevWriteCount = cumulativeIoWrites.getOrDefault(key, 0L);
-
-        long readInc = (long)(ioReadBps / 4096 * 15);
-        long writeInc = (long)(ioWriteBps / 4096 * 15);
-
-        long newReadCount = prevReadCount + readInc;
-        long newWriteCount = prevWriteCount + writeInc;
-
-        cumulativeIoReads.put(key, newReadCount);
-        cumulativeIoWrites.put(key, newWriteCount);
-
-        metric.setIoReadCount(newReadCount);
-        metric.setIoWriteCount(newWriteCount);
-
-        long totalInodes = 32_000_000L;
-        double inodeUsagePercent = 15 + rand.nextDouble() * 30;
-
-        long usedInodes = (long)(totalInodes * inodeUsagePercent / 100);
-        long freeInodes = totalInodes - usedInodes;
-
-        metric.setTotalInodes(totalInodes);
-        metric.setUsedInodes(usedInodes);
-        metric.setFreeInodes(freeInodes);
-        metric.setUsedInodePercentage(inodeUsagePercent);
-
-        return metric;
-    }
-
-    private NetworkMetric generateNetworkMetric(Long equipmentId, String nicName, LocalDateTime time) {
-        AnomalyState state = anomalyStates.get(equipmentId);
-        ThreadLocalRandom rand = ThreadLocalRandom.current();
-
-        NetworkMetric metric = NetworkMetric.builder()
-                .equipmentId(equipmentId)
-                .nicName(nicName)
-                .generateTime(time)
-                .build();
-
-        double bandwidthBps = 1_000_000_000.0;
-
-        double baseRxUsage = 5 + rand.nextDouble() * 15;
-        double baseTxUsage = 3 + rand.nextDouble() * 12;
-
-        double rxUsage = state.hasNetworkAnomaly ?
-                Math.min(95, baseRxUsage + 50 + rand.nextDouble() * 25) : baseRxUsage;
-
-        double txUsage = state.hasNetworkAnomaly ?
-                Math.min(95, baseTxUsage + 45 + rand.nextDouble() * 25) : baseTxUsage;
-
-        metric.setRxUsage(rxUsage);
-        metric.setTxUsage(txUsage);
-
-        String key = "network_" + equipmentId + "_" + nicName;
-
-        long prevInPackets = cumulativeInPackets.getOrDefault(key, 0L);
-        long prevOutPackets = cumulativeOutPackets.getOrDefault(key, 0L);
-
-        long inPacketsInc = (long)(bandwidthBps * rxUsage / 100.0 / 1500 * 5);
-        long outPacketsInc = (long)(bandwidthBps * txUsage / 100.0 / 1500 * 5);
-
-        long newInPackets = prevInPackets + inPacketsInc;
-        long newOutPackets = prevOutPackets + outPacketsInc;
-
-        cumulativeInPackets.put(key, newInPackets);
-        cumulativeOutPackets.put(key, newOutPackets);
-
-        metric.setInPktsTot(newInPackets);
-        metric.setOutPktsTot(newOutPackets);
-
-        long inErrorInc = state.hasNetworkAnomaly ? rand.nextLong(100) : rand.nextLong(5);
-        long outErrorInc = state.hasNetworkAnomaly ? rand.nextLong(100) : rand.nextLong(5);
-        long inDiscardInc = state.hasNetworkAnomaly ? rand.nextLong(50) : rand.nextLong(2);
-        long outDiscardInc = state.hasNetworkAnomaly ? rand.nextLong(50) : rand.nextLong(2);
-
-        long prevInErrors = cumulativeInErrors.getOrDefault(key, 0L);
-        long prevOutErrors = cumulativeOutErrors.getOrDefault(key, 0L);
-        long prevInDiscards = cumulativeInDiscards.getOrDefault(key, 0L);
-        long prevOutDiscards = cumulativeOutDiscards.getOrDefault(key, 0L);
-
-        long newInErrors = prevInErrors + inErrorInc;
-        long newOutErrors = prevOutErrors + outErrorInc;
-        long newInDiscards = prevInDiscards + inDiscardInc;
-        long newOutDiscards = prevOutDiscards + outDiscardInc;
-
-        cumulativeInErrors.put(key, newInErrors);
-        cumulativeOutErrors.put(key, newOutErrors);
-        cumulativeInDiscards.put(key, newInDiscards);
-        cumulativeOutDiscards.put(key, newOutDiscards);
-
-        metric.setInErrorPktsTot(newInErrors);
-        metric.setOutErrorPktsTot(newOutErrors);
-        metric.setInDiscardPktsTot(newInDiscards);
-        metric.setOutDiscardPktsTot(newOutDiscards);
-
-        metric.setOperStatus(1);
-
-        return metric;
-    }
-
-    private EnvironmentMetric generateEnvironmentMetric(Long rackId, LocalDateTime time) {
-        AnomalyState state = rackAnomalyStates.get(rackId);
-        ThreadLocalRandom rand = ThreadLocalRandom.current();
-
-        EnvironmentMetric metric = EnvironmentMetric.builder()
-                .rackId(rackId)
-                .generateTime(time)
-                .build();
-
-        double baseTemperature = 20.0 + rand.nextDouble() * 4.0;
-
-        double currentTemperature;
-        if (state.hasTemperatureAnomaly) {
-            currentTemperature = Math.min(45.0, baseTemperature + 10 + rand.nextDouble() * 8);
-        } else {
-            currentTemperature = baseTemperature;
+    private boolean needsEnvironmentAlertEvaluation(EnvironmentMetric metric, Rack rack) {
+        if (!Boolean.TRUE.equals(rack.getMonitoringEnabled())) {
+            return false;
         }
 
-        metric.setTemperature(currentTemperature);
-
-        Double prevMinTemp = minTemperatureTracker.get(rackId);
-        Double prevMaxTemp = maxTemperatureTracker.get(rackId);
-
-        double minTemp = Math.min(prevMinTemp, currentTemperature);
-        double maxTemp = Math.max(prevMaxTemp, currentTemperature);
-
-        minTemperatureTracker.put(rackId, minTemp);
-        maxTemperatureTracker.put(rackId, maxTemp);
-
-        metric.setMinTemperature(minTemp);
-        metric.setMaxTemperature(maxTemp);
-
-        double baseHumidity = 40.0 + rand.nextDouble() * 15.0;
-
-        double currentHumidity;
-        if (state.hasHumidityAnomaly) {
-            if (rand.nextBoolean()) {
-                currentHumidity = Math.max(20.0, baseHumidity - 15 - rand.nextDouble() * 10);
-            } else {
-                currentHumidity = Math.min(80.0, baseHumidity + 15 + rand.nextDouble() * 15);
+        if (rack.getTemperatureThresholdWarning() != null &&
+                metric.getTemperature() != null) {
+            double threshold = rack.getTemperatureThresholdWarning().doubleValue();
+            if (metric.getTemperature() >= threshold * 0.9) {
+                return true;
             }
-        } else {
-            currentHumidity = baseHumidity;
         }
 
-        metric.setHumidity(currentHumidity);
+        if (rack.getHumidityThresholdMinWarning() != null &&
+                metric.getHumidity() != null) {
+            double threshold = rack.getHumidityThresholdMinWarning().doubleValue();
+            if (metric.getHumidity() <= threshold * 1.1) {
+                return true;
+            }
+        }
 
-        Double prevMinHumidity = minHumidityTracker.get(rackId);
-        Double prevMaxHumidity = maxHumidityTracker.get(rackId);
+        if (rack.getHumidityThresholdMaxWarning() != null &&
+                metric.getHumidity() != null) {
+            double threshold = rack.getHumidityThresholdMaxWarning().doubleValue();
+            if (metric.getHumidity() >= threshold * 0.9) {
+                return true;
+            }
+        }
 
-        double minHumidity = Math.min(prevMinHumidity, currentHumidity);
-        double maxHumidity = Math.max(prevMaxHumidity, currentHumidity);
-
-        minHumidityTracker.put(rackId, minHumidity);
-        maxHumidityTracker.put(rackId, maxHumidity);
-
-        metric.setMinHumidity(minHumidity);
-        metric.setMaxHumidity(maxHumidity);
-
-        boolean tempWarning = currentTemperature > 28.0;
-        boolean humidityWarning = currentHumidity < 35.0 || currentHumidity > 65.0;
-
-        metric.setTemperatureWarning(tempWarning);
-        metric.setHumidityWarning(humidityWarning);
-
-        return metric;
+        return false;
     }
 
     private void maybeUpdateAnomalies() {
@@ -832,7 +960,6 @@ public class ServerRoomDataSimulator {
 
             AnomalyState state = anomalyStates.get(equipmentId);
 
-            // CPU 이상 징후 (약 1시간에 한 번)
             if (state.hasCpuAnomaly) {
                 if (currentTime - state.cpuAnomalyStartTime > state.cpuAnomalyDuration) {
                     state.hasCpuAnomaly = false;
@@ -841,12 +968,11 @@ public class ServerRoomDataSimulator {
             } else if (random.nextDouble() < HOURLY_PROBABILITY) {
                 state.hasCpuAnomaly = true;
                 state.cpuAnomalyStartTime = currentTime;
-                state.cpuAnomalyDuration = 60_000 + random.nextInt(120_000);
+                state.cpuAnomalyDuration = 30_000 + random.nextInt(120_000);
                 log.error("🚨 [Equipment {}] CPU 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.cpuAnomalyDuration / 1000);
             }
 
-            // 메모리 이상 징후 (약 1시간에 한 번)
             if (state.hasMemoryAnomaly) {
                 if (currentTime - state.memoryAnomalyStartTime > state.memoryAnomalyDuration) {
                     state.hasMemoryAnomaly = false;
@@ -855,12 +981,11 @@ public class ServerRoomDataSimulator {
             } else if (random.nextDouble() < HOURLY_PROBABILITY) {
                 state.hasMemoryAnomaly = true;
                 state.memoryAnomalyStartTime = currentTime;
-                state.memoryAnomalyDuration = 40_000 + random.nextInt(80_000);
+                state.memoryAnomalyDuration = 35_000 + random.nextInt(125_000);
                 log.error("🚨 [Equipment {}] 메모리 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.memoryAnomalyDuration / 1000);
             }
 
-            // 디스크 I/O 이상 징후 (약 1시간에 한 번)
             if (state.hasDiskAnomaly) {
                 if (currentTime - state.diskAnomalyStartTime > state.diskAnomalyDuration) {
                     state.hasDiskAnomaly = false;
@@ -869,12 +994,11 @@ public class ServerRoomDataSimulator {
             } else if (random.nextDouble() < HOURLY_PROBABILITY) {
                 state.hasDiskAnomaly = true;
                 state.diskAnomalyStartTime = currentTime;
-                state.diskAnomalyDuration = 30_000 + random.nextInt(90_000);
+                state.diskAnomalyDuration = 25_000 + random.nextInt(75_000);
                 log.error("🚨 [Equipment {}] 디스크 I/O 이상 징후 발생! (지속: {}초)",
                         equipmentId, state.diskAnomalyDuration / 1000);
             }
 
-            // 네트워크 이상 징후 (약 1시간에 한 번)
             if (state.hasNetworkAnomaly) {
                 if (currentTime - state.networkAnomalyStartTime > state.networkAnomalyDuration) {
                     state.hasNetworkAnomaly = false;
@@ -889,12 +1013,10 @@ public class ServerRoomDataSimulator {
             }
         }
 
-        // 랙별 환경 이상 징후 (약 1시간에 한 번)
         for (Rack rack : activeRacks) {
             Long rackId = rack.getId();
             AnomalyState state = rackAnomalyStates.get(rackId);
 
-            // 온도 이상 징후 (약 1시간에 한 번)
             if (state.hasTemperatureAnomaly) {
                 if (currentTime - state.temperatureAnomalyStartTime > state.temperatureAnomalyDuration) {
                     state.hasTemperatureAnomaly = false;
@@ -908,7 +1030,6 @@ public class ServerRoomDataSimulator {
                         rackId, state.temperatureAnomalyDuration / 1000);
             }
 
-            // 습도 이상 징후 (약 1시간에 한 번)
             if (state.hasHumidityAnomaly) {
                 if (currentTime - state.humidityAnomalyStartTime > state.humidityAnomalyDuration) {
                     state.hasHumidityAnomaly = false;
@@ -950,28 +1071,97 @@ public class ServerRoomDataSimulator {
         long humidityAnomalyDuration = 0;
     }
 
-    public void addEquipment(Equipment newEquipment) {
-        this.activeEquipments.add(newEquipment);
+    private DiskMetric generateDiskMetric(Long equipmentId, LocalDateTime time) {
+        Equipment equipment = activeEquipments.stream()
+                .filter(e -> e.getId().equals(equipmentId))
+                .findFirst()
+                .orElse(null);
 
-        Long equipmentId = newEquipment.getId();
-        EquipmentType type = newEquipment.getType();
-
-        if (excludedEquipmentIds.contains(equipmentId)) {
-            log.info("⏭️ 장비 ID {}는 실제 Prometheus 데이터 사용 - 시뮬레이터 등록 제외", equipmentId);
-            return;
+        if (equipment == null) {
+            return null;
         }
 
-        if (DelYN.Y.equals(newEquipment.getDelYn())) {
-            log.info("⏭️ 장비 ID {}는 삭제됨(del_yn=Y) - 시뮬레이터 등록 제외", equipmentId);
-            return;
+        EquipmentType type = equipment.getType();
+        AnomalyState state = anomalyStates.get(equipmentId);
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        DiskMetric metric = DiskMetric.builder()
+                .equipmentId(equipmentId)
+                .generateTime(time)
+                .build();
+
+        // ==================== 디스크 용량 ====================
+        long totalBytes = 500L * 1024 * 1024 * 1024;  // 500GB
+        double baseUsage = 30 + rand.nextDouble() * 40;  // 30~70%
+        double usedPercent = Math.min(95, baseUsage);
+
+        long usedBytes = (long)(totalBytes * usedPercent / 100);
+        long freeBytes = totalBytes - usedBytes;
+
+        metric.setTotalBytes(totalBytes);
+        metric.setUsedBytes(usedBytes);
+        metric.setFreeBytes(freeBytes);
+        metric.setUsedPercentage(usedPercent);
+
+        // ==================== 장비 유형별 I/O 속도 차별화 ====================
+        double baseReadBps, baseWriteBps;
+
+        if (type == EquipmentType.STORAGE) {
+            // STORAGE는 I/O가 매우 높음
+            baseReadBps = 50_000_000 + rand.nextDouble() * 100_000_000;   // 50~150 MB/s
+            baseWriteBps = 30_000_000 + rand.nextDouble() * 70_000_000;   // 30~100 MB/s
+        } else {
+            // SERVER는 일반적인 수준
+            baseReadBps = 5_000_000 + rand.nextDouble() * 10_000_000;     // 5~15 MB/s
+            baseWriteBps = 3_000_000 + rand.nextDouble() * 7_000_000;     // 3~10 MB/s
         }
 
-        if (hasNetworkMetric(type)) {
-            EQUIPMENT_NICS.put(equipmentId, generateDefaultNics(type));
-        }
+        double ioReadBps = state.hasDiskAnomaly ?
+                baseReadBps * (2 + rand.nextDouble() * 3) : baseReadBps;
 
-        anomalyStates.put(equipmentId, new AnomalyState());
+        double ioWriteBps = state.hasDiskAnomaly ?
+                baseWriteBps * (2 + rand.nextDouble() * 3) : baseWriteBps;
 
-        log.info("🆕 새 장비 시뮬레이터 등록 완료: ID={}, Name={}", equipmentId, newEquipment.getName());
+        metric.setIoReadBps(ioReadBps);
+        metric.setIoWriteBps(ioWriteBps);
+
+        // ==================== I/O 사용률 ====================
+        double ioTimePercentage = state.hasDiskAnomaly ?
+                Math.min(95, 30 + rand.nextDouble() * 50) : 5 + rand.nextDouble() * 20;
+
+        metric.setIoTimePercentage(ioTimePercentage);
+
+        // ==================== I/O 카운트 (누적) ====================
+        String key = "disk_" + equipmentId;
+
+        long prevReadCount = cumulativeIoReads.getOrDefault(key, 0L);
+        long prevWriteCount = cumulativeIoWrites.getOrDefault(key, 0L);
+
+        // 15초 간격 동안의 I/O 작업 수
+        long readInc = (long)(ioReadBps / 4096 * 15);  // 4KB 블록 가정
+        long writeInc = (long)(ioWriteBps / 4096 * 15);
+
+        long newReadCount = prevReadCount + readInc;
+        long newWriteCount = prevWriteCount + writeInc;
+
+        cumulativeIoReads.put(key, newReadCount);
+        cumulativeIoWrites.put(key, newWriteCount);
+
+        metric.setIoReadCount(newReadCount);
+        metric.setIoWriteCount(newWriteCount);
+
+        // ==================== inode ====================
+        long totalInodes = 32_000_000L;
+        double inodeUsagePercent = 15 + rand.nextDouble() * 30;  // 15~45%
+
+        long usedInodes = (long)(totalInodes * inodeUsagePercent / 100);
+        long freeInodes = totalInodes - usedInodes;
+
+        metric.setTotalInodes(totalInodes);
+        metric.setUsedInodes(usedInodes);
+        metric.setFreeInodes(freeInodes);
+        metric.setUsedInodePercentage(inodeUsagePercent);
+
+        return metric;
     }
 }

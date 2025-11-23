@@ -265,17 +265,11 @@ public class ServerRoomDataSimulator {
                 // ❌ 기존의 ENVIRONMENTAL_SENSOR 타입 체크 로직 삭제
             }
 
-            // ✅ 모든 활성 랙에 대해 환경 메트릭 생성
             log.info("🌡️ 환경 메트릭 생성 시작 - 활성 랙 개수: {}", activeRackIds.size());
 
             for (Long rackId : activeRackIds) {
                 try {
-                    // Rack 정보 조회
-                    Rack rack = activeEquipments.stream()
-                            .filter(e -> e.getRack() != null && e.getRack().getId().equals(rackId))
-                            .findFirst()
-                            .map(Equipment::getRack)
-                            .orElse(null);
+                    Rack rack = rackRepository.findById(rackId).orElse(null);
 
                     if (rack == null) {
                         log.warn("⚠️ 랙 정보를 찾을 수 없음: rackId={}", rackId);

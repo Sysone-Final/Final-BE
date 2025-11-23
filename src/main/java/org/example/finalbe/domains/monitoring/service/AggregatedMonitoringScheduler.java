@@ -32,13 +32,12 @@ public class AggregatedMonitoringScheduler {
 
     /**
      * 서버실 통계 갱신 스케줄러
-     * ✅ DB에서 활성 서버실을 동적으로 조회하여 처리
+     * ✅ fixedRate로 변경: 정확히 5초마다 실행
      */
-    @Scheduled(fixedDelayString = "${monitoring.scheduler.statistics-interval:5000}")
+    @Scheduled(fixedRateString = "${monitoring.scheduler.statistics-interval:5000}")
     public void updateServerRoomStatistics() {
         log.debug("=== ServerRoom 통합 모니터링 시작 ===");
 
-        // ✅ DB에서 활성 서버실 목록 동적 조회
         List<Long> serverRoomIds = serverRoomRepository.findAllByDelYn(DelYN.N)
                 .stream()
                 .map(serverRoom -> serverRoom.getId())
@@ -60,8 +59,6 @@ public class AggregatedMonitoringScheduler {
                         .calculateServerRoomStatistics(serverRoomId);
 
                 sseService.sendToServerRoom(serverRoomId, "serverroom-statistics", statistics);
-
-                // ✅ 알림 평가 호출
                 alertEvaluationService.evaluateServerRoomStatistics(statistics);
 
                 successCount++;
@@ -76,13 +73,12 @@ public class AggregatedMonitoringScheduler {
 
     /**
      * 데이터센터 통계 갱신 스케줄러
-     * ✅ DB에서 활성 데이터센터를 동적으로 조회하여 처리
+     * ✅ fixedRate로 변경: 정확히 5초마다 실행
      */
-    @Scheduled(fixedDelayString = "${monitoring.scheduler.datacenter-interval:5000}")
+    @Scheduled(fixedRateString = "${monitoring.scheduler.datacenter-interval:5000}")
     public void updateDataCenterStatistics() {
         log.debug("=== DataCenter 통합 모니터링 시작 ===");
 
-        // ✅ DB에서 활성 데이터센터 목록 동적 조회
         List<Long> dataCenterIds = dataCenterRepository.findAllByDelYn(DelYN.N)
                 .stream()
                 .map(dataCenter -> dataCenter.getId())
@@ -104,8 +100,6 @@ public class AggregatedMonitoringScheduler {
                         .calculateDataCenterStatistics(dataCenterId);
 
                 sseService.sendToDataCenter(dataCenterId, "datacenter-statistics", statistics);
-
-                // ✅ 알림 평가 호출
                 alertEvaluationService.evaluateDataCenterStatistics(statistics);
 
                 successCount++;

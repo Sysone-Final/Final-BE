@@ -204,4 +204,24 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "LEFT JOIN FETCH sr.dataCenter dc " +
             "WHERE e.id = :equipmentId")
     Optional<Equipment> findByIdWithFullHierarchy(@Param("equipmentId") Long equipmentId);
+
+
+    /**
+     * 특정 서버실에서 장비가 배치된 랙 ID 목록 조회
+     */
+    @Query("SELECT DISTINCT e.rack.id FROM Equipment e " +
+            "WHERE e.rack.serverRoom.id = :serverRoomId " +
+            "AND e.delYn = 'N' " +
+            "AND e.rack.delYn = 'N' " +
+            "AND e.rack IS NOT NULL")
+    List<Long> findDistinctRackIdsByServerRoomId(@Param("serverRoomId") Long serverRoomId);
+
+    /**
+     * 전체 시스템에서 장비가 배치된 모든 랙 ID 목록 조회
+     */
+    @Query("SELECT DISTINCT e.rack.id FROM Equipment e " +
+            "WHERE e.delYn = 'N' " +
+            "AND e.rack IS NOT NULL " +
+            "AND e.rack.delYn = 'N'")
+    List<Long> findAllDistinctRackIds();
 }

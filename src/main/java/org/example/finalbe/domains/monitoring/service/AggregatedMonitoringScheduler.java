@@ -5,8 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.service.AlertEvaluationService;
 import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.monitoring.dto.DataCenterStatisticsDto;
+import org.example.finalbe.domains.monitoring.dto.RackStatisticsDto;
 import org.example.finalbe.domains.monitoring.dto.ServerRoomStatisticsDto;
+import org.example.finalbe.domains.rack.domain.Rack;
+import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -32,6 +36,10 @@ public class AggregatedMonitoringScheduler {
     private final SseService sseService;
     private final AlertEvaluationService alertEvaluationService;
     private final Executor taskExecutor;
+
+    private final EquipmentRepository equipmentRepository;
+    private final RackMonitoringService rackMonitoringService;
+    private final MonitoringMetricCache monitoringMetricCache;
 
     @Scheduled(fixedRateString = "${monitoring.scheduler.statistics-interval:5000}")
     public void updateServerRoomStatistics() {
@@ -130,5 +138,51 @@ public class AggregatedMonitoringScheduler {
         } catch (Exception e) {
             log.error("통계 로깅 실패", e);
         }
+    }
+
+    /**
+     * 랙 통계 갱신 스케줄러 (5초마다)
+     * ✅ 수정: 장비가 있는 랙만 통계 계산
+     */
+    @Scheduled(fixedRateString = "${monitoring.scheduler.rack-interval:5000}")
+    public void updateRackStatistics() {
+        log.debug("=== Rack 통합 모니터링 시작 ===");
+        long totalStartTime = System.currentTimeMillis();
+
+        // ✅ 수정: 장비가 배치된 랙만 조회
+        List<Long> rackIds = equipmentRepository.findAllDistinctRackIds();
+
+        if (rackIds.isEmpty()) {
+            log.debug("처리할 활성 랙이 없습니다 (장비가 배치된 랙 없음).");
+            return;
+        }
+
+        log.debug("처리 대상 랙: {} (총 {}개, 장비 배치됨)", rackIds, rackIds.size());
+
+        List<CompletableFuture<Void>> futures = rackIds.stream()
+                .map(rackId -> CompletableFuture.runAsync(() -> {
+                    long startTime = System.currentTimeMillis();
+                    try {
+                        RackStatisticsDto statistics = rackMonitoringService
+                                .calculateRackStatistics(rackId);
+
+                        monitoringMetricCache.updateRackStatistics(statistics);
+                        sseService.sendToRack(rackId, "rack-statistics", statistics);
+
+                        long duration = System.currentTimeMillis() - startTime;
+                        if (duration > 3000) {
+                            log.warn("⚠️ Rack {} 통계 계산 느림: {}ms", rackId, duration);
+                        }
+                    } catch (Exception e) {
+                        log.error("❌ Rack {} 통합 모니터링 실패: {}", rackId, e.getMessage());
+                    }
+                }, taskExecutor))
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        long totalDuration = System.currentTimeMillis() - totalStartTime;
+        log.info("📊 Rack 통합 모니터링 완료 - 총 소요시간: {}ms, 처리 랙: {}개",
+                totalDuration, rackIds.size());
     }
 }

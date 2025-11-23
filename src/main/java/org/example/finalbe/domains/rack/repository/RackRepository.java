@@ -103,7 +103,7 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     /**
      * 활성 랙 목록 조회
      */
-    List<Rack> findByDelYn(DelYN delYn);
+    List<Rack> findAllByDelYn(DelYN delYn);
 
     /**
      * 활성 랙 단건 조회

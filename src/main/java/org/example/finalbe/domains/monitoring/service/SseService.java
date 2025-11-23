@@ -22,8 +22,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -199,13 +198,20 @@ public class SseService {
     @Async("taskExecutor")
     void asyncSendRackInitialData(Long rackId, SseEmitter emitter) {
         try {
+            // 1. 환경 메트릭 전송
             monitoringMetricCache.getEnvironmentMetric(rackId)
                     .ifPresent(data -> emitSafely(emitter, "environment", data));
+
             if (monitoringMetricCache.getEnvironmentMetric(rackId).isEmpty()) {
                 environmentMetricRepository.findLatestByRackId(rackId)
                         .ifPresent(data -> emitSafely(emitter, "environment", data));
             }
-            log.info("🚀 [Rack-{}] 초기 데이터 전송 완료", rackId);
+
+            // 2. 랙 통계 전송
+            monitoringMetricCache.getRackStatistics(rackId)
+                    .ifPresent(data -> emitSafely(emitter, "rack-statistics", data));
+
+            log.info("🚀 [Rack-{}] 초기 데이터 전송 완료 (환경 + 통계)", rackId);
         } catch (Exception e) {
             log.error("❌ [Rack-{}] 초기 데이터 전송 실패", rackId, e);
         }
@@ -254,13 +260,6 @@ public class SseService {
         asyncSend(topic, eventName, data);
     }
 
-    public void sendToRack(Long rackId, String eventName, Object data) {
-        String topic = "rack-" + rackId;
-        if (!hasSubscribers(topic)) {
-            return;
-        }
-        asyncSend(topic, eventName, data);
-    }
 
     @Async("taskExecutor")
     void asyncSend(String topic, String eventName, Object data) {
@@ -395,4 +394,15 @@ public class SseService {
         }
         asyncSend(topic, eventName, data);
     }
+    /**
+     * 랙에 통계 데이터 전송
+     */
+    public void sendToRack(Long rackId, String eventName, Object data) {
+        String topic = "rack-" + rackId;
+        if (!hasSubscribers(topic)) {
+            return;
+        }
+        asyncSend(topic, eventName, data);
+    }
+
 }

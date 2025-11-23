@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.annotation.PostConstruct;
 import java.util.List;
 
 @Configuration
@@ -27,6 +29,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    /**
+     * ✅ @PostConstruct로 SecurityContext 전파 모드 설정
+     */
+    @PostConstruct
+    public void init() {
+        // 비동기 요청 및 SSE에서도 SecurityContext가 전파되도록 설정
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -82,6 +93,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
 
+                        // ✅ SSE 구독 엔드포인트: 초기 연결만 인증하고 이후는 비활성화
+                        .requestMatchers("/api/monitoring/subscribe/**").authenticated()
                         .requestMatchers("/api/prometheus/metrics/stream/**").authenticated()
                         .requestMatchers("/api/monitoring/server-room/stream/**").authenticated()
 

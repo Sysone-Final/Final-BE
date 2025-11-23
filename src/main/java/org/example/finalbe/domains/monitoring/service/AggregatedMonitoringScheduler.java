@@ -9,8 +9,6 @@ import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.monitoring.dto.DataCenterStatisticsDto;
 import org.example.finalbe.domains.monitoring.dto.RackStatisticsDto;
 import org.example.finalbe.domains.monitoring.dto.ServerRoomStatisticsDto;
-import org.example.finalbe.domains.rack.domain.Rack;
-import org.example.finalbe.domains.rack.repository.RackRepository;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -56,8 +54,18 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
+        // ✅ 구독자가 있는 서버실만 처리
+        List<Long> subscribedServerRoomIds = serverRoomIds.stream()
+                .filter(id -> sseService.hasSubscribers("serverroom-" + id))
+                .collect(Collectors.toList());
+
+        if (subscribedServerRoomIds.isEmpty()) {
+            log.debug("구독자가 있는 서버실이 없습니다. 스킵합니다.");
+            return;
+        }
+
         // ✅ 병렬 처리
-        List<CompletableFuture<Void>> futures = serverRoomIds.stream()
+        List<CompletableFuture<Void>> futures = subscribedServerRoomIds.stream()
                 .map(serverRoomId -> CompletableFuture.runAsync(() -> {
                     long startTime = System.currentTimeMillis();
                     try {
@@ -81,7 +89,8 @@ public class AggregatedMonitoringScheduler {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         long totalDuration = System.currentTimeMillis() - totalStartTime;
-        log.info("📊 ServerRoom 통합 모니터링 완료 - 총 소요시간: {}ms", totalDuration);
+        log.info("📊 ServerRoom 통합 모니터링 완료 - 총 소요시간: {}ms, 처리: {}개",
+                totalDuration, subscribedServerRoomIds.size());
     }
     /**
      * 데이터센터 통계 갱신 스케줄러
@@ -101,12 +110,22 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
-        log.debug("처리 대상 데이터센터: {} (총 {}개)", dataCenterIds, dataCenterIds.size());
+        // ✅ 구독자가 있는 데이터센터만 처리
+        List<Long> subscribedDataCenterIds = dataCenterIds.stream()
+                .filter(id -> sseService.hasSubscribers("datacenter-" + id))
+                .collect(Collectors.toList());
+
+        if (subscribedDataCenterIds.isEmpty()) {
+            log.debug("구독자가 있는 데이터센터가 없습니다. 스킵합니다.");
+            return;
+        }
+
+        log.debug("처리 대상 데이터센터: {} (총 {}개)", subscribedDataCenterIds, subscribedDataCenterIds.size());
 
         int successCount = 0;
         int failCount = 0;
 
-        for (Long dataCenterId : dataCenterIds) {
+        for (Long dataCenterId : subscribedDataCenterIds) {
             try {
                 DataCenterStatisticsDto statistics = dataCenterMonitoringService
                         .calculateDataCenterStatistics(dataCenterId);
@@ -157,9 +176,19 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
-        log.debug("처리 대상 랙: {} (총 {}개, 장비 배치됨)", rackIds, rackIds.size());
+        // ✅ 구독자가 있는 랙만 처리
+        List<Long> subscribedRackIds = rackIds.stream()
+                .filter(id -> sseService.hasSubscribers("rack-" + id))
+                .collect(Collectors.toList());
 
-        List<CompletableFuture<Void>> futures = rackIds.stream()
+        if (subscribedRackIds.isEmpty()) {
+            log.debug("구독자가 있는 랙이 없습니다. 스킵합니다.");
+            return;
+        }
+
+        log.debug("처리 대상 랙: {} (총 {}개, 장비 배치됨)", subscribedRackIds, subscribedRackIds.size());
+
+        List<CompletableFuture<Void>> futures = subscribedRackIds.stream()
                 .map(rackId -> CompletableFuture.runAsync(() -> {
                     long startTime = System.currentTimeMillis();
                     try {
@@ -183,6 +212,6 @@ public class AggregatedMonitoringScheduler {
 
         long totalDuration = System.currentTimeMillis() - totalStartTime;
         log.info("📊 Rack 통합 모니터링 완료 - 총 소요시간: {}ms, 처리 랙: {}개",
-                totalDuration, rackIds.size());
+                totalDuration, subscribedRackIds.size());
     }
 }

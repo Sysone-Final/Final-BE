@@ -266,7 +266,10 @@ public class SseService {
         sendData(topic, eventName, data);
     }
 
-    private boolean hasSubscribers(String topic) {
+    /**
+     * ✅ public 메서드로 변경 - 스케줄러에서 사용
+     */
+    public boolean hasSubscribers(String topic) {
         List<SseEmitter> topicEmitters = this.emitters.get(topic);
         return topicEmitters != null && !topicEmitters.isEmpty();
     }
@@ -299,6 +302,11 @@ public class SseService {
 
     @Scheduled(fixedRate = HEARTBEAT_INTERVAL_MS)
     public void sendHeartbeats() {
+        // ✅ 구독자가 없으면 스킵하여 CPU 사용률 감소
+        if (emitters.isEmpty()) {
+            return;
+        }
+
         emitters.forEach((topic, topicEmitters) -> {
             int removed = topicEmitters.size();
             topicEmitters.removeIf(emitter -> {
@@ -308,6 +316,7 @@ public class SseService {
                             .reconnectTime(5000));
                     return false;
                 } catch (IOException e) {
+                    log.debug("⚠️ Heartbeat 실패: {}", topic);
                     return true;
                 }
             });

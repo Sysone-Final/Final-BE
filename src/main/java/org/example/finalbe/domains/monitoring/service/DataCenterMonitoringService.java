@@ -32,30 +32,41 @@ public class DataCenterMonitoringService {
 
     /**
      * 데이터센터 실시간 통계 계산
+     * ✅ 수정: 활성 데이터센터만 조회하도록 변경
      */
     public DataCenterStatisticsDto calculateDataCenterStatistics(Long dataCenterId) {
         log.debug("📊 데이터센터 통계 계산 시작: dataCenterId={}", dataCenterId);
 
+        // ✅ 수정: 삭제된 데이터센터는 통계 계산하지 않음
         DataCenter dataCenter = dataCenterRepository.findById(dataCenterId)
-                .orElseThrow(() -> new IllegalArgumentException("데이터센터를 찾을 수 없습니다: " + dataCenterId));
+                .filter(dc -> dc.getDelYn() == DelYN.N)
+                .orElseThrow(() -> new IllegalArgumentException("활성 데이터센터를 찾을 수 없습니다: " + dataCenterId));
 
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. 데이터센터 내 모든 서버실 조회
+        // 1. 데이터센터 내 모든 활성 서버실 조회
         List<ServerRoom> serverRooms = serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId, DelYN.N);
 
         if (serverRooms.isEmpty()) {
-            log.warn("⚠️ 데이터센터에 서버실이 없습니다: dataCenterId={}", dataCenterId);
+            log.warn("⚠️ 데이터센터에 활성 서버실이 없습니다: dataCenterId={}", dataCenterId);
             return createEmptyStatistics(dataCenter, now);
         }
 
         // 2. 각 서버실의 통계 계산
+        // ✅ 수정: 서버실 통계 계산 중 예외 발생 시 해당 서버실만 제외하고 계속 진행
         List<ServerRoomStatisticsDto> serverRoomStats = serverRooms.stream()
                 .map(serverRoom -> {
                     try {
+                        // ✅ 핵심: calculateServerRoomStatistics 내부에서 findActiveById를 사용하므로
+                        // 삭제된 서버실은 자동으로 예외가 발생하여 null로 처리됨
                         return serverRoomMonitoringService.calculateServerRoomStatistics(serverRoom.getId());
+                    } catch (IllegalArgumentException e) {
+                        // ✅ 서버실이 삭제된 경우 (findActiveById에서 예외 발생)
+                        log.warn("⚠️ 서버실이 삭제되었거나 비활성 상태입니다: serverRoomId={}, message={}",
+                                serverRoom.getId(), e.getMessage());
+                        return null;
                     } catch (Exception e) {
-                        log.error("서버실 통계 계산 실패: serverRoomId={}", serverRoom.getId(), e);
+                        log.error("❌ 서버실 통계 계산 실패: serverRoomId={}", serverRoom.getId(), e);
                         return null;
                     }
                 })
@@ -67,8 +78,8 @@ public class DataCenterMonitoringService {
             return createEmptyStatistics(dataCenter, now);
         }
 
-        // 3. 서버실별 통계 집계
-        int totalServerRooms = serverRooms.size();
+        // 3. 서버실/랙/장비 통계 집계
+        int totalServerRooms = serverRoomStats.size();
         int activeServerRooms = (int) serverRoomStats.stream()
                 .filter(stats -> stats.getActiveEquipments() > 0)
                 .count();
@@ -93,7 +104,7 @@ public class DataCenterMonitoringService {
                 .mapToInt(ServerRoomStatisticsDto::getInactiveEquipments)
                 .sum();
 
-        // 4. CPU 통계 집계 (평균)
+        // 4. CPU 통계 집계
         Double avgCpuUsage = serverRoomStats.stream()
                 .map(ServerRoomStatisticsDto::getAvgCpuUsage)
                 .filter(val -> val != null)
@@ -299,22 +310,16 @@ public class DataCenterMonitoringService {
                 .sum();
 
         // 9. 알람 통계 집계
-        Integer totalAlerts = serverRoomStats.stream()
-                .map(ServerRoomStatisticsDto::getTotalAlerts)
-                .filter(val -> val != null)
-                .mapToInt(Integer::intValue)
+        int totalAlerts = serverRoomStats.stream()
+                .mapToInt(ServerRoomStatisticsDto::getTotalAlerts)
                 .sum();
 
-        Integer criticalAlerts = serverRoomStats.stream()
-                .map(ServerRoomStatisticsDto::getCriticalAlerts)
-                .filter(val -> val != null)
-                .mapToInt(Integer::intValue)
+        int criticalAlerts = serverRoomStats.stream()
+                .mapToInt(ServerRoomStatisticsDto::getCriticalAlerts)
                 .sum();
 
-        Integer warningAlerts = serverRoomStats.stream()
-                .map(ServerRoomStatisticsDto::getWarningAlerts)
-                .filter(val -> val != null)
-                .mapToInt(Integer::intValue)
+        int warningAlerts = serverRoomStats.stream()
+                .mapToInt(ServerRoomStatisticsDto::getWarningAlerts)
                 .sum();
 
         // 10. 전력 통계 집계

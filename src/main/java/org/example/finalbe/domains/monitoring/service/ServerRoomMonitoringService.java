@@ -40,35 +40,37 @@ public class ServerRoomMonitoringService {
 
     /**
      * 서버실 실시간 통계 계산
+     * ✅ 수정: findById() → findActiveById() 로 변경하여 삭제된 서버실 제외
      */
     public ServerRoomStatisticsDto calculateServerRoomStatistics(Long serverRoomId) {
         log.debug("📊 서버실 통계 계산 시작: serverRoomId={}", serverRoomId);
 
-        ServerRoom serverRoom = serverRoomRepository.findById(serverRoomId)
-                .orElseThrow(() -> new IllegalArgumentException("서버실을 찾을 수 없습니다: " + serverRoomId));
+        // ✅ 수정: 삭제된 서버실은 통계 계산하지 않음
+        ServerRoom serverRoom = serverRoomRepository.findActiveById(serverRoomId)
+                .orElseThrow(() -> new IllegalArgumentException("활성 서버실을 찾을 수 없습니다: " + serverRoomId));
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime oneMinuteAgo = now.minusMinutes(1);
 
-        // 1. 서버실 내 모든 랙 조회
+        // 1. 서버실 내 모든 랙 조회 (활성 랙만)
         List<Long> rackIds = rackRepository.findByServerRoomIdAndDelYn(serverRoomId, DelYN.N)
                 .stream()
                 .map(rack -> rack.getId())
                 .toList();
 
         if (rackIds.isEmpty()) {
-            log.warn("⚠️ 서버실에 랙이 없습니다: serverRoomId={}", serverRoomId);
+            log.warn("⚠️ 서버실에 활성 랙이 없습니다: serverRoomId={}", serverRoomId);
             return createEmptyStatistics(serverRoom, now);
         }
 
-        // 2. 서버실 내 모든 장비 조회
+        // 2. 서버실 내 모든 장비 조회 (활성 장비만)
         List<Long> equipmentIds = equipmentRepository.findByRackIdInAndDelYn(rackIds, DelYN.N)
                 .stream()
                 .map(equipment -> equipment.getId())
                 .toList();
 
         if (equipmentIds.isEmpty()) {
-            log.warn("⚠️ 서버실에 장비가 없습니다: serverRoomId={}", serverRoomId);
+            log.warn("⚠️ 서버실에 활성 장비가 없습니다: serverRoomId={}", serverRoomId);
             return createEmptyStatistics(serverRoom, now);
         }
 
@@ -142,9 +144,6 @@ public class ServerRoomMonitoringService {
                 .avgTxUsage(getDoubleValue(networkStats, "avgTxUsage"))
                 .totalInErrors(getLongValue(networkStats, "totalInErrors"))
                 .totalOutErrors(getLongValue(networkStats, "totalOutErrors"))
-                // 랙 통계
-                .totalRacks((int) totalRacks)
-                .activeRacks((int) activeRacks)
                 // 환경 통계
                 .avgTemperature(getDoubleValue(envStats, "avgTemperature"))
                 .maxTemperature(getDoubleValue(envStats, "maxTemperature"))
@@ -154,18 +153,21 @@ public class ServerRoomMonitoringService {
                 .minHumidity(getDoubleValue(envStats, "minHumidity"))
                 .temperatureWarnings(getIntValue(envStats, "temperatureWarnings"))
                 .humidityWarnings(getIntValue(envStats, "humidityWarnings"))
+                // 랙 통계
+                .totalRacks((int) totalRacks)
+                .activeRacks((int) activeRacks)
                 // 알람 통계
                 .totalAlerts(totalAlerts)
                 .criticalAlerts(criticalAlerts)
                 .warningAlerts(warningAlerts)
-                // 전력 통계 (현재 랙 데이터에서 집계)
-                .totalPowerUsage(0.0) // TODO: 랙에서 전력 데이터 집계
-                .avgPowerUsagePerRack(0.0)
+                // 전력 통계
+                .totalPowerUsage(getDoubleValue(envStats, "totalPowerUsage"))
+                .avgPowerUsagePerRack(totalRacks > 0 ? getDoubleValue(envStats, "totalPowerUsage") / totalRacks : 0.0)
                 .build();
     }
 
     /**
-     * 빈 통계 생성 (장비가 없는 경우)
+     * 빈 통계 생성 (랙이나 장비가 없는 경우)
      */
     private ServerRoomStatisticsDto createEmptyStatistics(ServerRoom serverRoom, LocalDateTime now) {
         return ServerRoomStatisticsDto.builder()
@@ -183,77 +185,71 @@ public class ServerRoomMonitoringService {
                 .build();
     }
 
-    /**
-     * Critical 알람 개수 계산
-     */
+    // Helper 메서드들
+    private Double getDoubleValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) return 0.0;
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        return 0.0;
+    }
+
+    private Long getLongValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) return 0L;
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return 0L;
+    }
+
+    private Integer getIntValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) return 0;
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return 0;
+    }
+
     private int calculateCriticalAlerts(Map<String, Object> cpuStats,
                                         Map<String, Object> memoryStats,
                                         Map<String, Object> diskStats) {
         int count = 0;
 
-        // CPU > 90%
+        // CPU Critical (>90%)
         Double avgCpu = getDoubleValue(cpuStats, "avgCpuUsage");
-        if (avgCpu != null && avgCpu > 90.0) count++;
+        if (avgCpu > 90.0) count++;
 
-        // 메모리 > 90%
+        // Memory Critical (>90%)
         Double avgMemory = getDoubleValue(memoryStats, "avgMemoryUsage");
-        if (avgMemory != null && avgMemory > 90.0) count++;
+        if (avgMemory > 90.0) count++;
 
-        // 디스크 > 90%
+        // Disk Critical (>90%)
         Double avgDisk = getDoubleValue(diskStats, "avgDiskUsage");
-        if (avgDisk != null && avgDisk > 90.0) count++;
+        if (avgDisk > 90.0) count++;
 
         return count;
     }
 
-    /**
-     * Warning 알람 개수 계산
-     */
     private int calculateWarningAlerts(Map<String, Object> cpuStats,
                                        Map<String, Object> memoryStats,
                                        Map<String, Object> diskStats) {
         int count = 0;
 
-        // CPU 70-90%
+        // CPU Warning (70-90%)
         Double avgCpu = getDoubleValue(cpuStats, "avgCpuUsage");
-        if (avgCpu != null && avgCpu > 70.0 && avgCpu <= 90.0) count++;
+        if (avgCpu > 70.0 && avgCpu <= 90.0) count++;
 
-        // 메모리 70-90%
+        // Memory Warning (70-90%)
         Double avgMemory = getDoubleValue(memoryStats, "avgMemoryUsage");
-        if (avgMemory != null && avgMemory > 70.0 && avgMemory <= 90.0) count++;
+        if (avgMemory > 70.0 && avgMemory <= 90.0) count++;
 
-        // 디스크 70-90%
+        // Disk Warning (70-90%)
         Double avgDisk = getDoubleValue(diskStats, "avgDiskUsage");
-        if (avgDisk != null && avgDisk > 70.0 && avgDisk <= 90.0) count++;
+        if (avgDisk > 70.0 && avgDisk <= 90.0) count++;
 
         return count;
-    }
-
-    // 헬퍼 메서드들
-    private Double getDoubleValue(Map<String, Object> map, String key) {
-        if (map == null || !map.containsKey(key)) return null;
-        Object value = map.get(key);
-        if (value == null) return null;
-        if (value instanceof Double) return (Double) value;
-        if (value instanceof Number) return ((Number) value).doubleValue();
-        return null;
-    }
-
-    private Long getLongValue(Map<String, Object> map, String key) {
-        if (map == null || !map.containsKey(key)) return null;
-        Object value = map.get(key);
-        if (value == null) return null;
-        if (value instanceof Long) return (Long) value;
-        if (value instanceof Number) return ((Number) value).longValue();
-        return null;
-    }
-
-    private Integer getIntValue(Map<String, Object> map, String key) {
-        if (map == null || !map.containsKey(key)) return null;
-        Object value = map.get(key);
-        if (value == null) return null;
-        if (value instanceof Integer) return (Integer) value;
-        if (value instanceof Number) return ((Number) value).intValue();
-        return null;
     }
 }

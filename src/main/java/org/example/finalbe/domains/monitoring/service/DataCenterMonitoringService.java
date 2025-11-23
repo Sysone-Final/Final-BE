@@ -317,14 +317,7 @@ public class DataCenterMonitoringService {
                 .mapToInt(Integer::intValue)
                 .sum();
 
-        // 10. 전력 통계 집계
-        Double totalPowerUsage = serverRoomStats.stream()
-                .map(ServerRoomStatisticsDto::getTotalPowerUsage)
-                .filter(val -> val != null)
-                .mapToDouble(Double::doubleValue)
-                .sum();
-
-        Double avgPowerUsagePerRack = totalRacks > 0 ? totalPowerUsage / totalRacks : 0.0;
+        // ❌ 10. 전력 통계 집계 - 삭제됨
 
         // 11. 서버실별 요약 생성
         List<DataCenterStatisticsDto.ServerRoomSummaryDto> serverRoomSummaries = serverRoomStats.stream()
@@ -394,9 +387,9 @@ public class DataCenterMonitoringService {
                 .totalAlerts(totalAlerts)
                 .criticalAlerts(criticalAlerts)
                 .warningAlerts(warningAlerts)
-                // 전력 통계
-                .totalPowerUsage(totalPowerUsage)
-                .avgPowerUsagePerRack(avgPowerUsagePerRack)
+                // ❌ 전력 통계 삭제됨
+                // .totalPowerUsage(totalPowerUsage)
+                // .avgPowerUsagePerRack(avgPowerUsagePerRack)
                 // 서버실별 요약
                 .serverRoomSummaries(serverRoomSummaries)
                 .build();

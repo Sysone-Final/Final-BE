@@ -167,6 +167,9 @@ public class ServerRoomDataSimulator {
         int processed = 0;
         int alertEvaluationCount = 0;
 
+        // ✅ 랙 ID를 수집할 Set 추가
+        Set<Long> activeRackIds = new HashSet<>();
+
         try {
             for (Equipment equipment : activeEquipments) {
                 Long equipmentId = equipment.getId();
@@ -177,6 +180,9 @@ public class ServerRoomDataSimulator {
                     skippedNoRack++;
                     continue;
                 }
+
+                // ✅ 랙 ID 수집
+                activeRackIds.add(equipment.getRack().getId());
 
                 if (excludedEquipmentIds.contains(equipmentId)) {
                     log.debug("⏭️ 장비 ID {} 건너뜀 (excluded)", equipmentId);
@@ -251,32 +257,45 @@ public class ServerRoomDataSimulator {
                                 }
                             }
                         }
-                        log.debug("  → Network 메트릭 생성 완료 (equipmentId={}, NICs={})",
-                                equipmentId, nics.size());
                     }
+                    log.debug("  → Network 메트릭 생성 완료 (equipmentId={}, NICs={})",
+                            equipmentId, nics != null ? nics.size() : 0);
                 }
 
-                // ✅ Environment 메트릭 (ENVIRONMENTAL_SENSOR만)
-                if (type == EquipmentType.ENVIRONMENTAL_SENSOR) {
-                    EnvironmentMetric envMetric = generateEnvironmentMetric(equipmentId, now);
+                // ❌ 기존의 ENVIRONMENTAL_SENSOR 타입 체크 로직 삭제
+            }
+
+            log.info("🌡️ 환경 메트릭 생성 시작 - 활성 랙 개수: {}", activeRackIds.size());
+
+            for (Long rackId : activeRackIds) {
+                try {
+                    Rack rack = rackRepository.findById(rackId).orElse(null);
+
+                    if (rack == null) {
+                        log.warn("⚠️ 랙 정보를 찾을 수 없음: rackId={}", rackId);
+                        continue;
+                    }
+
+                    EnvironmentMetric envMetric = generateEnvironmentMetricForRack(rackId, now);
                     if (envMetric != null) {
                         environmentMetricsToSave.add(envMetric);
                         monitoringMetricCache.updateEnvironmentMetric(envMetric);
-                        sseService.sendToRack(envMetric.getRackId(), "environment", envMetric);
+                        sseService.sendToRack(rackId, "environment", envMetric);
 
-                        if (needsEnvironmentAlertEvaluation(envMetric, equipment.getRack())) {
+                        if (needsEnvironmentAlertEvaluation(envMetric, rack)) {
                             try {
                                 alertEvaluationService.evaluateEnvironmentMetric(envMetric);
                                 alertEvaluationCount++;
                             } catch (Exception e) {
-                                log.warn("⚠️ Environment 알림 평가 실패: equipmentId={}, rackId={}, error={}",
-                                        equipmentId, envMetric.getRackId(), e.getMessage());
+                                log.warn("⚠️ Environment 알림 평가 실패: rackId={}, error={}",
+                                        rackId, e.getMessage());
                             }
                         }
 
-                        log.debug("  → Environment 메트릭 생성 완료 (equipmentId={}, rackId={})",
-                                equipmentId, envMetric.getRackId());
+                        log.debug("  → Environment 메트릭 생성 완료 (rackId={})", rackId);
                     }
+                } catch (Exception e) {
+                    log.error("❌ 랙 {} 환경 메트릭 생성 실패", rackId, e);
                 }
             }
 
@@ -302,6 +321,7 @@ public class ServerRoomDataSimulator {
             log.info("  - 삭제됨 제외: {}", skippedDeleted);
             log.info("  - 랙 미배치 제외: {}", skippedNoRack);
             log.info("  - 실제 처리: {}", processed);
+            log.info("  - 활성 랙: {}", activeRackIds.size());
             log.info("  - System 메트릭: {}", systemMetricsToSave.size());
             log.info("  - Disk 메트릭: {}", diskMetricsToSave.size());
             log.info("  - Network 메트릭: {}", networkMetricsToSave.size());
@@ -488,7 +508,7 @@ public class ServerRoomDataSimulator {
             metric.setLoadAvg5(loadAvg + rand.nextDouble() * 0.3);
             metric.setLoadAvg15(loadAvg + rand.nextDouble() * 0.2);
 
-            long contextSwitches = (long)(1000 + rand.nextDouble() * 9000);
+            long contextSwitches = (long) (1000 + rand.nextDouble() * 9000);
             metric.setContextSwitches(contextSwitches);
         } else {
             // FIREWALL, LOAD_BALANCER는 NULL
@@ -522,7 +542,7 @@ public class ServerRoomDataSimulator {
         memUsagePercent = state.hasMemoryAnomaly ?
                 Math.min(95, baseMemUsage + 30 + rand.nextDouble() * 15) : baseMemUsage;
 
-        long usedMemory = (long)(totalMemory * memUsagePercent / 100);
+        long usedMemory = (long) (totalMemory * memUsagePercent / 100);
         long freeMemory = totalMemory - usedMemory;
 
         metric.setTotalMemory(totalMemory);
@@ -530,10 +550,10 @@ public class ServerRoomDataSimulator {
         metric.setFreeMemory(freeMemory);
         metric.setUsedMemoryPercentage(memUsagePercent);
 
-        long buffers = (long)(totalMemory * 0.05);
-        long cached = (long)(totalMemory * 0.15);
-        long active = (long)(usedMemory * 0.6);
-        long inactive = (long)(usedMemory * 0.4);
+        long buffers = (long) (totalMemory * 0.05);
+        long cached = (long) (totalMemory * 0.15);
+        long active = (long) (usedMemory * 0.6);
+        long inactive = (long) (usedMemory * 0.4);
 
         metric.setMemoryBuffers(buffers);
         metric.setMemoryCached(cached);
@@ -546,7 +566,7 @@ public class ServerRoomDataSimulator {
             double swapUsagePercent = state.hasMemoryAnomaly ?
                     Math.min(50, rand.nextDouble() * 30) : rand.nextDouble() * 10;
 
-            long usedSwap = (long)(totalSwap * swapUsagePercent / 100);
+            long usedSwap = (long) (totalSwap * swapUsagePercent / 100);
 
             metric.setTotalSwap(totalSwap);
             metric.setUsedSwap(usedSwap);
@@ -633,8 +653,8 @@ public class ServerRoomDataSimulator {
         long prevInPackets = cumulativeInPackets.getOrDefault(key, 0L);
         long prevOutPackets = cumulativeOutPackets.getOrDefault(key, 0L);
 
-        long inPacketsInc = (long)(bandwidthBps * rxUsage / 100.0 / 1500 * 15);  // 15초 간격
-        long outPacketsInc = (long)(bandwidthBps * txUsage / 100.0 / 1500 * 15);
+        long inPacketsInc = (long) (bandwidthBps * rxUsage / 100.0 / 1500 * 15);  // 15초 간격
+        long outPacketsInc = (long) (bandwidthBps * txUsage / 100.0 / 1500 * 15);
 
         long newInPackets = prevInPackets + inPacketsInc;
         long newOutPackets = prevOutPackets + outPacketsInc;
@@ -700,71 +720,6 @@ public class ServerRoomDataSimulator {
         return metric;
     }
 
-    private EnvironmentMetric generateEnvironmentMetric(Long equipmentId, LocalDateTime time) {
-        // Equipment에서 rack_id 가져오기
-        Equipment equipment = activeEquipments.stream()
-                .filter(e -> e.getId().equals(equipmentId))
-                .findFirst()
-                .orElse(null);
-
-        if (equipment == null || equipment.getRack() == null) {
-            // rack_id가 없으면 메트릭 생성 안 함
-            return null;
-        }
-
-        Long rackId = equipment.getRack().getId();
-        AnomalyState state = rackAnomalyStates.get(rackId);
-        if (state == null) {
-            // 해당 랙에 대한 anomaly 상태가 없으면 생성
-            state = new AnomalyState();
-            rackAnomalyStates.put(rackId, state);
-        }
-
-        ThreadLocalRandom rand = ThreadLocalRandom.current();
-
-        EnvironmentMetric metric = EnvironmentMetric.builder()
-                .rackId(rackId)
-                .generateTime(time)
-                .build();
-
-        // 온도
-        double baseTemp = 22 + rand.nextDouble() * 4;  // 22~26°C
-        double temperature = state.hasTemperatureAnomaly ?
-                Math.min(35, baseTemp + 8 + rand.nextDouble() * 5) : baseTemp;
-
-        metric.setTemperature(temperature);
-        metric.setMinTemperature(temperature - rand.nextDouble() * 2);
-        metric.setMaxTemperature(temperature + rand.nextDouble() * 2);
-
-        // 습도
-        double baseHumidity = 45 + rand.nextDouble() * 10;  // 45~55%
-        double humidity = state.hasHumidityAnomaly ?
-                Math.min(75, baseHumidity + 15 + rand.nextDouble() * 10) : baseHumidity;
-
-        metric.setHumidity(humidity);
-        metric.setMinHumidity(humidity - rand.nextDouble() * 3);
-        metric.setMaxHumidity(humidity + rand.nextDouble() * 3);
-
-        // 경고 상태 (Rack의 임계치 확인)
-        Rack rack = equipment.getRack();
-        boolean tempWarning = false;
-        boolean humidityWarning = false;
-
-        if (rack.getTemperatureThresholdWarning() != null) {
-            tempWarning = temperature >= rack.getTemperatureThresholdWarning();
-        }
-        if (rack.getHumidityThresholdMaxWarning() != null) {
-            humidityWarning = humidity >= rack.getHumidityThresholdMaxWarning();
-        }
-        if (rack.getHumidityThresholdMinWarning() != null) {
-            humidityWarning = humidityWarning || humidity <= rack.getHumidityThresholdMinWarning();
-        }
-
-        metric.setTemperatureWarning(tempWarning);
-        metric.setHumidityWarning(humidityWarning);
-
-        return metric;
-    }
 
     private void batchInsertSystemMetrics(List<SystemMetric> metrics) {
         String sql = "INSERT INTO system_metrics (equipment_id, generate_time, " +
@@ -1095,7 +1050,7 @@ public class ServerRoomDataSimulator {
         double baseUsage = 30 + rand.nextDouble() * 40;  // 30~70%
         double usedPercent = Math.min(95, baseUsage);
 
-        long usedBytes = (long)(totalBytes * usedPercent / 100);
+        long usedBytes = (long) (totalBytes * usedPercent / 100);
         long freeBytes = totalBytes - usedBytes;
 
         metric.setTotalBytes(totalBytes);
@@ -1138,8 +1093,8 @@ public class ServerRoomDataSimulator {
         long prevWriteCount = cumulativeIoWrites.getOrDefault(key, 0L);
 
         // 15초 간격 동안의 I/O 작업 수
-        long readInc = (long)(ioReadBps / 4096 * 15);  // 4KB 블록 가정
-        long writeInc = (long)(ioWriteBps / 4096 * 15);
+        long readInc = (long) (ioReadBps / 4096 * 15);  // 4KB 블록 가정
+        long writeInc = (long) (ioWriteBps / 4096 * 15);
 
         long newReadCount = prevReadCount + readInc;
         long newWriteCount = prevWriteCount + writeInc;
@@ -1154,13 +1109,63 @@ public class ServerRoomDataSimulator {
         long totalInodes = 32_000_000L;
         double inodeUsagePercent = 15 + rand.nextDouble() * 30;  // 15~45%
 
-        long usedInodes = (long)(totalInodes * inodeUsagePercent / 100);
+        long usedInodes = (long) (totalInodes * inodeUsagePercent / 100);
         long freeInodes = totalInodes - usedInodes;
 
         metric.setTotalInodes(totalInodes);
         metric.setUsedInodes(usedInodes);
         metric.setFreeInodes(freeInodes);
         metric.setUsedInodePercentage(inodeUsagePercent);
+
+        return metric;
+    }
+
+    /**
+     * 랙 기반 환경 메트릭 생성 (수정됨)
+     *
+     * @param rackId 랙 ID
+     * @param time   생성 시간
+     * @return EnvironmentMetric
+     */
+    private EnvironmentMetric generateEnvironmentMetricForRack(Long rackId, LocalDateTime time) {
+        if (rackId == null) {
+            log.warn("⚠️ rackId가 null입니다.");
+            return null;
+        }
+
+        AnomalyState state = rackAnomalyStates.get(rackId);
+        if (state == null) {
+            // 해당 랙에 대한 anomaly 상태가 없으면 생성
+            state = new AnomalyState();
+            rackAnomalyStates.put(rackId, state);
+        }
+
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        EnvironmentMetric metric = EnvironmentMetric.builder()
+                .rackId(rackId)
+                .generateTime(time)
+                .build();
+
+        // 온도
+        double baseTemp = 22 + rand.nextDouble() * 4;  // 22~26°C
+        double temperature = state.hasTemperatureAnomaly ?
+                Math.min(35, baseTemp + 8 + rand.nextDouble() * 5) : baseTemp;
+
+        metric.setTemperature(temperature);
+        metric.setMinTemperature(temperature - rand.nextDouble() * 2);
+        metric.setMaxTemperature(temperature + rand.nextDouble() * 2);
+
+        // 습도
+        double baseHumidity = 45 + rand.nextDouble() * 10;  // 45~55%
+        double humidity = state.hasHumidityAnomaly ?
+                Math.min(75, baseHumidity + 15 + rand.nextDouble() * 10) : baseHumidity;
+
+        metric.setHumidity(humidity);
+        metric.setMinHumidity(humidity - rand.nextDouble() * 3);
+        metric.setMaxHumidity(humidity + rand.nextDouble() * 3);
+
+        log.trace("📊 랙 {} 환경 메트릭: 온도={}, 습도={}", rackId, temperature, humidity);
 
         return metric;
     }

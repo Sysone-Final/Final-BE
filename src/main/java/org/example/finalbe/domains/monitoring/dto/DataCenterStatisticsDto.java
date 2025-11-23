@@ -83,9 +83,6 @@ public class DataCenterStatisticsDto {
     private Integer criticalAlerts;       // Critical 알람 수
     private Integer warningAlerts;        // Warning 알람 수
 
-    // 전력 통계
-    private Double totalPowerUsage;       // 총 전력 사용량 (kW)
-    private Double avgPowerUsagePerRack;  // 랙당 평균 전력 사용량 (kW)
 
     // 서버실별 요약 (선택적)
     private List<ServerRoomSummaryDto> serverRoomSummaries;

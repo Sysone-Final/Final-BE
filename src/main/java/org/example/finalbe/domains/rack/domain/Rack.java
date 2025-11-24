@@ -242,25 +242,11 @@ public class Rack extends BaseTimeEntity {
      */
     public void placeEquipment(Equipment equipment, Integer startUnit, Integer unitSize) {
         this.occupyUnits(unitSize);
-        if (equipment.getPowerConsumption() != null) {
-            this.addPowerUsage(equipment.getPowerConsumption());
-        }
         equipment.setRack(this);
         equipment.setStartUnit(startUnit);
         equipment.setUnitSize(unitSize);
     }
 
-    /**
-     * 장비 제거
-     */
-    public void removeEquipment(Equipment equipment) {
-        this.releaseUnits(equipment.getUnitSize());
-        if (equipment.getPowerConsumption() != null) {
-            this.subtractPowerUsage(equipment.getPowerConsumption());
-        }
-        equipment.setRack(null);
-        equipment.setStartUnit(null);
-    }
 
     /**
      * 장비 이동

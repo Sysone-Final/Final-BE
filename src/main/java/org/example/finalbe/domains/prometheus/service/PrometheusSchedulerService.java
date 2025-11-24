@@ -403,34 +403,18 @@ public class PrometheusSchedulerService {
     }
 
     /**
-     * ✅ MetricRawData → NetworkMetric 변환 (단일 NIC 데이터)
+     * ✅ MetricRawData → NetworkMetric 변환 (Equipment 정보 전달)
      */
     private NetworkMetric convertToNetworkMetric(MetricRawData data, LocalDateTime generateTime) {
-        // Network 데이터가 없으면 null 반환
         if (data.getNetworkRxBps() == null && data.getNetworkTxBps() == null) {
             return null;
         }
 
-        return NetworkMetric.builder()
-                .equipmentId(data.getEquipmentId())
-                .generateTime(generateTime)
-                .nicName("eth0")  // 기본 NIC 이름 (실제로는 Collector에서 설정해야 함)
-                .operStatus(data.getNetworkOperStatus())
-                .inBytesTot(data.getNetworkRxBytesTotal())
-                .outBytesTot(data.getNetworkTxBytesTotal())
-                .inBytesPerSec(data.getNetworkRxBps())
-                .outBytesPerSec(data.getNetworkTxBps())
-                .inPktsTot(data.getNetworkRxPacketsTotal())
-                .outPktsTot(data.getNetworkTxPacketsTotal())
-                .inPktsPerSec(data.getNetworkRxPps())
-                .outPktsPerSec(data.getNetworkTxPps())
-                .inErrorPktsTot(data.getNetworkRxErrors())
-                .outErrorPktsTot(data.getNetworkTxErrors())
-                .inDiscardPktsTot(data.getNetworkRxDrops())
-                .outDiscardPktsTot(data.getNetworkTxDrops())
-                .rxUsage(null)  // 계산 필요 시 추가
-                .txUsage(null)  // 계산 필요 시 추가
-                .build();
+        // ✅ Equipment 캐시에서 조회
+        Equipment equipment = equipmentCache.get(data.getEquipmentId());
+
+        // ✅ NetworkMetricCollectorService에 Equipment 전달
+        return networkMetricCollector.convertToNetworkMetric(data, generateTime, equipment);
     }
 
     /**

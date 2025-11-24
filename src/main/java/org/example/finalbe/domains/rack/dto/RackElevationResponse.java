@@ -46,7 +46,6 @@ public record RackElevationResponse(
                         .unitSize(equipment.getUnitSize())
                         .positionType(equipment.getPositionType())
                         .status(equipment.getStatus())
-                        .powerConsumption(equipment.getPowerConsumption())
                         .build());
             } else if (equipment != null) {
                 continue;

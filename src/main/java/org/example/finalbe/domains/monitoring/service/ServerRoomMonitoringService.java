@@ -47,10 +47,8 @@ public class ServerRoomMonitoringService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime oneMinuteAgo = now.minusMinutes(1);
 
-        // ✅ 전체 랙 수 (서버실 내 모든 랙)
         long totalRacks = rackRepository.countByServerRoomIdAndDelYn(serverRoomId, DelYN.N);
 
-        // ✅ 장비가 있는 랙만 조회 (활성 랙)
         List<Long> activeRackIds = equipmentRepository.findDistinctRackIdsByServerRoomId(serverRoomId);
         long activeRacks = activeRackIds.size();
 
@@ -112,6 +110,8 @@ public class ServerRoomMonitoringService {
                 .maxCpuUsage(getDoubleValue(cpuStats, "maxCpuUsage"))
                 .minCpuUsage(getDoubleValue(cpuStats, "minCpuUsage"))
                 .avgLoadAvg1(getDoubleValue(cpuStats, "avgLoadAvg1"))
+                .avgLoadAvg5(getDoubleValue(cpuStats, "avgLoadAvg5"))
+                .avgLoadAvg15(getDoubleValue(cpuStats, "avgLoadAvg15"))
                 .avgMemoryUsage(getDoubleValue(memoryStats, "avgMemoryUsage"))
                 .maxMemoryUsage(getDoubleValue(memoryStats, "maxMemoryUsage"))
                 .minMemoryUsage(getDoubleValue(memoryStats, "minMemoryUsage"))
@@ -138,8 +138,8 @@ public class ServerRoomMonitoringService {
                 .minHumidity(getDoubleValue(envStats, "minHumidity"))
                 .temperatureWarnings(getIntValue(envStats, "temperatureWarnings"))
                 .humidityWarnings(getIntValue(envStats, "humidityWarnings"))
-                .totalRacks((int) totalRacks)      // ✅ 전체 랙 (12개)
-                .activeRacks((int) activeRacks)    // ✅ 활성 랙 (2개)
+                .totalRacks((int) totalRacks)
+                .activeRacks((int) activeRacks)
                 .totalAlerts(totalAlerts)
                 .criticalAlerts(criticalAlerts)
                 .warningAlerts(warningAlerts)

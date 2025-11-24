@@ -2,12 +2,12 @@ package org.example.finalbe.domains.prometheus.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
 import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository;
 import org.example.finalbe.domains.prometheus.dto.MetricRawData;
 import org.example.finalbe.domains.prometheus.dto.PrometheusResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -25,20 +25,21 @@ public class NetworkMetricCollectorService {
     private final NetworkMetricRepository networkMetricRepository;
 
     public void collectAndPopulate(Map<Long, MetricRawData> dataMap) {
-        collectNetworkTraffic(dataMap);
+        log.debug("📡 [Network] 메트릭 수집 시작: {} 개 장비", dataMap.size());
+
+        collectNetworkBytes(dataMap);
         collectNetworkPackets(dataMap);
         collectNetworkErrors(dataMap);
+
+        log.debug("✅ [Network] 메트릭 수집 완료");
     }
 
-    /**
-     * ✅ 필터 완전 제거 - 모든 네트워크 인터페이스 수집
-     */
-    private void collectNetworkTraffic(Map<Long, MetricRawData> dataMap) {
-        String rxQuery = "sum by (instance) (rate(node_network_receive_bytes_total[15s]))";
-        String txQuery = "sum by (instance) (rate(node_network_transmit_bytes_total[15s]))";
+    private void collectNetworkBytes(Map<Long, MetricRawData> dataMap) {
+        String rxBpsQuery = "sum by (instance) (rate(node_network_receive_bytes_total[15s]))";
+        String txBpsQuery = "sum by (instance) (rate(node_network_transmit_bytes_total[15s]))";
 
-        collectMetricAndSetDouble(dataMap, rxQuery, MetricRawData::setNetworkRxBps);
-        collectMetricAndSetDouble(dataMap, txQuery, MetricRawData::setNetworkTxBps);
+        collectMetricAndSetDouble(dataMap, rxBpsQuery, MetricRawData::setNetworkRxBps);
+        collectMetricAndSetDouble(dataMap, txBpsQuery, MetricRawData::setNetworkTxBps);
 
         String rxTotalQuery = "sum by (instance) (node_network_receive_bytes_total)";
         String txTotalQuery = "sum by (instance) (node_network_transmit_bytes_total)";
@@ -144,55 +145,27 @@ public class NetworkMetricCollectorService {
     }
 
     /**
-     * ✅ 트랜잭션 분리
+     * ✅ MetricRawData → NetworkMetric 변환 (Equipment 정보 포함)
+     *
+     * @param data MetricRawData
+     * @param generateTime 생성 시간
+     * @param equipment 장비 정보 (네트워크 대역폭 조회용)
+     * @return NetworkMetric
      */
-    public void saveMetrics(List<MetricRawData> dataList) {
-        int successCount = 0;
-        int failureCount = 0;
-
-        for (MetricRawData data : dataList) {
-            try {
-                saveMetricWithNewTransaction(data);
-                successCount++;
-            } catch (Exception e) {
-                failureCount++;
-                log.error("❌ NetworkMetric 저장 실패: equipmentId={} - {}",
-                        data.getEquipmentId(), e.getMessage());
-            }
+    public NetworkMetric convertToNetworkMetric(MetricRawData data, LocalDateTime generateTime, Equipment equipment) {
+        if (data.getNetworkRxBps() == null && data.getNetworkTxBps() == null) {
+            return null;
         }
 
-        if (failureCount > 0) {
-            log.warn("⚠️ NetworkMetric 저장 완료: 성공={}, 실패={}", successCount, failureCount);
-        }
-    }
+        LocalDateTime finalGenerateTime = generateTime != null
+                ? generateTime
+                : LocalDateTime.ofInstant(Instant.ofEpochSecond(data.getTimestamp()), ZoneId.systemDefault());
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void saveMetricWithNewTransaction(MetricRawData data) {
-        NetworkMetric metric = convertToEntity(data);
+        // ✅ Equipment에서 네트워크 대역폭 조회 (null이면 기본값 1000Mbps)
+        int bandwidthMbps = equipment != null ? equipment.getNetworkBandwidthMbpsOrDefault() : 1000;
+        double bandwidthBps = bandwidthMbps * 1_000_000.0;  // Mbps → bps 변환
 
-        NetworkMetric existing = networkMetricRepository
-                .findByEquipmentIdAndNicNameAndGenerateTime(
-                        data.getEquipmentId(), "aggregated", metric.getGenerateTime())
-                .orElse(null);
-
-        if (existing != null) {
-            updateExisting(existing, metric);
-            networkMetricRepository.save(existing);
-        } else {
-            networkMetricRepository.save(metric);
-        }
-    }
-
-    /**
-     * ✅ NetworkMetric 엔티티 필드명에 맞게 매핑
-     */
-    private NetworkMetric convertToEntity(MetricRawData data) {
-        LocalDateTime generateTime = data.getTimestamp() != null
-                ? LocalDateTime.ofInstant(Instant.ofEpochSecond(data.getTimestamp()), ZoneId.systemDefault())
-                : LocalDateTime.now();
-
-        // 대역폭 1Gbps 기준으로 사용률 계산
-        double bandwidthBps = 1_000_000_000.0;  // 1Gbps
+        // ✅ 대역폭 기반으로 사용률 계산
         Double rxUsage = data.getNetworkRxBps() != null
                 ? (data.getNetworkRxBps() / bandwidthBps) * 100
                 : null;
@@ -203,57 +176,40 @@ public class NetworkMetricCollectorService {
         return NetworkMetric.builder()
                 .equipmentId(data.getEquipmentId())
                 .nicName("aggregated")
-                .generateTime(generateTime)
-                // 사용률 (%)
+                .generateTime(finalGenerateTime)
                 .rxUsage(rxUsage)
                 .txUsage(txUsage)
-                // 패킷 누적
                 .inPktsTot(data.getNetworkRxPacketsTotal())
                 .outPktsTot(data.getNetworkTxPacketsTotal())
-                // 바이트 누적
                 .inBytesTot(data.getNetworkRxBytesTotal())
                 .outBytesTot(data.getNetworkTxBytesTotal())
-                // 초당 전송량
                 .inBytesPerSec(data.getNetworkRxBps())
                 .outBytesPerSec(data.getNetworkTxBps())
                 .inPktsPerSec(data.getNetworkRxPps())
                 .outPktsPerSec(data.getNetworkTxPps())
-                // 에러/드롭
                 .inErrorPktsTot(data.getNetworkRxErrors())
                 .outErrorPktsTot(data.getNetworkTxErrors())
                 .inDiscardPktsTot(data.getNetworkRxDrops())
                 .outDiscardPktsTot(data.getNetworkTxDrops())
-                // 인터페이스 상태
                 .operStatus(data.getNetworkOperStatus())
                 .build();
     }
 
     private void updateExisting(NetworkMetric existing, NetworkMetric newMetric) {
-        // 사용률
         if (newMetric.getRxUsage() != null) existing.setRxUsage(newMetric.getRxUsage());
         if (newMetric.getTxUsage() != null) existing.setTxUsage(newMetric.getTxUsage());
-
-        // 패킷 누적
         if (newMetric.getInPktsTot() != null) existing.setInPktsTot(newMetric.getInPktsTot());
         if (newMetric.getOutPktsTot() != null) existing.setOutPktsTot(newMetric.getOutPktsTot());
-
-        // 바이트 누적
         if (newMetric.getInBytesTot() != null) existing.setInBytesTot(newMetric.getInBytesTot());
         if (newMetric.getOutBytesTot() != null) existing.setOutBytesTot(newMetric.getOutBytesTot());
-
-        // 초당 전송량
         if (newMetric.getInBytesPerSec() != null) existing.setInBytesPerSec(newMetric.getInBytesPerSec());
         if (newMetric.getOutBytesPerSec() != null) existing.setOutBytesPerSec(newMetric.getOutBytesPerSec());
         if (newMetric.getInPktsPerSec() != null) existing.setInPktsPerSec(newMetric.getInPktsPerSec());
         if (newMetric.getOutPktsPerSec() != null) existing.setOutPktsPerSec(newMetric.getOutPktsPerSec());
-
-        // 에러/드롭
         if (newMetric.getInErrorPktsTot() != null) existing.setInErrorPktsTot(newMetric.getInErrorPktsTot());
         if (newMetric.getOutErrorPktsTot() != null) existing.setOutErrorPktsTot(newMetric.getOutErrorPktsTot());
         if (newMetric.getInDiscardPktsTot() != null) existing.setInDiscardPktsTot(newMetric.getInDiscardPktsTot());
         if (newMetric.getOutDiscardPktsTot() != null) existing.setOutDiscardPktsTot(newMetric.getOutDiscardPktsTot());
-
-        // 상태
         if (newMetric.getOperStatus() != null) existing.setOperStatus(newMetric.getOperStatus());
     }
 }

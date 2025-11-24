@@ -122,6 +122,22 @@ public class DataCenterMonitoringService {
                 .average()
                 .orElse(0.0);
 
+
+        Double avgLoadAvg5 = serverRoomStats.stream()
+                .map(ServerRoomStatisticsDto::getAvgLoadAvg5)
+                .filter(val -> val != null)
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
+
+        Double avgLoadAvg15 = serverRoomStats.stream()
+                .map(ServerRoomStatisticsDto::getAvgLoadAvg15)
+                .filter(val -> val != null)
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+
         // 5. 메모리 통계 집계
         Double avgMemoryUsage = serverRoomStats.stream()
                 .map(ServerRoomStatisticsDto::getAvgMemoryUsage)
@@ -317,7 +333,6 @@ public class DataCenterMonitoringService {
                 .mapToInt(Integer::intValue)
                 .sum();
 
-        // ❌ 10. 전력 통계 집계 - 삭제됨
 
         // 11. 서버실별 요약 생성
         List<DataCenterStatisticsDto.ServerRoomSummaryDto> serverRoomSummaries = serverRoomStats.stream()
@@ -353,6 +368,8 @@ public class DataCenterMonitoringService {
                 .maxCpuUsage(maxCpuUsage)
                 .minCpuUsage(minCpuUsage)
                 .avgLoadAvg1(avgLoadAvg1)
+                .avgLoadAvg5(avgLoadAvg5)
+                .avgLoadAvg15(avgLoadAvg15)
                 // 메모리 통계
                 .avgMemoryUsage(avgMemoryUsage)
                 .maxMemoryUsage(maxMemoryUsage)

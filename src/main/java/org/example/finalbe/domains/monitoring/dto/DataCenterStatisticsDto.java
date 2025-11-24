@@ -41,6 +41,8 @@ public class DataCenterStatisticsDto {
     private Double maxCpuUsage;           // 최대 CPU 사용률 (%)
     private Double minCpuUsage;           // 최소 CPU 사용률 (%)
     private Double avgLoadAvg1;           // 평균 Load Average (1분)
+    private Double avgLoadAvg5;
+    private Double avgLoadAvg15;
 
     // 메모리 통계 (평균)
     private Double avgMemoryUsage;        // 평균 메모리 사용률 (%)

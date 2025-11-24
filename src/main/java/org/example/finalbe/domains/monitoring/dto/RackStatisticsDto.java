@@ -121,8 +121,8 @@ public class RackStatisticsDto {
         private Double maxUsage;
         private List<TopEquipment> topEquipments;
         private Integer equipmentCount;
-        private Long totalCapacityTB;
-        private Long usedCapacityTB;
+        private Double totalCapacityTB;
+        private Double usedCapacityTB;
     }
 
     @Getter

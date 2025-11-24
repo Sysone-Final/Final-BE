@@ -27,7 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -49,7 +51,8 @@ public class RackService {
     private final RackHistoryRecorder rackHistoryRecorder;
 
     /**
-     * 랙 목록 조회
+     * 랙 목록 조회 (서버실별)
+     * ✅ 수정: 각 랙의 장비 개수를 포함
      */
     public List<RackListResponse> getRacksByServerRoom(
             Long serverRoomId, String status, String sortBy) {
@@ -70,8 +73,31 @@ public class RackService {
             racks.sort(Comparator.comparing(Rack::getPowerUsageRate).reversed());
         }
 
+
+        List<Long> rackIds = racks.stream()
+                .map(Rack::getId)
+                .collect(Collectors.toList());
+
+        // 장비 개수를 Map으로 가져오기 (한 번의 쿼리로 효율적)
+        Map<Long, Long> equipmentCountMap = new HashMap<>();
+
+        if (!rackIds.isEmpty()) {
+            List<EquipmentRepository.RackEquipmentCount> counts =
+                    equipmentRepository.countEquipmentsByRackIds(rackIds, DelYN.N);
+
+            for (EquipmentRepository.RackEquipmentCount count : counts) {
+                equipmentCountMap.put(count.getRackId(), count.getCount());
+            }
+        }
+
+        // DTO 변환 (장비 개수 포함)
         return racks.stream()
-                .map(RackListResponse::from)
+                .map(rack -> {
+                    Integer equipmentCount = equipmentCountMap
+                            .getOrDefault(rack.getId(), 0L)
+                            .intValue();
+                    return RackListResponse.from(rack, equipmentCount);
+                })
                 .collect(Collectors.toList());
     }
 

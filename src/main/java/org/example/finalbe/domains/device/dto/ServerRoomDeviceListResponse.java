@@ -10,12 +10,14 @@ import java.util.List;
 @Builder
 public record ServerRoomDeviceListResponse(
         ServerRoomInfo serverRoom,
-        List<DeviceSimpleInfo> devices
+        List<DeviceSimpleInfo> devices,
+        Integer equipmentCount
 ) {
-    public static ServerRoomDeviceListResponse of(ServerRoomInfo serverRoom, List<DeviceSimpleInfo> devices) {
+    public static ServerRoomDeviceListResponse of(ServerRoomInfo serverRoom, List<DeviceSimpleInfo> devices, Integer equipmentCount) {
         return ServerRoomDeviceListResponse.builder()
                 .serverRoom(serverRoom)
                 .devices(devices)
+                .equipmentCount(equipmentCount)
                 .build();
     }
 }

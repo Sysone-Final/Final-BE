@@ -224,4 +224,25 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "AND e.rack IS NOT NULL " +
             "AND e.rack.delYn = 'N'")
     List<Long> findAllDistinctRackIds();
+
+
+    /**
+     * 여러 랙의 장비 개수를 Map으로 반환
+     * Key: rackId, Value: 장비 개수
+     */
+    @Query("SELECT e.rack.id as rackId, COUNT(e) as count " +
+            "FROM Equipment e " +
+            "WHERE e.rack.id IN :rackIds " +
+            "AND e.delYn = :delYn " +
+            "GROUP BY e.rack.id")
+    List<RackEquipmentCount> countEquipmentsByRackIds(
+            @Param("rackIds") List<Long> rackIds,
+            @Param("delYn") DelYN delYn
+    );
+
+    // RackEquipmentCount 인터페이스 (Projection)
+    interface RackEquipmentCount {
+        Long getRackId();
+        Long getCount();
+    }
 }

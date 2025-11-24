@@ -19,9 +19,10 @@ public record DeviceSimpleInfo(
         Integer rotation,
         String status,
         String rackName,
-        Long rackId
+        Long rackId,
+        Integer equipmentCount
 ) {
-    public static DeviceSimpleInfo from(Device device) {
+    public static DeviceSimpleInfo from(Device device,Integer equipmentCount) {
         return DeviceSimpleInfo.builder()
                 .id(device.getId())
                 .deviceName(device.getDeviceName())
@@ -35,6 +36,7 @@ public record DeviceSimpleInfo(
                 .status(device.getStatus() != null ? device.getStatus().name() : null)
                 .rackName(device.getRack() != null ? device.getRack().getRackName() : null)
                 .rackId(device.getRack() != null ? device.getRack().getId() : null)
+                .equipmentCount(equipmentCount)
                 .build();
     }
 }

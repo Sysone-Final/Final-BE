@@ -307,7 +307,7 @@ public class EquipmentService {
         // === 수정 전 상태 저장 ===
         Equipment oldEquipment = cloneEquipment(equipment);
 
-        // ✅ 랙 변경 감지
+
         Long oldRackId = equipment.getRack() != null ? equipment.getRack().getId() : null;
 
         // === 상태 변경 감지 ===
@@ -351,7 +351,7 @@ public class EquipmentService {
 
         Equipment updatedEquipment = equipmentRepository.save(equipment);
 
-        // ✅ 수정: 랙 변경 확인 및 메트릭 수집 매핑 업데이트
+
         Long newRackId = updatedEquipment.getRack() != null ? updatedEquipment.getRack().getId() : null;
         boolean rackChanged = !Objects.equals(oldRackId, newRackId);
 
@@ -359,7 +359,7 @@ public class EquipmentService {
             // Prometheus 매핑 업데이트
             equipmentMappingService.updateEquipmentMapping(updatedEquipment);
 
-            // ✅ 수정: Simulator 등록/제거
+
             EquipmentType type = updatedEquipment.getType();
             if (type == EquipmentType.SERVER || type == EquipmentType.STORAGE) {
                 if (newRackId != null) {

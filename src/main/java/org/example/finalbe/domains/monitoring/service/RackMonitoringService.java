@@ -422,17 +422,20 @@ public class RackMonitoringService {
             return RackStatisticsDto.DiskStats.builder().equipmentCount(0).build();
         }
 
-        double avgUsage = metrics.stream()
-                .filter(m -> m.getUsedPercentage() != null)
-                .mapToDouble(DiskMetric::getUsedPercentage)
-                .average()
-                .orElse(0.0);
+        Map<Long, String> equipmentNameMap = equipments.stream()
+                .collect(Collectors.toMap(Equipment::getId, Equipment::getName));
 
-        double maxUsage = metrics.stream()
+        List<DiskMetric> validMetrics = metrics.stream()
                 .filter(m -> m.getUsedPercentage() != null)
+                .collect(Collectors.toList());
+
+        if (validMetrics.isEmpty()) {
+            return RackStatisticsDto.DiskStats.builder().equipmentCount(0).build();
+        }
+
+        DoubleSummaryStatistics diskStats = validMetrics.stream()
                 .mapToDouble(DiskMetric::getUsedPercentage)
-                .max()
-                .orElse(0.0);
+                .summaryStatistics();
 
         long totalBytes = metrics.stream()
                 .filter(m -> m.getTotalBytes() != null)
@@ -444,11 +447,7 @@ public class RackMonitoringService {
                 .mapToLong(DiskMetric::getUsedBytes)
                 .sum();
 
-        Map<Long, String> equipmentNameMap = equipments.stream()
-                .collect(Collectors.toMap(Equipment::getId, Equipment::getName));
-
-        List<RackStatisticsDto.TopEquipment> topEquipments = metrics.stream()
-                .filter(m -> m.getUsedPercentage() != null)
+        List<RackStatisticsDto.TopEquipment> topEquipments = validMetrics.stream()
                 .sorted(Comparator.comparingDouble(DiskMetric::getUsedPercentage).reversed())
                 .limit(5)
                 .map(m -> RackStatisticsDto.TopEquipment.builder()
@@ -458,13 +457,17 @@ public class RackMonitoringService {
                         .build())
                 .collect(Collectors.toList());
 
+
+        double totalCapacityTB = totalBytes / (1024.0 * 1024.0 * 1024.0 * 1024.0);
+        double usedCapacityTB = usedBytes / (1024.0 * 1024.0 * 1024.0 * 1024.0);
+
         return RackStatisticsDto.DiskStats.builder()
-                .avgUsage(avgUsage)
-                .maxUsage(maxUsage)
+                .avgUsage(diskStats.getAverage())
+                .maxUsage(diskStats.getMax())
                 .topEquipments(topEquipments)
-                .equipmentCount(metrics.size())
-                .totalCapacityTB(totalBytes / (1024L * 1024L * 1024L * 1024L))
-                .usedCapacityTB(usedBytes / (1024L * 1024L * 1024L * 1024L))
+                .equipmentCount(validMetrics.size())
+                .totalCapacityTB(totalCapacityTB)
+                .usedCapacityTB(usedCapacityTB)
                 .build();
     }
 
@@ -503,6 +506,7 @@ public class RackMonitoringService {
                 .average()
                 .orElse(0.0);
 
+
         long totalInPackets = aggregatedMetrics.values().stream()
                 .mapToLong(m -> m.inPktsTot)
                 .sum();
@@ -519,12 +523,15 @@ public class RackMonitoringService {
                 .mapToLong(m -> m.outErrorPktsTot + m.outDiscardPktsTot)
                 .sum();
 
-        // ✅ 패킷률 계산 로직 개선 (0 나누기 방지 및 로깅)
+
         double errorPacketRate = 0.0;
         if (totalInPackets > 0) {
             errorPacketRate = (totalInErrors * 100.0 / totalInPackets);
             if (errorPacketRate > 5.0) {
-                log.warn("⚠️ 높은 에러 패킷률 감지: {}% (에러: {}, 전체: {})",
+                log.warn("⚠️ 높은 에러 패킷률 감지: {0}% (에러: {1}, 전체: {2})",
+                        String.format("%.2f", errorPacketRate), totalInErrors, totalInPackets);
+            } else {
+                log.debug("✅ 정상 에러 패킷률: {0}% (에러: {1}, 전체: {2})",
                         String.format("%.2f", errorPacketRate), totalInErrors, totalInPackets);
             }
         }
@@ -533,7 +540,10 @@ public class RackMonitoringService {
         if (totalOutPackets > 0) {
             dropPacketRate = (totalOutErrors * 100.0 / totalOutPackets);
             if (dropPacketRate > 5.0) {
-                log.warn("⚠️ 높은 드롭 패킷률 감지: {}% (드롭: {}, 전체: {})",
+                log.warn("⚠️ 높은 드롭 패킷률 감지: {0}% (드롭: {1}, 전체: {2})",
+                        String.format("%.2f", dropPacketRate), totalOutErrors, totalOutPackets);
+            } else {
+                log.debug("✅ 정상 드롭 패킷률: {0}% (드롭: {1}, 전체: {2})",
                         String.format("%.2f", dropPacketRate), totalOutErrors, totalOutPackets);
             }
         }
@@ -576,7 +586,9 @@ public class RackMonitoringService {
                 .build();
     }
 
+
     private AggregatedNetworkMetric aggregateNicMetrics(List<NetworkMetric> nicMetrics) {
+
         long inBytesPerSec = nicMetrics.stream()
                 .mapToLong(m -> m.getInBytesPerSec() != null ? m.getInBytesPerSec().longValue() : 0L)
                 .sum();
@@ -585,13 +597,15 @@ public class RackMonitoringService {
                 .mapToLong(m -> m.getOutBytesPerSec() != null ? m.getOutBytesPerSec().longValue() : 0L)
                 .sum();
 
+
         long inPktsTot = nicMetrics.stream()
-                .mapToLong(m -> m.getInPktsPerSec() != null ? m.getInPktsPerSec().longValue() : 0L)
+                .mapToLong(m -> m.getInPktsTot() != null ? m.getInPktsTot() : 0L)
                 .sum();
 
         long outPktsTot = nicMetrics.stream()
-                .mapToLong(m -> m.getOutPktsPerSec() != null ? m.getOutPktsPerSec().longValue() : 0L)
+                .mapToLong(m -> m.getOutPktsTot() != null ? m.getOutPktsTot() : 0L)
                 .sum();
+
 
         long inErrorPktsTot = nicMetrics.stream()
                 .mapToLong(m -> m.getInErrorPktsTot() != null ? m.getInErrorPktsTot() : 0L)
@@ -609,11 +623,25 @@ public class RackMonitoringService {
                 .mapToLong(m -> m.getOutDiscardPktsTot() != null ? m.getOutDiscardPktsTot() : 0L)
                 .sum();
 
+        double avgRxUsage = nicMetrics.stream()
+                .filter(m -> m.getRxUsage() != null)
+                .mapToDouble(NetworkMetric::getRxUsage)
+                .average()
+                .orElse(0.0);
+
+        double avgTxUsage = nicMetrics.stream()
+                .filter(m -> m.getTxUsage() != null)
+                .mapToDouble(NetworkMetric::getTxUsage)
+                .average()
+                .orElse(0.0);
+
+
+
         AggregatedNetworkMetric result = new AggregatedNetworkMetric();
         result.inBytesPerSec = inBytesPerSec;
         result.outBytesPerSec = outBytesPerSec;
-        result.rxUsage = 0.0;
-        result.txUsage = 0.0;
+        result.rxUsage = avgRxUsage;
+        result.txUsage = avgTxUsage;
         result.inPktsTot = inPktsTot;
         result.outPktsTot = outPktsTot;
         result.inErrorPktsTot = inErrorPktsTot;

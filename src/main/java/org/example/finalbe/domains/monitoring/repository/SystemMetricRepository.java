@@ -420,20 +420,21 @@ public interface SystemMetricRepository extends JpaRepository<SystemMetric, Long
     );
 
 
-    /**
-     * 여러 장비의 평균 CPU 통계 조회
-     */
+    // SystemMetricRepository.java
+
     @Query(value = """
-        SELECT 
-            AVG(100 - cpu_idle) as avgCpuUsage,
-            MAX(100 - cpu_idle) as maxCpuUsage,
-            MIN(100 - cpu_idle) as minCpuUsage,
-            AVG(load_avg1) as avgLoadAvg1,
-            COUNT(DISTINCT equipment_id) as equipmentCount
-        FROM system_metrics
-        WHERE equipment_id IN :equipmentIds
-        AND generate_time BETWEEN :startTime AND :endTime
-        """, nativeQuery = true)
+    SELECT 
+        AVG(100 - cpu_idle) as avgCpuUsage,
+        MAX(100 - cpu_idle) as maxCpuUsage,
+        MIN(100 - cpu_idle) as minCpuUsage,
+        AVG(load_avg1) as avgLoadAvg1,
+        AVG(load_avg5) as avgLoadAvg5,    
+        AVG(load_avg15) as avgLoadAvg15, 
+        COUNT(DISTINCT equipment_id) as equipmentCount
+    FROM system_metrics
+    WHERE equipment_id IN :equipmentIds
+    AND generate_time BETWEEN :startTime AND :endTime
+    """, nativeQuery = true)
     Map<String, Object> getAverageCpuStatsByEquipmentIds(
             @Param("equipmentIds") List<Long> equipmentIds,
             @Param("startTime") LocalDateTime startTime,

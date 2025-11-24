@@ -9,9 +9,6 @@ import org.example.finalbe.domains.rack.domain.Rack;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * 장비 엔티티
- */
 @Entity
 @Table(name = "equipment", indexes = {
         @Index(name = "idx_equipment_company_id", columnList = "company_id")
@@ -28,7 +25,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "equipment_id")
     private Long id;
 
-    // ========== 회사 정보 ==========
     @Column(name = "company_id")
     private Long companyId;
 
@@ -42,7 +38,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "equipment_type", length = 50)
     private EquipmentType type;
 
-    // 랙을 선택적으로 설정할 수 있도록 nullable = true로 변경
     @Column(name = "start_unit", nullable = true)
     private Integer startUnit;
 
@@ -83,6 +78,10 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "power_consumption", precision = 10, scale = 2)
     private BigDecimal powerConsumption;
 
+    // ✅ 네트워크 대역폭 추가 (단위: Mbps)
+    @Column(name = "network_bandwidth_mbps")
+    private Integer networkBandwidthMbps;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private EquipmentStatus status;
@@ -93,7 +92,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "notes", length = 1000)
     private String notes;
 
-    // ========== 모니터링 설정 필드 ==========
     @Column(name = "monitoring_enabled")
     private Boolean monitoringEnabled;
 
@@ -120,7 +118,6 @@ public class Equipment extends BaseTimeEntity {
     @Builder.Default
     private DelYN delYn = DelYN.N;
 
-    // 랙을 선택적으로 설정할 수 있도록 nullable = true로 변경
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rack_id", nullable = true)
     private Rack rack;
@@ -195,4 +192,11 @@ public class Equipment extends BaseTimeEntity {
         return rack != null ? rack.getId() : null;
     }
 
+    /**
+     * ✅ 네트워크 대역폭 반환 (Mbps 단위)
+     * null이면 기본값 1000Mbps (1Gbps) 반환
+     */
+    public Integer getNetworkBandwidthMbpsOrDefault() {
+        return networkBandwidthMbps != null ? networkBandwidthMbps : 1000;
+    }
 }

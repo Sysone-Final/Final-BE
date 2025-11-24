@@ -107,7 +107,6 @@ public class RackElevationService {
         EquipmentPlacementRequest placementRequest = EquipmentPlacementRequest.builder()
                 .startUnit(request.toUnit())
                 .unitSize(equipment.getUnitSize())
-                .powerConsumption(equipment.getPowerConsumption())
                 .build();
 
         Map<String, Object> validation = validateEquipmentPlacement(rackId, placementRequest);

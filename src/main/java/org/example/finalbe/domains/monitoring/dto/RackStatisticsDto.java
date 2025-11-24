@@ -22,6 +22,7 @@ public class RackStatisticsDto {
     private CpuStats cpuStats;
     private MemoryStats memoryStats;
     private DiskStats diskStats;
+    private SystemLoadStats systemLoadStats;
     private NetworkStats networkStats;
 
     @Getter
@@ -121,5 +122,21 @@ public class RackStatisticsDto {
         private Long equipmentId;
         private String equipmentName;
         private Double value;
+    }
+
+    // RackStatisticsDto.java에 inner class 추가
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SystemLoadStats {
+        private Double avgLoadAvg1;    // 평균 1분 부하
+        private Double avgLoadAvg5;    // 평균 5분 부하
+        private Double avgLoadAvg15;   // 평균 15분 부하
+        private Double maxLoadAvg1;    // 최대 1분 부하
+        private Double maxLoadAvg5;    // 최대 5분 부하
+        private Double maxLoadAvg15;   // 최대 15분 부하
+        private Integer equipmentCount; // 측정 장비 수
     }
 }

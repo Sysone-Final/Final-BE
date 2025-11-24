@@ -1,3 +1,4 @@
+// src/main/java/org/example/finalbe/domains/alert/controller/AlertController.java
 package org.example.finalbe.domains.alert.controller;
 
 import jakarta.validation.Valid;
@@ -6,12 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.alert.domain.AlertHistory;
 import org.example.finalbe.domains.alert.dto.AlertHistoryDto;
 import org.example.finalbe.domains.alert.dto.AlertStatisticsDto;
-import org.example.finalbe.domains.alert.dto.AcknowledgeMultipleRequest;
-import org.example.finalbe.domains.alert.dto.ResolveMultipleRequest;
+import org.example.finalbe.domains.alert.dto.MarkAsReadRequest;
+import org.example.finalbe.domains.alert.dto.DeleteAlertsRequest;
 import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
 import org.example.finalbe.domains.alert.service.AlertNotificationService;
 import org.example.finalbe.domains.common.enumdir.AlertLevel;
-import org.example.finalbe.domains.common.enumdir.AlertStatus;
 import org.example.finalbe.domains.common.enumdir.TargetType;
 import org.example.finalbe.domains.common.exception.AlertNotFoundException;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
@@ -23,9 +23,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -39,65 +39,53 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/alerts")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
 public class AlertController {
 
-    private final AlertNotificationService notificationService;
     private final AlertHistoryRepository alertHistoryRepository;
-    private final MemberRepository memberRepository;
+    private final AlertNotificationService alertNotificationService;
     private final CompanyServerRoomRepository companyServerRoomRepository;
+    private final MemberRepository memberRepository;
 
-    // ========== SSE 구독 ==========
+    // ========== SSE 구독 API ==========
 
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeAll() {
-        log.info("전체 알림 구독 요청");
-        return notificationService.subscribeAll();
+    public SseEmitter subscribeAlerts() {
+        return alertNotificationService.subscribeAll();
     }
 
-    @GetMapping(value = "/subscribe/equipment/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeEquipment(@PathVariable Long id) {
-        log.info("Equipment 알림 구독 요청: equipmentId={}", id);
-        return notificationService.subscribeEquipment(id);
+    @GetMapping(value = "/equipment/{id}/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeEquipmentAlerts(@PathVariable Long id) {
+        return alertNotificationService.subscribeEquipment(id);
     }
 
-    @GetMapping(value = "/subscribe/rack/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeRack(@PathVariable Long id) {
-        log.info("Rack 알림 구독 요청: rackId={}", id);
-        return notificationService.subscribeRack(id);
+    @GetMapping(value = "/rack/{id}/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeRackAlerts(@PathVariable Long id) {
+        return alertNotificationService.subscribeRack(id);
     }
 
-    @GetMapping(value = "/subscribe/serverroom/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeServerRoom(@PathVariable Long id) {
-        log.info("ServerRoom 알림 구독 요청: serverRoomId={}", id);
-        return notificationService.subscribeServerRoom(id);
+    @GetMapping(value = "/serverroom/{id}/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeServerRoomAlerts(@PathVariable Long id) {
+        return alertNotificationService.subscribeServerRoom(id);
     }
 
-    @GetMapping(value = "/subscribe/datacenter/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribeDataCenter(@PathVariable Long id) {
-        log.info("DataCenter 알림 구독 요청 (사용 안 함): dataCenterId={}", id);
-        return notificationService.subscribeDataCenter(id);
+    @GetMapping(value = "/datacenter/{id}/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeDataCenterAlerts(@PathVariable Long id) {
+        return alertNotificationService.subscribeDataCenter(id);
     }
 
-    // ========== 알림 조회 ==========
+    // ========== 알림 조회 API ==========
 
-    /**
-     * 로그인한 사용자의 회사에 매핑된 서버실의 활성 알림 조회
-     * ✅ 페이지네이션 + DB 레벨 필터링 + 시간 범위 제한
-     * ✅ 임계치 기반 자동 알림만 표시
-     */
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllActiveAlerts(
+    public ResponseEntity<Map<String, Object>> getAlerts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "7") int days,
-            @RequestParam(required = false) AlertLevel level) {
-
-        if (size > 100) size = 100;
-        if (size < 1) size = 20;
+            @RequestParam(required = false) AlertLevel level,
+            @RequestParam(defaultValue = "0") int days) {
 
         Long userId = extractUserId();
-        Member currentMember = memberRepository.findById(userId)
+
+        // ✅ Fetch Join으로 Company를 함께 조회
+        Member currentMember = memberRepository.findByIdWithCompany(userId)
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
         Long companyId = currentMember.getCompany().getId();
@@ -133,9 +121,8 @@ public class AlertController {
 
         if (level != null) {
             alertPage = alertHistoryRepository
-                    .findByServerRoomIdInAndStatusAndLevelAndTriggeredAtAfterAndTargetTypeNot(
+                    .findByServerRoomIdInAndLevelAndTriggeredAtAfterAndTargetTypeNot(
                             serverRoomIds,
-                            AlertStatus.TRIGGERED,
                             level,
                             startTime,
                             TargetType.DATA_CENTER,
@@ -143,9 +130,8 @@ public class AlertController {
                     );
         } else {
             alertPage = alertHistoryRepository
-                    .findByServerRoomIdInAndStatusAndTriggeredAtAfterAndTargetTypeNot(
+                    .findByServerRoomIdInAndTriggeredAtAfterAndTargetTypeNot(
                             serverRoomIds,
-                            AlertStatus.TRIGGERED,
                             startTime,
                             TargetType.DATA_CENTER,
                             pageable
@@ -174,12 +160,9 @@ public class AlertController {
     }
 
     @GetMapping("/equipment/{id}")
-    public ResponseEntity<List<AlertHistoryDto>> getEquipmentAlerts(
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "TRIGGERED") AlertStatus status) {
-
+    public ResponseEntity<List<AlertHistoryDto>> getEquipmentAlerts(@PathVariable Long id) {
         List<AlertHistory> alerts = alertHistoryRepository
-                .findByEquipmentIdAndStatusOrderByTriggeredAtDesc(id, status);
+                .findByEquipmentIdOrderByTriggeredAtDesc(id);
 
         List<AlertHistoryDto> dtos = alerts.stream()
                 .map(AlertHistoryDto::from)
@@ -189,12 +172,9 @@ public class AlertController {
     }
 
     @GetMapping("/rack/{id}")
-    public ResponseEntity<List<AlertHistoryDto>> getRackAlerts(
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "TRIGGERED") AlertStatus status) {
-
+    public ResponseEntity<List<AlertHistoryDto>> getRackAlerts(@PathVariable Long id) {
         List<AlertHistory> alerts = alertHistoryRepository
-                .findByRackIdAndStatusOrderByTriggeredAtDesc(id, status);
+                .findByRackIdOrderByTriggeredAtDesc(id);
 
         List<AlertHistoryDto> dtos = alerts.stream()
                 .map(AlertHistoryDto::from)
@@ -204,27 +184,15 @@ public class AlertController {
     }
 
     @GetMapping("/serverroom/{id}")
-    public ResponseEntity<List<AlertHistoryDto>> getServerRoomAlerts(
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "TRIGGERED") AlertStatus status) {
-
+    public ResponseEntity<List<AlertHistoryDto>> getServerRoomAlerts(@PathVariable Long id) {
         List<AlertHistory> alerts = alertHistoryRepository
-                .findByServerRoomIdAndStatusOrderByTriggeredAtDesc(id, status);
+                .findByServerRoomIdOrderByTriggeredAtDesc(id);
 
         List<AlertHistoryDto> dtos = alerts.stream()
                 .map(AlertHistoryDto::from)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(dtos);
-    }
-
-    @GetMapping("/datacenter/{id}")
-    public ResponseEntity<List<AlertHistoryDto>> getDataCenterAlerts(
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "TRIGGERED") AlertStatus status) {
-
-        log.warn("DataCenter 알림은 더 이상 지원되지 않습니다. dataCenterId: {}", id);
-        return ResponseEntity.ok(List.of());
     }
 
     @GetMapping("/{id}")
@@ -238,7 +206,9 @@ public class AlertController {
     @GetMapping("/statistics")
     public ResponseEntity<AlertStatisticsDto> getStatistics() {
         Long userId = extractUserId();
-        Member currentMember = memberRepository.findById(userId)
+
+        // ✅ Fetch Join으로 Company를 함께 조회
+        Member currentMember = memberRepository.findByIdWithCompany(userId)
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
         Long companyId = currentMember.getCompany().getId();
@@ -250,127 +220,253 @@ public class AlertController {
                 .collect(Collectors.toList());
 
         if (serverRoomIds.isEmpty()) {
-            return ResponseEntity.ok(new AlertStatisticsDto(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
+            return ResponseEntity.ok(AlertStatisticsDto.empty());
         }
 
         long totalAlerts = alertHistoryRepository.countByServerRoomIdIn(serverRoomIds);
-        long triggeredAlerts = alertHistoryRepository.countByServerRoomIdInAndStatus(serverRoomIds, AlertStatus.TRIGGERED);
-        long acknowledgedAlerts = alertHistoryRepository.countByServerRoomIdInAndStatus(serverRoomIds, AlertStatus.ACKNOWLEDGED);
-        long resolvedAlerts = alertHistoryRepository.countByServerRoomIdInAndStatus(serverRoomIds, AlertStatus.RESOLVED);
-
-        long criticalAlerts = alertHistoryRepository.countByServerRoomIdInAndLevel(serverRoomIds, AlertLevel.CRITICAL);
-        long warningAlerts = alertHistoryRepository.countByServerRoomIdInAndLevel(serverRoomIds, AlertLevel.WARNING);
-
-        long equipmentAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(serverRoomIds, TargetType.EQUIPMENT);
-        long rackAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(serverRoomIds, TargetType.RACK);
-        long serverRoomAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(serverRoomIds, TargetType.SERVER_ROOM);
+        long criticalAlerts = alertHistoryRepository.countByServerRoomIdInAndLevel(
+                serverRoomIds, AlertLevel.CRITICAL);
+        long warningAlerts = alertHistoryRepository.countByServerRoomIdInAndLevel(
+                serverRoomIds, AlertLevel.WARNING);
+        long equipmentAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(
+                serverRoomIds, TargetType.EQUIPMENT);
+        long rackAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(
+                serverRoomIds, TargetType.RACK);
+        long serverRoomAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(
+                serverRoomIds, TargetType.SERVER_ROOM);
 
         AlertStatisticsDto stats = new AlertStatisticsDto(
                 totalAlerts,
-                triggeredAlerts,
-                acknowledgedAlerts,
-                resolvedAlerts,
+                totalAlerts,
                 criticalAlerts,
                 warningAlerts,
                 equipmentAlerts,
                 rackAlerts,
-                serverRoomAlerts,
-                0L
+                serverRoomAlerts
         );
 
         return ResponseEntity.ok(stats);
     }
 
-    // ========== 알림 액션 ==========
+    // ========== 읽음 처리 API ==========
 
-    @PostMapping("/{id}/acknowledge")
-    public ResponseEntity<AlertHistoryDto> acknowledgeAlert(@PathVariable Long id) {
+    /**
+     * 전체 알림 읽음 처리
+     */
+    @PostMapping("/mark-all-as-read")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> markAllAlertsAsRead() {
         Long userId = extractUserId();
 
-        AlertHistory alert = alertHistoryRepository.findById(id)
-                .orElseThrow(() -> new AlertNotFoundException(id));
+        // ✅ Fetch Join으로 Company를 함께 조회
+        Member currentMember = memberRepository.findByIdWithCompany(userId)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
-        alert.acknowledge(userId);
-        alertHistoryRepository.save(alert);
+        Long companyId = currentMember.getCompany().getId();
 
-        notificationService.sendAlertAcknowledged(alert);
-
-        log.info("알림 확인됨: alertId={}, userId={}", id, userId);
-
-        return ResponseEntity.ok(AlertHistoryDto.from(alert));
-    }
-
-    @PostMapping("/{id}/resolve")
-    public ResponseEntity<AlertHistoryDto> resolveAlert(@PathVariable Long id) {
-        Long userId = extractUserId();
-
-        AlertHistory alert = alertHistoryRepository.findById(id)
-                .orElseThrow(() -> new AlertNotFoundException(id));
-
-        alert.resolve(userId);
-        alertHistoryRepository.save(alert);
-
-        notificationService.sendAlertResolved(alert);
-
-        log.info("알림 해결됨: alertId={}, userId={}", id, userId);
-
-        return ResponseEntity.ok(AlertHistoryDto.from(alert));
-    }
-
-    @PostMapping("/acknowledge-multiple")
-    public ResponseEntity<List<AlertHistoryDto>> acknowledgeMultipleAlerts(
-            @Valid @RequestBody AcknowledgeMultipleRequest request) {
-
-        Long userId = extractUserId();
-
-        List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
-
-        if (alerts.isEmpty()) {
-            throw new AlertNotFoundException("요청한 알림을 찾을 수 없습니다.");
-        }
-
-        alerts.forEach(alert -> {
-            alert.acknowledge(userId);
-            notificationService.sendAlertAcknowledged(alert);
-        });
-
-        alertHistoryRepository.saveAll(alerts);
-
-        List<AlertHistoryDto> dtos = alerts.stream()
-                .map(AlertHistoryDto::from)
+        List<Long> serverRoomIds = companyServerRoomRepository
+                .findByCompanyId(companyId)
+                .stream()
+                .map(mapping -> mapping.getServerRoom().getId())
                 .collect(Collectors.toList());
 
-        log.info("여러 알림 확인됨: count={}, userId={}", alerts.size(), userId);
+        if (serverRoomIds.isEmpty()) {
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "매핑된 서버실이 없습니다.",
+                    "updatedCount", 0
+            ));
+        }
 
-        return ResponseEntity.ok(dtos);
+        int updatedCount = alertHistoryRepository.markAllAsReadByServerRoomIds(
+                serverRoomIds,
+                LocalDateTime.now(),
+                userId
+        );
+
+        log.info("전체 알림 읽음 처리 완료: userId={}, count={}", userId, updatedCount);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "전체 알림을 읽음 처리했습니다.",
+                "updatedCount", updatedCount
+        ));
     }
 
-    @PostMapping("/resolve-multiple")
-    public ResponseEntity<List<AlertHistoryDto>> resolveMultipleAlerts(
-            @Valid @RequestBody ResolveMultipleRequest request) {
+    /**
+     * 선택한 알림 읽음 처리
+     */
+    @PostMapping("/mark-as-read")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> markAlertsAsRead(
+            @Valid @RequestBody MarkAsReadRequest request) {
 
         Long userId = extractUserId();
 
-        List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
+        // ✅ Fetch Join으로 Company를 함께 조회
+        Member currentMember = memberRepository.findByIdWithCompany(userId)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
-        if (alerts.isEmpty()) {
-            throw new AlertNotFoundException("요청한 알림을 찾을 수 없습니다.");
-        }
+        Long companyId = currentMember.getCompany().getId();
 
-        alerts.forEach(alert -> {
-            alert.resolve(userId);
-            notificationService.sendAlertResolved(alert);
-        });
-
-        alertHistoryRepository.saveAll(alerts);
-
-        List<AlertHistoryDto> dtos = alerts.stream()
-                .map(AlertHistoryDto::from)
+        List<Long> serverRoomIds = companyServerRoomRepository
+                .findByCompanyId(companyId)
+                .stream()
+                .map(mapping -> mapping.getServerRoom().getId())
                 .collect(Collectors.toList());
 
-        log.info("여러 알림 해결됨: count={}, userId={}", alerts.size(), userId);
+        if (serverRoomIds.isEmpty()) {
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "매핑된 서버실이 없습니다.",
+                    "updatedCount", 0
+            ));
+        }
 
-        return ResponseEntity.ok(dtos);
+        // 권한 확인: 해당 알림들이 사용자의 회사 서버실에 속하는지 확인
+        List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
+
+        boolean hasUnauthorizedAlert = alerts.stream()
+                .anyMatch(alert -> !serverRoomIds.contains(alert.getServerRoomId()));
+
+        if (hasUnauthorizedAlert) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "접근 권한이 없는 알림이 포함되어 있습니다.",
+                    "updatedCount", 0
+            ));
+        }
+
+        int updatedCount = alertHistoryRepository.markAsReadByIds(
+                request.alertIds(),
+                LocalDateTime.now(),
+                userId
+        );
+
+        log.info("선택 알림 읽음 처리 완료: userId={}, count={}", userId, updatedCount);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "선택한 알림을 읽음 처리했습니다.",
+                "updatedCount", updatedCount
+        ));
+    }
+
+    // ========== 삭제 API ==========
+
+    /**
+     * 전체 알림 삭제
+     */
+    @DeleteMapping("/delete-all")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteAllAlerts() {
+        Long userId = extractUserId();
+
+        // ✅ Fetch Join으로 Company를 함께 조회
+        Member currentMember = memberRepository.findByIdWithCompany(userId)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+
+        Long companyId = currentMember.getCompany().getId();
+
+        List<Long> serverRoomIds = companyServerRoomRepository
+                .findByCompanyId(companyId)
+                .stream()
+                .map(mapping -> mapping.getServerRoom().getId())
+                .collect(Collectors.toList());
+
+        if (serverRoomIds.isEmpty()) {
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "매핑된 서버실이 없습니다.",
+                    "deletedCount", 0
+            ));
+        }
+
+        int deletedCount = alertHistoryRepository.deleteAllByServerRoomIds(serverRoomIds);
+
+        log.info("전체 알림 삭제 완료: userId={}, count={}", userId, deletedCount);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "전체 알림을 삭제했습니다.",
+                "deletedCount", deletedCount
+        ));
+    }
+
+    /**
+     * 선택한 알림 삭제
+     */
+    @DeleteMapping("/delete")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteAlerts(
+            @Valid @RequestBody DeleteAlertsRequest request) {
+
+        Long userId = extractUserId();
+
+        // ✅ Fetch Join으로 Company를 함께 조회
+        Member currentMember = memberRepository.findByIdWithCompany(userId)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+
+        Long companyId = currentMember.getCompany().getId();
+
+        List<Long> serverRoomIds = companyServerRoomRepository
+                .findByCompanyId(companyId)
+                .stream()
+                .map(mapping -> mapping.getServerRoom().getId())
+                .collect(Collectors.toList());
+
+        if (serverRoomIds.isEmpty()) {
+            return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "message", "매핑된 서버실이 없습니다.",
+                    "deletedCount", 0
+            ));
+        }
+
+        int deletedCount = alertHistoryRepository.deleteByIdsAndServerRoomIds(
+                request.alertIds(),
+                serverRoomIds
+        );
+
+        log.info("선택 알림 삭제 완료: userId={}, count={}", userId, deletedCount);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "선택한 알림을 삭제했습니다.",
+                "deletedCount", deletedCount
+        ));
+    }
+
+    /**
+     * 읽지 않은 알림 개수 조회
+     */
+    @GetMapping("/unread-count")
+    public ResponseEntity<Map<String, Object>> getUnreadCount() {
+        Long userId = extractUserId();
+
+        // ✅ Fetch Join으로 Company를 함께 조회
+        Member currentMember = memberRepository.findByIdWithCompany(userId)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+
+        Long companyId = currentMember.getCompany().getId();
+
+        List<Long> serverRoomIds = companyServerRoomRepository
+                .findByCompanyId(companyId)
+                .stream()
+                .map(mapping -> mapping.getServerRoom().getId())
+                .collect(Collectors.toList());
+
+        if (serverRoomIds.isEmpty()) {
+            return ResponseEntity.ok(Map.of(
+                    "unreadCount", 0L
+            ));
+        }
+
+        long unreadCount = alertHistoryRepository.countUnreadByServerRoomIds(serverRoomIds);
+
+        return ResponseEntity.ok(Map.of(
+                "unreadCount", unreadCount
+        ));
     }
 
     // ========== Private Methods ==========
@@ -384,10 +480,10 @@ public class AlertController {
 
         String userId = authentication.getName();
 
-        try {
-            return Long.parseLong(userId);
-        } catch (NumberFormatException e) {
-            throw new IllegalStateException("유효하지 않은 사용자 ID입니다.", e);
+        if (userId == null || userId.equals("anonymousUser")) {
+            throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }
+
+        return Long.parseLong(userId);
     }
 }

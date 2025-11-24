@@ -2,7 +2,6 @@ package org.example.finalbe.domains.alert.dto;
 
 import org.example.finalbe.domains.alert.domain.AlertHistory;
 import org.example.finalbe.domains.common.enumdir.AlertLevel;
-import org.example.finalbe.domains.common.enumdir.AlertStatus;
 import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.example.finalbe.domains.common.enumdir.TargetType;
 
@@ -25,14 +24,15 @@ public record AlertNotificationDto(
 
         // 알림 정보
         AlertLevel level,
-        AlertStatus status,
         Double measuredValue,
         Double thresholdValue,
 
         // 시간 정보
         LocalDateTime triggeredAt,
-        LocalDateTime acknowledgedAt,
-        LocalDateTime resolvedAt,
+
+        // 읽음 정보
+        Boolean isRead,
+        LocalDateTime readAt,
 
         // 메시지
         String message
@@ -49,12 +49,11 @@ public record AlertNotificationDto(
                 alert.getMetricType(),
                 alert.getMetricName(),
                 alert.getLevel(),
-                alert.getStatus(),
                 alert.getMeasuredValue(),
                 alert.getThresholdValue(),
                 alert.getTriggeredAt(),
-                alert.getAcknowledgedAt(),
-                alert.getResolvedAt(),
+                alert.getIsRead(),
+                alert.getReadAt(),
                 alert.getMessage()
         );
     }

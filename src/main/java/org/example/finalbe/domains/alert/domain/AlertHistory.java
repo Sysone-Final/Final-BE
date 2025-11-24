@@ -3,7 +3,6 @@ package org.example.finalbe.domains.alert.domain;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.finalbe.domains.common.enumdir.AlertLevel;
-import org.example.finalbe.domains.common.enumdir.AlertStatus;
 import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.example.finalbe.domains.common.enumdir.TargetType;
 
@@ -53,11 +52,6 @@ public class AlertHistory {
     @Column(name = "alert_level", nullable = false, length = 20)
     private AlertLevel level;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    @Builder.Default
-    private AlertStatus status = AlertStatus.TRIGGERED;
-
     @Column(name = "measured_value", nullable = false)
     private Double measuredValue;
 
@@ -67,17 +61,16 @@ public class AlertHistory {
     @Column(name = "triggered_at", nullable = false)
     private LocalDateTime triggeredAt;
 
-    @Column(name = "acknowledged_at")
-    private LocalDateTime acknowledgedAt;
+    // 읽음 처리 관련 필드
+    @Column(name = "is_read", nullable = false)
+    @Builder.Default
+    private Boolean isRead = false;
 
-    @Column(name = "resolved_at")
-    private LocalDateTime resolvedAt;
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
 
-    @Column(name = "acknowledged_by")
-    private Long acknowledgedBy;
-
-    @Column(name = "resolved_by")
-    private Long resolvedBy;
+    @Column(name = "read_by")
+    private Long readBy;
 
     @Column(name = "message", length = 500)
     private String message;
@@ -85,30 +78,20 @@ public class AlertHistory {
     @Column(name = "additional_info", columnDefinition = "TEXT")
     private String additionalInfo;
 
-    @Column(name = "created_at")
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    public void acknowledge(Long userId) {
-        if (this.status == AlertStatus.TRIGGERED) {
-            this.status = AlertStatus.ACKNOWLEDGED;
-            this.acknowledgedAt = LocalDateTime.now();
-            this.acknowledgedBy = userId;
-        }
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
     }
 
-    public void resolve(Long userId) {
-        this.status = AlertStatus.RESOLVED;
-        this.resolvedAt = LocalDateTime.now();
-        this.resolvedBy = userId;
-
-        if (this.acknowledgedAt == null) {
-            this.acknowledgedAt = LocalDateTime.now();
-            this.acknowledgedBy = userId;
-        }
-    }
-
-    public boolean isActive() {
-        return status != AlertStatus.RESOLVED;
+    /**
+     * 읽음 처리
+     */
+    public void markAsRead(Long userId) {
+        this.isRead = true;
+        this.readAt = LocalDateTime.now();
+        this.readBy = userId;
     }
 }

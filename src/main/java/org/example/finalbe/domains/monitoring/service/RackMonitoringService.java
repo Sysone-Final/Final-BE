@@ -30,6 +30,19 @@ public class RackMonitoringService {
     private final EquipmentRepository equipmentRepository;
     private final MonitoringMetricCache metricCache;
 
+    // ✅ 임계치 상수 정의
+    private static final double TEMP_MAX_THRESHOLD = 28.0;
+    private static final double TEMP_MIN_THRESHOLD = 18.0;
+    private static final double HUMIDITY_MAX_THRESHOLD = 70.0;
+    private static final double HUMIDITY_MIN_THRESHOLD = 30.0;
+    private static final double CPU_THRESHOLD = 80.0;
+    private static final double MEMORY_THRESHOLD = 85.0;
+    private static final double DISK_THRESHOLD = 85.0;
+
+    // ✅ 네트워크 임계치 추가
+    private static final double NETWORK_ERROR_RATE_THRESHOLD = 1.0;  // 에러 패킷률 1%
+    private static final double NETWORK_DROP_RATE_THRESHOLD = 1.0;   // 드롭 패킷률 1%
+
     private static final double CPU_WARNING_THRESHOLD = 70.0;
     private static final double CPU_CRITICAL_THRESHOLD = 90.0;
     private static final double MEMORY_WARNING_THRESHOLD = 70.0;
@@ -37,6 +50,112 @@ public class RackMonitoringService {
     private static final double DISK_WARNING_THRESHOLD = 70.0;
     private static final double DISK_CRITICAL_THRESHOLD = 90.0;
 
+    public RackStatisticsDto calculateRackStatistics(Long rackId) {
+        log.debug("📊 랙 통계 계산 시작: rackId={}", rackId);
+
+        Rack rack = rackRepository.findById(rackId)
+                .orElseThrow(() -> new IllegalArgumentException("랙을 찾을 수 없습니다: " + rackId));
+
+        LocalDateTime now = LocalDateTime.now();
+        List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
+
+        if (equipments.isEmpty()) {
+            log.debug("⚠️ 랙에 활성 장비가 없습니다: rackId={}", rackId);
+            return createEmptyStatistics(rack, now);
+        }
+
+        List<Long> equipmentIds = equipments.stream()
+                .map(Equipment::getId)
+                .collect(Collectors.toList());
+
+        RackStatisticsDto.EnvironmentStats environmentStats = getEnvironmentStats(rackId);
+        RackStatisticsDto.RackSummary rackSummary = calculateRackSummary(equipments, equipmentIds);
+        RackStatisticsDto.CpuStats cpuStats = calculateCpuStats(equipments, equipmentIds);
+        RackStatisticsDto.SystemLoadStats systemLoadStats = calculateSystemLoadStatsOptimized(equipments, equipmentIds);
+        RackStatisticsDto.MemoryStats memoryStats = calculateMemoryStats(equipments, equipmentIds);
+        RackStatisticsDto.DiskStats diskStats = calculateDiskStats(equipments, equipmentIds);
+        RackStatisticsDto.NetworkStats networkStats = calculateNetworkStats(equipments, equipmentIds);
+
+
+        RackStatisticsDto.WarningDetails warningDetails = checkWarnings(
+                environmentStats, cpuStats, memoryStats, diskStats, networkStats);
+
+        return RackStatisticsDto.builder()
+                .rackId(rackId)
+                .rackName(rack.getRackName())
+                .timestamp(now)
+                .environment(environmentStats)
+                .rackSummary(rackSummary)
+                .cpuStats(cpuStats)
+                .systemLoadStats(systemLoadStats)
+                .memoryStats(memoryStats)
+                .diskStats(diskStats)
+                .networkStats(networkStats)
+                .isWarning(warningDetails.hasAnyWarning())  // ✅ 경고 플래그 설정
+                .warningDetails(warningDetails)             // ✅ 경고 상세 정보
+                .build();
+    }
+
+    // ✅ 경고 체크 메서드 (네트워크 추가)
+    private RackStatisticsDto.WarningDetails checkWarnings(
+            RackStatisticsDto.EnvironmentStats environmentStats,
+            RackStatisticsDto.CpuStats cpuStats,
+            RackStatisticsDto.MemoryStats memoryStats,
+            RackStatisticsDto.DiskStats diskStats,
+            RackStatisticsDto.NetworkStats networkStats) {
+
+        // 온도 체크
+        boolean temperatureWarning = false;
+        if (environmentStats.getTemperature() != null) {
+            temperatureWarning = environmentStats.getTemperature() > TEMP_MAX_THRESHOLD ||
+                    environmentStats.getTemperature() < TEMP_MIN_THRESHOLD;
+        }
+
+        // 습도 체크
+        boolean humidityWarning = false;
+        if (environmentStats.getHumidity() != null) {
+            humidityWarning = environmentStats.getHumidity() > HUMIDITY_MAX_THRESHOLD ||
+                    environmentStats.getHumidity() < HUMIDITY_MIN_THRESHOLD;
+        }
+
+        // CPU 사용률 체크
+        boolean cpuWarning = false;
+        if (cpuStats.getMaxUsage() != null) {
+            cpuWarning = cpuStats.getMaxUsage() > CPU_THRESHOLD;
+        }
+
+        // 메모리 사용률 체크
+        boolean memoryWarning = false;
+        if (memoryStats.getMaxUsage() != null) {
+            memoryWarning = memoryStats.getMaxUsage() > MEMORY_THRESHOLD;
+        }
+
+        // 디스크 사용률 체크
+        boolean diskWarning = false;
+        if (diskStats.getMaxUsage() != null) {
+            diskWarning = diskStats.getMaxUsage() > DISK_THRESHOLD;
+        }
+
+        // ✅ 네트워크 에러/드롭 체크 추가
+        boolean networkWarning = false;
+        if (networkStats.getErrorPacketRate() != null && networkStats.getErrorPacketRate() > NETWORK_ERROR_RATE_THRESHOLD) {
+            networkWarning = true;
+            log.warn("⚠️ 네트워크 에러 패킷률 임계치 초과: {}%", networkStats.getErrorPacketRate());
+        }
+        if (networkStats.getDropPacketRate() != null && networkStats.getDropPacketRate() > NETWORK_DROP_RATE_THRESHOLD) {
+            networkWarning = true;
+            log.warn("⚠️ 네트워크 드롭 패킷률 임계치 초과: {}%", networkStats.getDropPacketRate());
+        }
+
+        return RackStatisticsDto.WarningDetails.builder()
+                .temperature(temperatureWarning)
+                .humidity(humidityWarning)
+                .cpu(cpuWarning)
+                .memory(memoryWarning)
+                .disk(diskWarning)
+                .network(networkWarning)
+                .build();
+    }
 
     private RackStatisticsDto.EnvironmentStats getEnvironmentStats(Long rackId) {
         EnvironmentMetric metric = metricCache.getEnvironmentMetric(rackId).orElse(null);
@@ -54,6 +173,7 @@ public class RackMonitoringService {
                 .maxHumidity(metric.getMaxHumidity())
                 .temperatureWarning(metric.getTemperatureWarning())
                 .humidityWarning(metric.getHumidityWarning())
+                .isWarning(metric.getIsWarning())
                 .build();
     }
 
@@ -177,6 +297,56 @@ public class RackMonitoringService {
                 .build();
     }
 
+    private RackStatisticsDto.SystemLoadStats calculateSystemLoadStatsOptimized(
+            List<Equipment> equipments, List<Long> equipmentIds) {
+
+        List<SystemMetric> metrics = new ArrayList<>();
+        for (Long equipmentId : equipmentIds) {
+            metricCache.getSystemMetric(equipmentId).ifPresent(metrics::add);
+        }
+
+        if (metrics.isEmpty()) {
+            return RackStatisticsDto.SystemLoadStats.builder().equipmentCount(0).build();
+        }
+
+        // ✅ 한 번의 루프로 모든 통계 계산
+        double sumLoadAvg1 = 0.0, maxLoadAvg1 = Double.MIN_VALUE;
+        double sumLoadAvg5 = 0.0, maxLoadAvg5 = Double.MIN_VALUE;
+        double sumLoadAvg15 = 0.0, maxLoadAvg15 = Double.MIN_VALUE;
+        int countLoadAvg1 = 0, countLoadAvg5 = 0, countLoadAvg15 = 0;
+
+        for (SystemMetric metric : metrics) {
+            if (metric.getLoadAvg1() != null) {
+                double val = metric.getLoadAvg1();
+                sumLoadAvg1 += val;
+                maxLoadAvg1 = Math.max(maxLoadAvg1, val);
+                countLoadAvg1++;
+            }
+            if (metric.getLoadAvg5() != null) {
+                double val = metric.getLoadAvg5();
+                sumLoadAvg5 += val;
+                maxLoadAvg5 = Math.max(maxLoadAvg5, val);
+                countLoadAvg5++;
+            }
+            if (metric.getLoadAvg15() != null) {
+                double val = metric.getLoadAvg15();
+                sumLoadAvg15 += val;
+                maxLoadAvg15 = Math.max(maxLoadAvg15, val);
+                countLoadAvg15++;
+            }
+        }
+
+        return RackStatisticsDto.SystemLoadStats.builder()
+                .avgLoadAvg1(countLoadAvg1 > 0 ? sumLoadAvg1 / countLoadAvg1 : 0.0)
+                .avgLoadAvg5(countLoadAvg5 > 0 ? sumLoadAvg5 / countLoadAvg5 : 0.0)
+                .avgLoadAvg15(countLoadAvg15 > 0 ? sumLoadAvg15 / countLoadAvg15 : 0.0)
+                .maxLoadAvg1(maxLoadAvg1 == Double.MIN_VALUE ? 0.0 : maxLoadAvg1)
+                .maxLoadAvg5(maxLoadAvg5 == Double.MIN_VALUE ? 0.0 : maxLoadAvg5)
+                .maxLoadAvg15(maxLoadAvg15 == Double.MIN_VALUE ? 0.0 : maxLoadAvg15)
+                .equipmentCount(metrics.size())
+                .build();
+    }
+
     private RackStatisticsDto.MemoryStats calculateMemoryStats(
             List<Equipment> equipments, List<Long> equipmentIds) {
 
@@ -239,7 +409,7 @@ public class RackMonitoringService {
             List<Equipment> equipments, List<Long> equipmentIds) {
 
         List<Long> diskEquipmentIds = equipments.stream()
-                .filter(e -> e.getType() == EquipmentType.SERVER || e.getType() == EquipmentType.STORAGE)
+                .filter(e -> e.getType() != EquipmentType.ENVIRONMENTAL_SENSOR)
                 .map(Equipment::getId)
                 .collect(Collectors.toList());
 
@@ -316,11 +486,11 @@ public class RackMonitoringService {
         }
 
         double totalRxMbps = aggregatedMetrics.values().stream()
-                .mapToDouble(m -> m.inBytesPerSec * 8 / 1_000_000)
+                .mapToDouble(m -> m.inBytesPerSec * 8.0 / 1_000_000.0)
                 .sum();
 
         double totalTxMbps = aggregatedMetrics.values().stream()
-                .mapToDouble(m -> m.outBytesPerSec * 8 / 1_000_000)
+                .mapToDouble(m -> m.outBytesPerSec * 8.0 / 1_000_000.0)
                 .sum();
 
         double avgRxUsage = aggregatedMetrics.values().stream()
@@ -349,13 +519,24 @@ public class RackMonitoringService {
                 .mapToLong(m -> m.outErrorPktsTot + m.outDiscardPktsTot)
                 .sum();
 
-        double errorPacketRate = totalInPackets > 0
-                ? (totalInErrors * 100.0 / totalInPackets)
-                : 0.0;
+        // ✅ 패킷률 계산 로직 개선 (0 나누기 방지 및 로깅)
+        double errorPacketRate = 0.0;
+        if (totalInPackets > 0) {
+            errorPacketRate = (totalInErrors * 100.0 / totalInPackets);
+            if (errorPacketRate > 5.0) {
+                log.warn("⚠️ 높은 에러 패킷률 감지: {}% (에러: {}, 전체: {})",
+                        String.format("%.2f", errorPacketRate), totalInErrors, totalInPackets);
+            }
+        }
 
-        double dropPacketRate = totalOutPackets > 0
-                ? (totalOutErrors * 100.0 / totalOutPackets)
-                : 0.0;
+        double dropPacketRate = 0.0;
+        if (totalOutPackets > 0) {
+            dropPacketRate = (totalOutErrors * 100.0 / totalOutPackets);
+            if (dropPacketRate > 5.0) {
+                log.warn("⚠️ 높은 드롭 패킷률 감지: {}% (드롭: {}, 전체: {})",
+                        String.format("%.2f", dropPacketRate), totalOutErrors, totalOutPackets);
+            }
+        }
 
         Map<Long, String> equipmentNameMap = equipments.stream()
                 .collect(Collectors.toMap(Equipment::getId, Equipment::getName));
@@ -367,7 +548,7 @@ public class RackMonitoringService {
                 .map(e -> RackStatisticsDto.TopEquipment.builder()
                         .equipmentId(e.getKey())
                         .equipmentName(equipmentNameMap.get(e.getKey()))
-                        .value(e.getValue().inBytesPerSec * 8 / 1_000_000)
+                        .value(e.getValue().inBytesPerSec * 8.0 / 1_000_000.0)
                         .build())
                 .collect(Collectors.toList());
 
@@ -378,7 +559,7 @@ public class RackMonitoringService {
                 .map(e -> RackStatisticsDto.TopEquipment.builder()
                         .equipmentId(e.getKey())
                         .equipmentName(equipmentNameMap.get(e.getKey()))
-                        .value(e.getValue().outBytesPerSec * 8 / 1_000_000)
+                        .value(e.getValue().outBytesPerSec * 8.0 / 1_000_000.0)
                         .build())
                 .collect(Collectors.toList());
 
@@ -396,142 +577,64 @@ public class RackMonitoringService {
     }
 
     private AggregatedNetworkMetric aggregateNicMetrics(List<NetworkMetric> nicMetrics) {
-        AggregatedNetworkMetric result = new AggregatedNetworkMetric();
+        long inBytesPerSec = nicMetrics.stream()
+                .mapToLong(m -> m.getInBytesPerSec() != null ? m.getInBytesPerSec().longValue() : 0L)
+                .sum();
 
-        for (NetworkMetric metric : nicMetrics) {
-            if (metric.getRxUsage() != null) result.rxUsage += metric.getRxUsage();
-            if (metric.getTxUsage() != null) result.txUsage += metric.getTxUsage();
-            if (metric.getInBytesPerSec() != null) result.inBytesPerSec += metric.getInBytesPerSec();
-            if (metric.getOutBytesPerSec() != null) result.outBytesPerSec += metric.getOutBytesPerSec();
-            if (metric.getInPktsTot() != null) result.inPktsTot += metric.getInPktsTot();
-            if (metric.getOutPktsTot() != null) result.outPktsTot += metric.getOutPktsTot();
-            if (metric.getInErrorPktsTot() != null) result.inErrorPktsTot += metric.getInErrorPktsTot();
-            if (metric.getOutErrorPktsTot() != null) result.outErrorPktsTot += metric.getOutErrorPktsTot();
-            if (metric.getInDiscardPktsTot() != null) result.inDiscardPktsTot += metric.getInDiscardPktsTot();
-            if (metric.getOutDiscardPktsTot() != null) result.outDiscardPktsTot += metric.getOutDiscardPktsTot();
-        }
+        long outBytesPerSec = nicMetrics.stream()
+                .mapToLong(m -> m.getOutBytesPerSec() != null ? m.getOutBytesPerSec().longValue() : 0L)
+                .sum();
+
+        long inPktsTot = nicMetrics.stream()
+                .mapToLong(m -> m.getInPktsPerSec() != null ? m.getInPktsPerSec().longValue() : 0L)
+                .sum();
+
+        long outPktsTot = nicMetrics.stream()
+                .mapToLong(m -> m.getOutPktsPerSec() != null ? m.getOutPktsPerSec().longValue() : 0L)
+                .sum();
+
+        long inErrorPktsTot = nicMetrics.stream()
+                .mapToLong(m -> m.getInErrorPktsTot() != null ? m.getInErrorPktsTot() : 0L)
+                .sum();
+
+        long inDiscardPktsTot = nicMetrics.stream()
+                .mapToLong(m -> m.getInDiscardPktsTot() != null ? m.getInDiscardPktsTot() : 0L)
+                .sum();
+
+        long outErrorPktsTot = nicMetrics.stream()
+                .mapToLong(m -> m.getOutErrorPktsTot() != null ? m.getOutErrorPktsTot() : 0L)
+                .sum();
+
+        long outDiscardPktsTot = nicMetrics.stream()
+                .mapToLong(m -> m.getOutDiscardPktsTot() != null ? m.getOutDiscardPktsTot() : 0L)
+                .sum();
+
+        AggregatedNetworkMetric result = new AggregatedNetworkMetric();
+        result.inBytesPerSec = inBytesPerSec;
+        result.outBytesPerSec = outBytesPerSec;
+        result.rxUsage = 0.0;
+        result.txUsage = 0.0;
+        result.inPktsTot = inPktsTot;
+        result.outPktsTot = outPktsTot;
+        result.inErrorPktsTot = inErrorPktsTot;
+        result.inDiscardPktsTot = inDiscardPktsTot;
+        result.outErrorPktsTot = outErrorPktsTot;
+        result.outDiscardPktsTot = outDiscardPktsTot;
 
         return result;
     }
 
-
-
     private static class AggregatedNetworkMetric {
+        long inBytesPerSec = 0L;
+        long outBytesPerSec = 0L;
         double rxUsage = 0.0;
         double txUsage = 0.0;
-        double inBytesPerSec = 0.0;
-        double outBytesPerSec = 0.0;
         long inPktsTot = 0L;
         long outPktsTot = 0L;
         long inErrorPktsTot = 0L;
-        long outErrorPktsTot = 0L;
         long inDiscardPktsTot = 0L;
+        long outErrorPktsTot = 0L;
         long outDiscardPktsTot = 0L;
-    }
-
-    // RackMonitoringService.java
-
-    public RackStatisticsDto calculateRackStatistics(Long rackId) {
-        log.debug("📊 랙 통계 계산 시작: rackId={}", rackId);
-
-        Rack rack = rackRepository.findById(rackId)
-                .orElseThrow(() -> new IllegalArgumentException("랙을 찾을 수 없습니다: " + rackId));
-
-        LocalDateTime now = LocalDateTime.now();
-        List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
-
-        if (equipments.isEmpty()) {
-            log.debug("⚠️ 랙에 활성 장비가 없습니다: rackId={}", rackId);
-            return createEmptyStatistics(rack, now);
-        }
-
-        List<Long> equipmentIds = equipments.stream()
-                .map(Equipment::getId)
-                .collect(Collectors.toList());
-
-        RackStatisticsDto.EnvironmentStats environmentStats = getEnvironmentStats(rackId);
-        RackStatisticsDto.RackSummary rackSummary = calculateRackSummary(equipments, equipmentIds);
-        RackStatisticsDto.CpuStats cpuStats = calculateCpuStats(equipments, equipmentIds);
-        RackStatisticsDto.SystemLoadStats systemLoadStats = calculateSystemLoadStats(equipments, equipmentIds);  // ✅ 추가
-        RackStatisticsDto.MemoryStats memoryStats = calculateMemoryStats(equipments, equipmentIds);
-        RackStatisticsDto.DiskStats diskStats = calculateDiskStats(equipments, equipmentIds);
-        RackStatisticsDto.NetworkStats networkStats = calculateNetworkStats(equipments, equipmentIds);
-
-        return RackStatisticsDto.builder()
-                .rackId(rackId)
-                .rackName(rack.getRackName())
-                .timestamp(now)
-                .environment(environmentStats)
-                .rackSummary(rackSummary)
-                .cpuStats(cpuStats)
-                .systemLoadStats(systemLoadStats)  // ✅ 추가
-                .memoryStats(memoryStats)
-                .diskStats(diskStats)
-                .networkStats(networkStats)
-                .build();
-    }
-
-    // ✅ 새로운 메서드 추가
-    private RackStatisticsDto.SystemLoadStats calculateSystemLoadStats(
-            List<Equipment> equipments, List<Long> equipmentIds) {
-
-        List<SystemMetric> metrics = new ArrayList<>();
-        for (Long equipmentId : equipmentIds) {
-            metricCache.getSystemMetric(equipmentId).ifPresent(metrics::add);
-        }
-
-        if (metrics.isEmpty()) {
-            return RackStatisticsDto.SystemLoadStats.builder().equipmentCount(0).build();
-        }
-
-        // 1분 평균 부하
-        double avgLoadAvg1 = metrics.stream()
-                .filter(m -> m.getLoadAvg1() != null)
-                .mapToDouble(SystemMetric::getLoadAvg1)
-                .average()
-                .orElse(0.0);
-
-        double maxLoadAvg1 = metrics.stream()
-                .filter(m -> m.getLoadAvg1() != null)
-                .mapToDouble(SystemMetric::getLoadAvg1)
-                .max()
-                .orElse(0.0);
-
-        // 5분 평균 부하
-        double avgLoadAvg5 = metrics.stream()
-                .filter(m -> m.getLoadAvg5() != null)
-                .mapToDouble(SystemMetric::getLoadAvg5)
-                .average()
-                .orElse(0.0);
-
-        double maxLoadAvg5 = metrics.stream()
-                .filter(m -> m.getLoadAvg5() != null)
-                .mapToDouble(SystemMetric::getLoadAvg5)
-                .max()
-                .orElse(0.0);
-
-        // 15분 평균 부하
-        double avgLoadAvg15 = metrics.stream()
-                .filter(m -> m.getLoadAvg15() != null)
-                .mapToDouble(SystemMetric::getLoadAvg15)
-                .average()
-                .orElse(0.0);
-
-        double maxLoadAvg15 = metrics.stream()
-                .filter(m -> m.getLoadAvg15() != null)
-                .mapToDouble(SystemMetric::getLoadAvg15)
-                .max()
-                .orElse(0.0);
-
-        return RackStatisticsDto.SystemLoadStats.builder()
-                .avgLoadAvg1(avgLoadAvg1)
-                .avgLoadAvg5(avgLoadAvg5)
-                .avgLoadAvg15(avgLoadAvg15)
-                .maxLoadAvg1(maxLoadAvg1)
-                .maxLoadAvg5(maxLoadAvg5)
-                .maxLoadAvg15(maxLoadAvg15)
-                .equipmentCount(metrics.size())
-                .build();
     }
 
     private RackStatisticsDto createEmptyStatistics(Rack rack, LocalDateTime now) {
@@ -548,10 +651,19 @@ public class RackMonitoringService {
                         .activeEquipmentTypes(Collections.emptyList())
                         .build())
                 .cpuStats(RackStatisticsDto.CpuStats.builder().equipmentCount(0).build())
-                .systemLoadStats(RackStatisticsDto.SystemLoadStats.builder().equipmentCount(0).build())  // ✅ 추가
+                .systemLoadStats(RackStatisticsDto.SystemLoadStats.builder().equipmentCount(0).build())
                 .memoryStats(RackStatisticsDto.MemoryStats.builder().equipmentCount(0).build())
                 .diskStats(RackStatisticsDto.DiskStats.builder().equipmentCount(0).build())
                 .networkStats(RackStatisticsDto.NetworkStats.builder().equipmentCount(0).build())
+                .isWarning(false)
+                .warningDetails(RackStatisticsDto.WarningDetails.builder()
+                        .temperature(false)
+                        .humidity(false)
+                        .cpu(false)
+                        .memory(false)
+                        .disk(false)
+                        .network(false)  // ✅ 네트워크 필드 추가
+                        .build())
                 .build();
     }
 }

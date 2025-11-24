@@ -60,4 +60,11 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
      */
     @Query("SELECT m FROM Member m WHERE m.role = :role AND m.delYn = :delYn ORDER BY m.createdAt DESC")
     List<Member> findByRoleAndDelYn(@Param("role") org.example.finalbe.domains.common.enumdir.Role role, @Param("delYn") DelYN delYn);
+
+
+    /**
+     * Member와 Company를 함께 조회 (Fetch Join)
+     */
+    @Query("SELECT m FROM Member m JOIN FETCH m.company WHERE m.id = :id")
+    Optional<Member> findByIdWithCompany(@Param("id") Long id);
 }

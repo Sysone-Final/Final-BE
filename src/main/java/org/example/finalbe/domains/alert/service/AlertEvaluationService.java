@@ -1,3 +1,4 @@
+// src/main/java/org/example/finalbe/domains/alert/service/AlertEvaluationService.java
 package org.example.finalbe.domains.alert.service;
 
 import lombok.RequiredArgsConstructor;
@@ -9,10 +10,8 @@ import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
 import org.example.finalbe.domains.alert.repository.AlertSettingsRepository;
 import org.example.finalbe.domains.alert.repository.AlertViolationTrackerRepository;
 import org.example.finalbe.domains.common.enumdir.AlertLevel;
-import org.example.finalbe.domains.common.enumdir.AlertStatus;
 import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.example.finalbe.domains.common.enumdir.TargetType;
-import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
@@ -26,10 +25,8 @@ import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -45,7 +42,6 @@ public class AlertEvaluationService {
     private final AlertViolationTrackerRepository violationTrackerRepository;
     private final AlertSettingsRepository alertSettingsRepository;
     private final AlertNotificationService alertNotificationService;
-
 
     /**
      * System 메트릭 평가 (CPU, Memory)
@@ -64,7 +60,7 @@ public class AlertEvaluationService {
                 return;
             }
 
-            // ✅ CPU 평가 - cpuIdle 기반으로 사용률 계산
+            // CPU 평가
             if (equipment.getCpuThresholdWarning() != null && metric.getCpuIdle() != null) {
                 Double cpuUsage = 100.0 - metric.getCpuIdle();
 
@@ -82,7 +78,7 @@ public class AlertEvaluationService {
                 );
             }
 
-            // ✅ Memory 평가 - usedMemoryPercentage 사용
+            // Memory 평가
             if (equipment.getMemoryThresholdWarning() != null && metric.getUsedMemoryPercentage() != null) {
                 evaluateMetric(
                         TargetType.EQUIPMENT,
@@ -99,7 +95,7 @@ public class AlertEvaluationService {
             }
 
         } catch (Exception e) {
-            log.error("❌ System 메트릭 알림 평가 실패: equipmentId={}", metric.getEquipmentId(), e);
+            log.error("System 메트릭 알림 평가 실패: equipmentId={}", metric.getEquipmentId(), e);
         }
     }
 
@@ -136,7 +132,7 @@ public class AlertEvaluationService {
             }
 
         } catch (Exception e) {
-            log.error("❌ Disk 메트릭 알림 평가 실패: equipmentId={}", metric.getEquipmentId(), e);
+            log.error("Disk 메트릭 알림 평가 실패: equipmentId={}", metric.getEquipmentId(), e);
         }
     }
 
@@ -240,7 +236,7 @@ public class AlertEvaluationService {
             }
 
         } catch (Exception e) {
-            log.error("❌ Network 메트릭 알림 평가 실패: equipmentId={}, nic={}",
+            log.error("Network 메트릭 알림 평가 실패: equipmentId={}, nic={}",
                     metric.getEquipmentId(), metric.getNicName(), e);
         }
     }
@@ -256,10 +252,7 @@ public class AlertEvaluationService {
             LocalDateTime generateTime,
             AlertSettingsDto settings) {
 
-        // ✅ NIC 정보를 포함한 고유한 metricName 생성
         String metricName = baseMetricName + "_" + nicName;
-
-        // 임계값이 설정되지 않은 경우 기본값 사용 (80% 경고, 90% 위험)
         Double warningThreshold = 80.0;
         Double criticalThreshold = 90.0;
 
@@ -287,7 +280,6 @@ public class AlertEvaluationService {
             LocalDateTime generateTime,
             AlertSettingsDto settings) {
 
-        // ✅ NIC 정보를 포함한 고유한 metricName 생성
         String metricName = baseMetricName + "_" + nicName;
 
         evaluateMetric(
@@ -314,7 +306,6 @@ public class AlertEvaluationService {
             LocalDateTime generateTime,
             AlertSettingsDto settings) {
 
-        // ✅ NIC 정보를 포함한 고유한 metricName 생성
         String metricName = baseMetricName + "_" + nicName;
 
         evaluateMetric(
@@ -328,66 +319,6 @@ public class AlertEvaluationService {
                 settings.networkDropRateCritical(),
                 generateTime
         );
-    }
-
-    /**
-     * Tracker 조회 또는 생성 (동시성 처리 추가)
-     */
-    private AlertViolationTracker getOrCreateTracker(
-            TargetType targetType, Long targetId,
-            MetricType metricType, String metricName) {
-
-        Optional<AlertViolationTracker> existing = switch (targetType) {
-            case EQUIPMENT -> violationTrackerRepository.findByEquipmentIdAndMetric(
-                    targetId, metricType, metricName);
-            case RACK -> violationTrackerRepository.findByRackIdAndMetric(
-                    targetId, metricType, metricName);
-            case SERVER_ROOM -> violationTrackerRepository.findByServerRoomIdAndMetric(
-                    targetId, metricType, metricName);
-            case DATA_CENTER -> violationTrackerRepository.findByDataCenterIdAndMetric(
-                    targetId, metricType, metricName);
-        };
-
-        return existing.orElseGet(() -> {
-            try {
-                AlertViolationTracker newTracker = AlertViolationTracker.builder()
-                        .targetType(targetType)
-                        .metricType(metricType)
-                        .metricName(metricName)
-                        .consecutiveViolations(0)
-                        .lastViolationTime(LocalDateTime.now())
-                        .build();
-
-                switch (targetType) {
-                    case EQUIPMENT -> newTracker.setEquipmentId(targetId);
-                    case RACK -> newTracker.setRackId(targetId);
-                    case SERVER_ROOM -> newTracker.setServerRoomId(targetId);
-                    case DATA_CENTER -> newTracker.setDataCenterId(targetId);
-                }
-
-                return violationTrackerRepository.save(newTracker);
-
-            } catch (DataIntegrityViolationException e) {
-                // ✅ 동시에 생성된 경우 다시 조회
-                log.warn("⚠️ Tracker 중복 생성 감지, 재조회: targetType={}, targetId={}, metric={}",
-                        targetType, targetId, metricName);
-
-                return switch (targetType) {
-                    case EQUIPMENT -> violationTrackerRepository
-                            .findByEquipmentIdAndMetric(targetId, metricType, metricName)
-                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
-                    case RACK -> violationTrackerRepository
-                            .findByRackIdAndMetric(targetId, metricType, metricName)
-                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
-                    case SERVER_ROOM -> violationTrackerRepository
-                            .findByServerRoomIdAndMetric(targetId, metricType, metricName)
-                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
-                    case DATA_CENTER -> violationTrackerRepository
-                            .findByDataCenterIdAndMetric(targetId, metricType, metricName)
-                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
-                };
-            }
-        });
     }
 
     /**
@@ -467,7 +398,7 @@ public class AlertEvaluationService {
             }
 
         } catch (Exception e) {
-            log.error("❌ Environment 메트릭 알림 평가 실패: rackId={}", metric.getRackId(), e);
+            log.error("Environment 메트릭 알림 평가 실패: rackId={}", metric.getRackId(), e);
         }
     }
 
@@ -514,80 +445,75 @@ public class AlertEvaluationService {
                 );
             }
 
-        } catch (Exception e) {
-            log.error("❌ ServerRoom 통계 알림 평가 실패: serverRoomId={}", stats.getServerRoomId(), e);
-        }
-    }
-
-    /**
-     * DataCenter 통계 평가
-     */
-    @Async("alertExecutor")
-    public void evaluateDataCenterStatistics(DataCenterStatisticsDto stats) {
-        if (stats == null || stats.getDataCenterId() == null) {
-            return;
-        }
-
-        try {
-            DataCenter dataCenter = dataCenterRepository.findById(stats.getDataCenterId())
-                    .orElse(null);
-
-            if (dataCenter == null || !Boolean.TRUE.equals(dataCenter.getMonitoringEnabled())) {
-                return;
+            // 평균 Disk 평가
+            if (serverRoom.getAvgDiskThresholdWarning() != null && stats.getAvgDiskUsage() != null) {
+                evaluateMetric(
+                        TargetType.SERVER_ROOM, serverRoom.getId(), serverRoom.getName(),
+                        MetricType.DISK, "avg_disk_usage", stats.getAvgDiskUsage(),
+                        serverRoom.getAvgDiskThresholdWarning().doubleValue(),
+                        serverRoom.getAvgDiskThresholdCritical() != null ?
+                                serverRoom.getAvgDiskThresholdCritical().doubleValue() : null,
+                        now
+                );
             }
 
-            LocalDateTime now = LocalDateTime.now();
-
-            // 평균 CPU 평가
-            if (dataCenter.getAvgCpuThresholdWarning() != null && stats.getAvgCpuUsage() != null) {
+            // 평균 온도 평가
+            if (serverRoom.getAvgTemperatureThresholdWarning() != null && stats.getAvgTemperature() != null) {
                 evaluateMetric(
-                        TargetType.DATA_CENTER, dataCenter.getId(), dataCenter.getName(),
-                        MetricType.CPU, "avg_cpu_usage", stats.getAvgCpuUsage(),
-                        dataCenter.getAvgCpuThresholdWarning().doubleValue(),
-                        dataCenter.getAvgCpuThresholdCritical() != null ?
-                                dataCenter.getAvgCpuThresholdCritical().doubleValue() : null,
+                        TargetType.SERVER_ROOM, serverRoom.getId(), serverRoom.getName(),
+                        MetricType.TEMPERATURE, "avg_temperature", stats.getAvgTemperature(),
+                        serverRoom.getAvgTemperatureThresholdWarning().doubleValue(),
+                        serverRoom.getAvgTemperatureThresholdCritical() != null ?
+                                serverRoom.getAvgTemperatureThresholdCritical().doubleValue() : null,
                         now
                 );
             }
 
         } catch (Exception e) {
-            log.error("❌ DataCenter 통계 알림 평가 실패: dataCenterId={}", stats.getDataCenterId(), e);
+            log.error("ServerRoom 통계 알림 평가 실패: serverRoomId={}", stats.getServerRoomId(), e);
         }
     }
 
-    // ========== 핵심 평가 로직 ==========
+    /**
+     * DataCenter 통계 평가 (비활성화됨)
+     */
+    @Async("alertExecutor")
+    public void evaluateDataCenterStatistics(DataCenterStatisticsDto stats) {
+        log.debug("DataCenter 알림 평가가 비활성화되었습니다. dataCenterId={}",
+                stats != null ? stats.getDataCenterId() : null);
+    }
 
+    /**
+     * 메트릭 평가 (공통 로직)
+     */
     private void evaluateMetric(
             TargetType targetType, Long targetId, String targetName,
-            MetricType metricType, String metricName,
-            Double measuredValue, Double warningThreshold, Double criticalThreshold,
-            LocalDateTime metricTime) {
+            MetricType metricType, String metricName, Double measuredValue,
+            Double warningThreshold, Double criticalThreshold,
+            LocalDateTime triggeredAt) {
 
-        if (measuredValue == null) return;
-
-        AlertLevel violationLevel = checkViolation(measuredValue, warningThreshold, criticalThreshold);
-        AlertViolationTracker tracker = getOrCreateTracker(targetType, targetId, metricType, metricName);
-
-        if (violationLevel != null) {
-            handleViolation(targetType, targetId, targetName, tracker, violationLevel,
-                    metricType, metricName, measuredValue,
-                    getThresholdValue(violationLevel, warningThreshold, criticalThreshold),
-                    metricTime);
-        } else {
-            handleRecovery(targetType, targetId, targetName, tracker, metricType, metricName);
+        if (measuredValue == null || warningThreshold == null) {
+            return;
         }
+
+        // 임계치 미만이면 알림 불필요
+        if (measuredValue < warningThreshold) {
+            return;
+        }
+
+        AlertLevel level = (criticalThreshold != null && measuredValue >= criticalThreshold)
+                ? AlertLevel.CRITICAL
+                : AlertLevel.WARNING;
+
+        Double thresholdValue = getThresholdValue(level, warningThreshold, criticalThreshold);
+
+        sendAlert(targetType, targetId, targetName, level, metricType, metricName,
+                measuredValue, thresholdValue, triggeredAt);
     }
 
-    private AlertLevel checkViolation(Double measuredValue, Double warningThreshold, Double criticalThreshold) {
-        if (criticalThreshold != null && measuredValue >= criticalThreshold) {
-            return AlertLevel.CRITICAL;
-        }
-        if (measuredValue >= warningThreshold) {
-            return AlertLevel.WARNING;
-        }
-        return null;
-    }
-
+    /**
+     * 위반 처리
+     */
     private void handleViolation(
             TargetType targetType, Long targetId, String targetName,
             AlertViolationTracker tracker, AlertLevel level,
@@ -602,7 +528,6 @@ public class AlertEvaluationService {
 
         AlertSettingsDto settings = getAlertSettings();
 
-        // ✅ Record getter: defaultConsecutiveCount()
         if (tracker.getConsecutiveViolations() >= settings.defaultConsecutiveCount()) {
             if (shouldSendAlert(tracker, settings)) {
                 sendAlert(targetType, targetId, targetName, level, metricType, metricName,
@@ -613,6 +538,9 @@ public class AlertEvaluationService {
         }
     }
 
+    /**
+     * 직접 위반 처리
+     */
     private void handleViolationDirect(
             TargetType targetType, Long targetId, String targetName,
             MetricType metricType, String metricName, AlertLevel level,
@@ -623,31 +551,23 @@ public class AlertEvaluationService {
                 measuredValue, thresholdValue, metricTime);
     }
 
-    private void handleRecovery(
-            TargetType targetType, Long targetId, String targetName,
-            AlertViolationTracker tracker, MetricType metricType, String metricName) {
-
-        if (tracker.getConsecutiveViolations() > 0) {
-            tracker.setConsecutiveViolations(0);
-            tracker.setUpdatedAt(LocalDateTime.now());
-            violationTrackerRepository.save(tracker);
-
-            resolveActiveAlerts(targetType, targetId, targetName, metricType, metricName);
-        }
-    }
-
+    /**
+     * 알림 전송 여부 확인 (쿨다운 체크)
+     */
     private boolean shouldSendAlert(AlertViolationTracker tracker, AlertSettingsDto settings) {
         if (tracker.getLastAlertSentAt() == null) {
             return true;
         }
 
-        // ✅ Record getter: defaultCooldownMinutes()
         LocalDateTime cooldownEnd = tracker.getLastAlertSentAt()
                 .plusMinutes(settings.defaultCooldownMinutes());
 
         return LocalDateTime.now().isAfter(cooldownEnd);
     }
 
+    /**
+     * 알림 전송
+     */
     private void sendAlert(
             TargetType targetType, Long targetId, String targetName,
             AlertLevel level, MetricType metricType, String metricName,
@@ -661,7 +581,6 @@ public class AlertEvaluationService {
                 .level(level)
                 .measuredValue(measuredValue)
                 .thresholdValue(thresholdValue)
-                .status(AlertStatus.TRIGGERED)
                 .triggeredAt(metricTime)
                 .message(buildAlertMessage(targetType, targetName, level, metricType,
                         measuredValue, thresholdValue))
@@ -677,29 +596,9 @@ public class AlertEvaluationService {
                 measuredValue, thresholdValue);
     }
 
-    private void resolveActiveAlerts(
-            TargetType targetType, Long targetId, String targetName,
-            MetricType metricType, String metricName) {
-
-        List<AlertHistory> activeAlerts = switch (targetType) {
-            case EQUIPMENT -> alertHistoryRepository.findActiveAlertsByEquipmentIdAndMetric(
-                    targetId, metricType, metricName);
-            case RACK -> alertHistoryRepository.findActiveAlertsByRackIdAndMetric(
-                    targetId, metricType, metricName);
-            default -> List.of();
-        };
-
-        for (AlertHistory alert : activeAlerts) {
-            alert.resolve(null);
-            alertHistoryRepository.save(alert);
-            alertNotificationService.sendAlertResolved(alert);
-
-            log.info("✅ 알림 자동 해결 - alertId={}, {}:{}",
-                    alert.getId(), metricType.name(), metricName);
-        }
-    }
-
-
+    /**
+     * 알림 메시지 생성
+     */
     private String buildAlertMessage(
             TargetType targetType, String targetName,
             AlertLevel level, MetricType metricType,
@@ -712,6 +611,9 @@ public class AlertEvaluationService {
                 levelText, thresholdValue, measuredValue);
     }
 
+    /**
+     * 임계치 값 조회
+     */
     private Double getThresholdValue(AlertLevel level, Double warningThreshold, Double criticalThreshold) {
         if (level == AlertLevel.CRITICAL && criticalThreshold != null) {
             return criticalThreshold;
@@ -719,6 +621,9 @@ public class AlertEvaluationService {
         return warningThreshold;
     }
 
+    /**
+     * 알림 설정 조회
+     */
     private AlertSettingsDto getAlertSettings() {
         return alertSettingsRepository.findById(1L)
                 .map(AlertSettingsDto::from)
@@ -726,22 +631,71 @@ public class AlertEvaluationService {
     }
 
     /**
-     * 계층 구조에 따라 Alert의 ID들을 자동으로 채움
-     * Equipment < Rack < ServerRoom < DataCenter
-     * <p>
-     * ✅ Fetch Join을 사용하여 LazyInitializationException 방지
-     *
-     * @param alert      AlertHistory 엔티티
-     * @param targetType 대상 타입
-     * @param targetId   대상 ID
+     * Tracker 조회 또는 생성
+     */
+    private AlertViolationTracker getOrCreateTracker(
+            TargetType targetType, Long targetId,
+            MetricType metricType, String metricName) {
+
+        Optional<AlertViolationTracker> existing = switch (targetType) {
+            case EQUIPMENT -> violationTrackerRepository.findByEquipmentIdAndMetric(
+                    targetId, metricType, metricName);
+            case RACK -> violationTrackerRepository.findByRackIdAndMetric(
+                    targetId, metricType, metricName);
+            case SERVER_ROOM -> violationTrackerRepository.findByServerRoomIdAndMetric(
+                    targetId, metricType, metricName);
+            case DATA_CENTER -> violationTrackerRepository.findByDataCenterIdAndMetric(
+                    targetId, metricType, metricName);
+        };
+
+        return existing.orElseGet(() -> {
+            try {
+                AlertViolationTracker newTracker = AlertViolationTracker.builder()
+                        .targetType(targetType)
+                        .metricType(metricType)
+                        .metricName(metricName)
+                        .consecutiveViolations(0)
+                        .lastViolationTime(LocalDateTime.now())
+                        .build();
+
+                switch (targetType) {
+                    case EQUIPMENT -> newTracker.setEquipmentId(targetId);
+                    case RACK -> newTracker.setRackId(targetId);
+                    case SERVER_ROOM -> newTracker.setServerRoomId(targetId);
+                    case DATA_CENTER -> newTracker.setDataCenterId(targetId);
+                }
+
+                return violationTrackerRepository.save(newTracker);
+
+            } catch (DataIntegrityViolationException e) {
+                log.warn("⚠️ Tracker 중복 생성 감지, 재조회: targetType={}, targetId={}, metric={}",
+                        targetType, targetId, metricName);
+
+                return switch (targetType) {
+                    case EQUIPMENT -> violationTrackerRepository
+                            .findByEquipmentIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                    case RACK -> violationTrackerRepository
+                            .findByRackIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                    case SERVER_ROOM -> violationTrackerRepository
+                            .findByServerRoomIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                    case DATA_CENTER -> violationTrackerRepository
+                            .findByDataCenterIdAndMetric(targetId, metricType, metricName)
+                            .orElseThrow(() -> new IllegalStateException("Tracker 재조회 실패"));
+                };
+            }
+        });
+    }
+
+    /**
+     * 계층 구조 ID 채우기
      */
     private void populateHierarchyIds(AlertHistory alert, TargetType targetType, Long targetId) {
         switch (targetType) {
             case EQUIPMENT -> {
-                // Equipment의 경우: Equipment -> Rack -> ServerRoom -> DataCenter 순으로 채움
                 alert.setEquipmentId(targetId);
-
-                // ✅ Fetch Join으로 한 번에 로드
                 equipmentRepository.findByIdWithFullHierarchy(targetId).ifPresent(equipment -> {
                     if (equipment.getRack() != null) {
                         Rack rack = equipment.getRack();
@@ -759,10 +713,7 @@ public class AlertEvaluationService {
                 });
             }
             case RACK -> {
-                // Rack의 경우: Rack -> ServerRoom -> DataCenter만 채움 (Equipment는 null)
                 alert.setRackId(targetId);
-
-                // ✅ Fetch Join으로 한 번에 로드
                 rackRepository.findByIdWithServerRoomAndDataCenter(targetId).ifPresent(rack -> {
                     if (rack.getServerRoom() != null) {
                         ServerRoom serverRoom = rack.getServerRoom();
@@ -775,10 +726,7 @@ public class AlertEvaluationService {
                 });
             }
             case SERVER_ROOM -> {
-                // ServerRoom의 경우: ServerRoom -> DataCenter만 채움 (Equipment, Rack은 null)
                 alert.setServerRoomId(targetId);
-
-                // ✅ Fetch Join으로 한 번에 로드
                 serverRoomRepository.findByIdWithDataCenter(targetId).ifPresent(serverRoom -> {
                     if (serverRoom.getDataCenter() != null) {
                         alert.setDataCenterId(serverRoom.getDataCenter().getId());
@@ -786,7 +734,6 @@ public class AlertEvaluationService {
                 });
             }
             case DATA_CENTER -> {
-                // DataCenter의 경우: DataCenter만 채움 (나머지는 모두 null)
                 alert.setDataCenterId(targetId);
             }
         }

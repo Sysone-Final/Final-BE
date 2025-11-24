@@ -17,6 +17,10 @@ public class RackStatisticsDto {
     private Long rackId;
     private String rackName;
     private LocalDateTime timestamp;
+
+    private Boolean isWarning;
+    private WarningDetails warningDetails;
+
     private EnvironmentStats environment;
     private RackSummary rackSummary;
     private CpuStats cpuStats;
@@ -24,6 +28,28 @@ public class RackStatisticsDto {
     private DiskStats diskStats;
     private SystemLoadStats systemLoadStats;
     private NetworkStats networkStats;
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WarningDetails {
+        private Boolean temperature;
+        private Boolean humidity;
+        private Boolean cpu;
+        private Boolean memory;
+        private Boolean disk;
+        private Boolean network;
+
+        public boolean hasAnyWarning() {
+            return Boolean.TRUE.equals(temperature) ||
+                    Boolean.TRUE.equals(humidity) ||
+                    Boolean.TRUE.equals(cpu) ||
+                    Boolean.TRUE.equals(memory) ||
+                    Boolean.TRUE.equals(disk) ||
+                    Boolean.TRUE.equals(network);
+        }
+    }
 
     @Getter
     @Builder
@@ -38,6 +64,7 @@ public class RackStatisticsDto {
         private Double maxHumidity;
         private Boolean temperatureWarning;
         private Boolean humidityWarning;
+        private Boolean isWarning;
     }
 
     @Getter
@@ -124,19 +151,17 @@ public class RackStatisticsDto {
         private Double value;
     }
 
-    // RackStatisticsDto.java에 inner class 추가
-
     @Getter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SystemLoadStats {
-        private Double avgLoadAvg1;    // 평균 1분 부하
-        private Double avgLoadAvg5;    // 평균 5분 부하
-        private Double avgLoadAvg15;   // 평균 15분 부하
-        private Double maxLoadAvg1;    // 최대 1분 부하
-        private Double maxLoadAvg5;    // 최대 5분 부하
-        private Double maxLoadAvg15;   // 최대 15분 부하
-        private Integer equipmentCount; // 측정 장비 수
+        private Double avgLoadAvg1;
+        private Double avgLoadAvg5;
+        private Double avgLoadAvg15;
+        private Double maxLoadAvg1;
+        private Double maxLoadAvg5;
+        private Double maxLoadAvg15;
+        private Integer equipmentCount;
     }
 }

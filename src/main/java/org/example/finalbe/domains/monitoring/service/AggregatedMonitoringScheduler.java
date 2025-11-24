@@ -131,7 +131,7 @@ public class AggregatedMonitoringScheduler {
                         .calculateDataCenterStatistics(dataCenterId);
 
                 sseService.sendToDataCenter(dataCenterId, "datacenter-statistics", statistics);
-                alertEvaluationService.evaluateDataCenterStatistics(statistics);
+//                alertEvaluationService.evaluateDataCenterStatistics(statistics);
 
                 successCount++;
             } catch (Exception e) {

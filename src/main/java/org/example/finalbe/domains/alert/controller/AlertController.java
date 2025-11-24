@@ -12,8 +12,12 @@ import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
 import org.example.finalbe.domains.alert.service.AlertNotificationService;
 import org.example.finalbe.domains.common.enumdir.AlertLevel;
 import org.example.finalbe.domains.common.enumdir.AlertStatus;
+import org.example.finalbe.domains.common.enumdir.Role;
 import org.example.finalbe.domains.common.enumdir.TargetType;
 import org.example.finalbe.domains.common.exception.AlertNotFoundException;
+import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.member.domain.Member;
+import org.example.finalbe.domains.member.repository.MemberRepository;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,6 +38,8 @@ public class AlertController {
 
     private final AlertNotificationService notificationService;
     private final AlertHistoryRepository alertHistoryRepository;
+    private final MemberRepository memberRepository;
+    private final CompanyServerRoomRepository companyServerRoomRepository;
 
     // ========== SSE 구독 ==========
 
@@ -74,23 +80,72 @@ public class AlertController {
     }
 
     /**
-     * DataCenter 알림 구독
+     * DataCenter 알림 구독 (더 이상 사용하지 않지만 하위 호환성을 위해 유지)
      */
     @GetMapping(value = "/subscribe/datacenter/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribeDataCenter(@PathVariable Long id) {
-        log.info("DataCenter 알림 구독 요청: dataCenterId={}", id);
+        log.info("DataCenter 알림 구독 요청 (사용 안 함): dataCenterId={}", id);
         return notificationService.subscribeDataCenter(id);
     }
 
     // ========== 알림 조회 ==========
 
     /**
-     * 전체 활성 알림 조회
+     * 로그인한 사용자의 회사에 매핑된 서버실의 활성 알림 조회
+     * (데이터센터 알림은 제외)
      */
     @GetMapping
     public ResponseEntity<List<AlertHistoryDto>> getAllActiveAlerts() {
-        List<AlertHistory> alerts = alertHistoryRepository
-                .findByStatusOrderByTriggeredAtDesc(AlertStatus.TRIGGERED);
+        Long userId = extractUserId();
+        Member currentMember = memberRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+
+        List<AlertHistory> alerts;
+
+        if (currentMember.getRole() == Role.ADMIN) {
+            // ADMIN은 모든 알림 조회 (데이터센터 알림 제외)
+            alerts = alertHistoryRepository
+                    .findByStatusOrderByTriggeredAtDesc(AlertStatus.TRIGGERED)
+                    .stream()
+                    .filter(alert -> alert.getTargetType() != TargetType.DATA_CENTER)
+                    .collect(Collectors.toList());
+
+            log.info("ADMIN 사용자 {}의 알림 조회: {}개 (데이터센터 알림 제외)", userId, alerts.size());
+        } else {
+            // 일반 사용자: 회사에 매핑된 서버실의 알림만 조회
+            Long companyId = currentMember.getCompany().getId();
+
+            // 회사에 매핑된 서버실 ID 목록 조회
+            List<Long> serverRoomIds = companyServerRoomRepository
+                    .findByCompanyId(companyId)
+                    .stream()
+                    .map(mapping -> mapping.getServerRoom().getId())
+                    .collect(Collectors.toList());
+
+            if (serverRoomIds.isEmpty()) {
+                // 매핑된 서버실이 없으면 빈 리스트 반환
+                log.info("사용자 {}의 회사 {}에 매핑된 서버실이 없습니다.", userId, companyId);
+                return ResponseEntity.ok(List.of());
+            }
+
+            // 서버실 단위 알림 필터링
+            alerts = alertHistoryRepository
+                    .findByStatusOrderByTriggeredAtDesc(AlertStatus.TRIGGERED)
+                    .stream()
+                    .filter(alert -> {
+                        // 데이터센터 알림은 제외
+                        if (alert.getTargetType() == TargetType.DATA_CENTER) {
+                            return false;
+                        }
+                        // 서버실 ID가 회사에 매핑된 서버실에 포함되는지 확인
+                        return alert.getServerRoomId() != null &&
+                                serverRoomIds.contains(alert.getServerRoomId());
+                    })
+                    .collect(Collectors.toList());
+
+            log.info("사용자 {}의 알림 조회 완료: {}개 (서버실 ID: {}, 서버실 단위 필터링)",
+                    userId, alerts.size(), serverRoomIds);
+        }
 
         List<AlertHistoryDto> dtos = alerts.stream()
                 .map(AlertHistoryDto::from)
@@ -136,6 +191,37 @@ public class AlertController {
     }
 
     /**
+     * ServerRoom 알림 조회
+     */
+    @GetMapping("/serverroom/{id}")
+    public ResponseEntity<List<AlertHistoryDto>> getServerRoomAlerts(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "TRIGGERED") AlertStatus status) {
+
+        List<AlertHistory> alerts = alertHistoryRepository
+                .findByServerRoomIdAndStatusOrderByTriggeredAtDesc(id, status);
+
+        List<AlertHistoryDto> dtos = alerts.stream()
+                .map(AlertHistoryDto::from)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * DataCenter 알림 조회 (더 이상 사용하지 않지만 하위 호환성을 위해 유지)
+     */
+    @GetMapping("/datacenter/{id}")
+    public ResponseEntity<List<AlertHistoryDto>> getDataCenterAlerts(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "TRIGGERED") AlertStatus status) {
+
+        log.warn("DataCenter 알림은 더 이상 지원되지 않습니다. dataCenterId: {}", id);
+        // 빈 리스트 반환
+        return ResponseEntity.ok(List.of());
+    }
+
+    /**
      * 알림 상세 조회
      */
     @GetMapping("/{id}")
@@ -145,8 +231,9 @@ public class AlertController {
 
         return ResponseEntity.ok(AlertHistoryDto.from(alert));
     }
+
     /**
-     * 알림 통계 조회
+     * 알림 통계 조회 (데이터센터 알림 제외)
      */
     @GetMapping("/statistics")
     public ResponseEntity<AlertStatisticsDto> getStatistics() {
@@ -161,7 +248,8 @@ public class AlertController {
         long equipmentAlerts = alertHistoryRepository.countByTargetType(TargetType.EQUIPMENT);
         long rackAlerts = alertHistoryRepository.countByTargetType(TargetType.RACK);
         long serverRoomAlerts = alertHistoryRepository.countByTargetType(TargetType.SERVER_ROOM);
-        long dataCenterAlerts = alertHistoryRepository.countByTargetType(TargetType.DATA_CENTER);
+        // 데이터센터 알림은 제외
+        long dataCenterAlerts = 0;
 
         AlertStatisticsDto stats = new AlertStatisticsDto(
                 totalAlerts,

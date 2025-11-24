@@ -519,43 +519,54 @@ public class AlertEvaluationService {
         }
     }
 
+//    /**
+//     * DataCenter 통계 평가
+//     */
+//    @Async("alertExecutor")
+//    public void evaluateDataCenterStatistics(DataCenterStatisticsDto stats) {
+//        if (stats == null || stats.getDataCenterId() == null) {
+//            return;
+//        }
+//
+//        try {
+//            DataCenter dataCenter = dataCenterRepository.findById(stats.getDataCenterId())
+//                    .orElse(null);
+//
+//            if (dataCenter == null || !Boolean.TRUE.equals(dataCenter.getMonitoringEnabled())) {
+//                return;
+//            }
+//
+//            LocalDateTime now = LocalDateTime.now();
+//
+//            // 평균 CPU 평가
+//            if (dataCenter.getAvgCpuThresholdWarning() != null && stats.getAvgCpuUsage() != null) {
+//                evaluateMetric(
+//                        TargetType.DATA_CENTER, dataCenter.getId(), dataCenter.getName(),
+//                        MetricType.CPU, "avg_cpu_usage", stats.getAvgCpuUsage(),
+//                        dataCenter.getAvgCpuThresholdWarning().doubleValue(),
+//                        dataCenter.getAvgCpuThresholdCritical() != null ?
+//                                dataCenter.getAvgCpuThresholdCritical().doubleValue() : null,
+//                        now
+//                );
+//            }
+//
+//        } catch (Exception e) {
+//            log.error("❌ DataCenter 통계 알림 평가 실패: dataCenterId={}", stats.getDataCenterId(), e);
+//        }
+//    }
+
     /**
-     * DataCenter 통계 평가
+     * DataCenter 통계 평가 (비활성화됨)
+     * 데이터센터 알림은 더 이상 사용하지 않음
      */
     @Async("alertExecutor")
     public void evaluateDataCenterStatistics(DataCenterStatisticsDto stats) {
-        if (stats == null || stats.getDataCenterId() == null) {
-            return;
-        }
-
-        try {
-            DataCenter dataCenter = dataCenterRepository.findById(stats.getDataCenterId())
-                    .orElse(null);
-
-            if (dataCenter == null || !Boolean.TRUE.equals(dataCenter.getMonitoringEnabled())) {
-                return;
-            }
-
-            LocalDateTime now = LocalDateTime.now();
-
-            // 평균 CPU 평가
-            if (dataCenter.getAvgCpuThresholdWarning() != null && stats.getAvgCpuUsage() != null) {
-                evaluateMetric(
-                        TargetType.DATA_CENTER, dataCenter.getId(), dataCenter.getName(),
-                        MetricType.CPU, "avg_cpu_usage", stats.getAvgCpuUsage(),
-                        dataCenter.getAvgCpuThresholdWarning().doubleValue(),
-                        dataCenter.getAvgCpuThresholdCritical() != null ?
-                                dataCenter.getAvgCpuThresholdCritical().doubleValue() : null,
-                        now
-                );
-            }
-
-        } catch (Exception e) {
-            log.error("❌ DataCenter 통계 알림 평가 실패: dataCenterId={}", stats.getDataCenterId(), e);
-        }
+        // 데이터센터 알림 비활성화: 서버실 단위로만 알림 처리
+        log.debug("DataCenter 알림 평가가 비활성화되었습니다. dataCenterId={}",
+                stats != null ? stats.getDataCenterId() : null);
+        return;
     }
 
-    // ========== 핵심 평가 로직 ==========
 
     private void evaluateMetric(
             TargetType targetType, Long targetId, String targetName,

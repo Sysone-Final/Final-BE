@@ -39,7 +39,21 @@ public interface AlertHistoryRepository extends JpaRepository<AlertHistory, Long
 
     List<AlertHistory> findByStatusOrderByTriggeredAtDesc(AlertStatus status);
 
-    // ========== 통계 조회 메서드 (신규) ==========
+    // ========== 추가된 메서드 (ServerRoom 알림 조회) ==========
+
+    /**
+     * ServerRoom ID와 상태로 알림 조회
+     */
+    List<AlertHistory> findByServerRoomIdAndStatusOrderByTriggeredAtDesc(
+            Long serverRoomId, AlertStatus status);
+
+    /**
+     * DataCenter ID와 상태로 알림 조회 (하위 호환성 유지)
+     */
+    List<AlertHistory> findByDataCenterIdAndStatusOrderByTriggeredAtDesc(
+            Long dataCenterId, AlertStatus status);
+
+    // ========== 통계 조회 메서드 ==========
 
     /**
      * 상태별 알림 개수 조회

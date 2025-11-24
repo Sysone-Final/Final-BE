@@ -5,10 +5,13 @@ import org.example.finalbe.domains.common.enumdir.AlertLevel;
 import org.example.finalbe.domains.common.enumdir.AlertStatus;
 import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.example.finalbe.domains.common.enumdir.TargetType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface AlertHistoryRepository extends JpaRepository<AlertHistory, Long> {
@@ -39,34 +42,85 @@ public interface AlertHistoryRepository extends JpaRepository<AlertHistory, Long
 
     List<AlertHistory> findByStatusOrderByTriggeredAtDesc(AlertStatus status);
 
-    // ========== 추가된 메서드 (ServerRoom 알림 조회) ==========
-
-    /**
-     * ServerRoom ID와 상태로 알림 조회
-     */
     List<AlertHistory> findByServerRoomIdAndStatusOrderByTriggeredAtDesc(
             Long serverRoomId, AlertStatus status);
 
-    /**
-     * DataCenter ID와 상태로 알림 조회 (하위 호환성 유지)
-     */
     List<AlertHistory> findByDataCenterIdAndStatusOrderByTriggeredAtDesc(
             Long dataCenterId, AlertStatus status);
 
-    // ========== 통계 조회 메서드 ==========
+    // ========== 페이지네이션 및 필터링 메서드 ==========
 
     /**
-     * 상태별 알림 개수 조회
+     * 서버실 ID 목록으로 알림 조회 (페이지네이션)
+     * 상태, 시간 범위, 타겟 타입으로 필터링
      */
+    @Query("SELECT a FROM AlertHistory a " +
+            "WHERE a.serverRoomId IN :serverRoomIds " +
+            "AND a.status = :status " +
+            "AND a.triggeredAt >= :startTime " +
+            "AND a.targetType != :excludeTargetType")
+    Page<AlertHistory> findByServerRoomIdInAndStatusAndTriggeredAtAfterAndTargetTypeNot(
+            @Param("serverRoomIds") List<Long> serverRoomIds,
+            @Param("status") AlertStatus status,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("excludeTargetType") TargetType excludeTargetType,
+            Pageable pageable);
+
+    /**
+     * 서버실 ID 목록으로 알림 조회 (페이지네이션)
+     * 상태, 레벨, 시간 범위, 타겟 타입으로 필터링
+     */
+    @Query("SELECT a FROM AlertHistory a " +
+            "WHERE a.serverRoomId IN :serverRoomIds " +
+            "AND a.status = :status " +
+            "AND a.level = :level " +
+            "AND a.triggeredAt >= :startTime " +
+            "AND a.targetType != :excludeTargetType")
+    Page<AlertHistory> findByServerRoomIdInAndStatusAndLevelAndTriggeredAtAfterAndTargetTypeNot(
+            @Param("serverRoomIds") List<Long> serverRoomIds,
+            @Param("status") AlertStatus status,
+            @Param("level") AlertLevel level,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("excludeTargetType") TargetType excludeTargetType,
+            Pageable pageable);
+
+    // ========== 통계 조회 메서드 (서버실별 필터링) ==========
+
+    /**
+     * 서버실 ID 목록으로 전체 알림 개수 조회
+     */
+    @Query("SELECT COUNT(a) FROM AlertHistory a WHERE a.serverRoomId IN :serverRoomIds")
+    long countByServerRoomIdIn(@Param("serverRoomIds") List<Long> serverRoomIds);
+
+    /**
+     * 서버실 ID 목록과 상태로 알림 개수 조회
+     */
+    @Query("SELECT COUNT(a) FROM AlertHistory a WHERE a.serverRoomId IN :serverRoomIds AND a.status = :status")
+    long countByServerRoomIdInAndStatus(
+            @Param("serverRoomIds") List<Long> serverRoomIds,
+            @Param("status") AlertStatus status);
+
+    /**
+     * 서버실 ID 목록과 레벨로 알림 개수 조회
+     */
+    @Query("SELECT COUNT(a) FROM AlertHistory a WHERE a.serverRoomId IN :serverRoomIds AND a.level = :level")
+    long countByServerRoomIdInAndLevel(
+            @Param("serverRoomIds") List<Long> serverRoomIds,
+            @Param("level") AlertLevel level);
+
+    /**
+     * 서버실 ID 목록과 타겟 타입으로 알림 개수 조회
+     */
+    @Query("SELECT COUNT(a) FROM AlertHistory a WHERE a.serverRoomId IN :serverRoomIds AND a.targetType = :targetType")
+    long countByServerRoomIdInAndTargetType(
+            @Param("serverRoomIds") List<Long> serverRoomIds,
+            @Param("targetType") TargetType targetType);
+
+    // ========== 기존 통계 조회 메서드 (전체 기준) ==========
+
     long countByStatus(AlertStatus status);
 
-    /**
-     * 레벨별 알림 개수 조회
-     */
     long countByLevel(AlertLevel level);
 
-    /**
-     * 타겟 타입별 알림 개수 조회
-     */
     long countByTargetType(TargetType targetType);
 }

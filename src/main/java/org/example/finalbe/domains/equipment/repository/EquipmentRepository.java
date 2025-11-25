@@ -245,4 +245,9 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
         Long getRackId();
         Long getCount();
     }
+
+    /**
+     * ✅ 특정 Rack에 속한 모든 Equipment 조회
+     */
+    List<Equipment> findByRackId(Long rackId);
 }

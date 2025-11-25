@@ -3,19 +3,16 @@ package org.example.finalbe.domains.prometheus.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.monitoring.domain.EnvironmentMetric;
 import org.example.finalbe.domains.monitoring.repository.EnvironmentMetricRepository;
 import org.example.finalbe.domains.prometheus.dto.MetricRawData;
 import org.example.finalbe.domains.prometheus.dto.PrometheusResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,116 +20,173 @@ import java.util.Map;
 public class EnvironmentMetricCollectorService {
 
     private final PrometheusQueryService prometheusQuery;
-    private final EnvironmentMetricRepository environmentMetricRepository;
+    private final EquipmentRepository equipmentRepository;
     private final EquipmentMappingService equipmentMappingService;
+    private final EnvironmentMetricRepository environmentMetricRepository;
 
+    private static final Long RACK_229_ID = 229L;
+
+    /**
+     * ✅ Environment 메트릭 수집 (Rack 229 특수 처리 포함)
+     */
     public void collectAndPopulate(Map<Long, MetricRawData> dataMap) {
-        collectTemperature(dataMap);
+        try {
+            // 기존 환경 센서 로직 (일반 Rack) - 현재 비어있음
+            collectGeneralEnvironmentMetrics(dataMap);
+
+            // ✅ Rack 229 특수 처리: node_hwmon_temp_celsius 수집
+            collectRack229Temperature();
+
+        } catch (Exception e) {
+            log.error("❌ Environment 메트릭 수집 중 오류", e);
+        }
     }
 
-    private void collectTemperature(Map<Long, MetricRawData> dataMap) {
-        String query = "avg by (instance) (node_hwmon_temp_celsius)";
-        List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
+    /**
+     * ✅ Rack 229 온도 수집: node_hwmon_temp_celsius 평균값
+     */
+    private void collectRack229Temperature() {
+        try {
+            // 1. Rack 229에 속한 모든 Equipment 조회
+            List<Equipment> rack229Equipments = equipmentRepository.findActiveByRackId(RACK_229_ID);
 
-        for (PrometheusResponse.PrometheusResult result : results) {
-            String instance = result.getInstance();
-            Double value = result.getValue();
+            if (rack229Equipments.isEmpty()) {
+                log.warn("⚠️ Rack 229에 Equipment가 없습니다.");
+                return;
+            }
 
-            if (instance != null && value != null) {
-                MetricRawData data = findDataByInstance(dataMap, instance);
-                if (data != null) {
-                    data.setTemperature(value);
+            log.info("🌡️ Rack 229 온도 수집 시작: {} 개 Equipment", rack229Equipments.size());
+
+            // 2. 각 Equipment별 온도 수집
+            List<Double> equipmentTemperatures = new ArrayList<>();
+
+            for (Equipment equipment : rack229Equipments) {
+                Optional<String> instanceOpt = equipmentMappingService.getInstance(equipment.getId());
+
+                if (instanceOpt.isEmpty()) {
+                    log.warn("⚠️ Equipment {} 프로메테우스 매핑 없음", equipment.getId());
+                    continue;
+                }
+
+                String instance = instanceOpt.get();
+
+                // 3. node_hwmon_temp_celsius 쿼리 실행
+                Double avgTemp = queryHwmonTemperature(instance);
+
+                if (avgTemp != null) {
+                    equipmentTemperatures.add(avgTemp);
+                    log.info("  📊 Equipment {} ({}): 평균 온도 = {:.2f}°C",
+                            equipment.getId(), instance, avgTemp);
                 }
             }
-        }
-    }
 
-    private MetricRawData findDataByInstance(Map<Long, MetricRawData> dataMap, String instance) {
-        return dataMap.values().stream()
-                .filter(d -> instance.equals(d.getInstance()))
-                .findFirst()
-                .orElse(null);
-    }
-
-    /**
-     * ✅ 트랜잭션 분리: 각 저장을 독립적으로 처리
-     */
-    public void saveMetrics(List<MetricRawData> dataList) {
-        int successCount = 0;
-        int failureCount = 0;
-
-        for (MetricRawData data : dataList) {
-            try {
-                saveMetricWithNewTransaction(data);
-                successCount++;
-            } catch (Exception e) {
-                failureCount++;
-                log.error("❌ EnvironmentMetric 저장 실패: equipmentId={} - {}",
-                        data.getEquipmentId(), e.getMessage());
+            // 4. 전체 평균 온도 계산
+            if (equipmentTemperatures.isEmpty()) {
+                log.warn("⚠️ Rack 229: 수집된 온도 데이터가 없습니다.");
+                return;
             }
-        }
 
-        if (failureCount > 0) {
-            log.warn("⚠️ EnvironmentMetric 저장 완료: 성공={}, 실패={}", successCount, failureCount);
-        } else {
-            log.debug("✅ EnvironmentMetric 저장 완료: {} 건", successCount);
+            double totalAvgTemp = equipmentTemperatures.stream()
+                    .mapToDouble(Double::doubleValue)
+                    .average()
+                    .orElse(0.0);
+
+            log.info("✅ Rack 229 최종 평균 온도: {:.2f}°C ({} 개 Equipment 평균)",
+                    totalAvgTemp, equipmentTemperatures.size());
+
+            // 5. environment_metric에 저장
+            saveRack229Temperature(totalAvgTemp);
+
+        } catch (Exception e) {
+            log.error("❌ Rack 229 온도 수집 실패", e);
         }
     }
 
     /**
-     * ✅ 각 저장을 새 트랜잭션으로 분리
+     * ✅ 프로메테우스에서 node_hwmon_temp_celsius 쿼리 (센서 평균값)
+     * 레이블 필터 완전 제거 - 전체 데이터 가져온 후 코드에서 필터링
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void saveMetricWithNewTransaction(MetricRawData data) {
-        Equipment equipment = equipmentMappingService.getEquipment(data.getEquipmentId())
-                .orElse(null);
+    private Double queryHwmonTemperature(String instance) {
+        try {
+            // ✅ 레이블 필터 완전 제거
+            String query = "node_hwmon_temp_celsius";
 
-        if (equipment == null || equipment.getRack() == null) {
-            log.debug("⚠️ Equipment or Rack not found for equipmentId={}", data.getEquipmentId());
-            return;
+            log.debug("🔍 온도 쿼리: {}", query);
+
+            List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
+
+            if (results == null || results.isEmpty()) {
+                log.warn("⚠️ node_hwmon_temp_celsius 데이터 없음");
+                return null;
+            }
+
+            log.debug("  🔍 전체 온도 데이터: {} 개", results.size());
+
+            // ✅ 코드에서 instance + chip 필터링
+            List<Double> sensorValues = results.stream()
+                    .filter(result -> {
+                        // instance 필터
+                        if (!instance.equals(result.getInstance())) {
+                            return false;
+                        }
+
+                        // chip 필터 (thermal_thermal_zone0 또는 thermal 포함)
+                        String chip = result.metric().get("chip");
+                        if (chip == null || !chip.contains("thermal")) {
+                            return false;
+                        }
+
+                        return true;
+                    })
+                    .map(PrometheusResponse.PrometheusResult::getValue)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (sensorValues.isEmpty()) {
+                log.warn("⚠️ 온도 데이터 없음: instance={}", instance);
+                return null;
+            }
+
+            // 센서 평균값 계산
+            double avgTemp = sensorValues.stream()
+                    .mapToDouble(Double::doubleValue)
+                    .average()
+                    .orElse(0.0);
+
+            log.info("  📊 instance={}, 센서 개수={}, 평균온도={:.2f}°C",
+                    instance, sensorValues.size(), avgTemp);
+
+            return avgTemp;
+
+        } catch (Exception e) {
+            log.error("❌ 온도 쿼리 실패: instance={}, error={}", instance, e.getMessage());
+            return null;
         }
+    }
 
-        // ✅ null 체크 추가
-        if (data.getTemperature() == null) {
-            log.debug("⚠️ Temperature data not available for equipmentId={}", data.getEquipmentId());
-            return;
-        }
+    /**
+     * ✅ Rack 229 온도를 environment_metric 테이블에 저장
+     */
+    private void saveRack229Temperature(double temperature) {
+        try {
+            EnvironmentMetric metric = EnvironmentMetric.builder()
+                    .rackId(RACK_229_ID)
+                    .temperature(temperature)
+                    .generateTime(LocalDateTime.now())
+                    .build();
 
-        Long rackId = equipment.getRack().getId();
-        EnvironmentMetric metric = convertToEntity(data, rackId);
-
-        EnvironmentMetric existing = environmentMetricRepository
-                .findByRackIdAndGenerateTime(rackId, metric.getGenerateTime())
-                .orElse(null);
-
-        if (existing != null) {
-            updateExisting(existing, metric);
-            environmentMetricRepository.save(existing);
-        } else {
             environmentMetricRepository.save(metric);
-        }
+            log.info("✅ Rack 229 온도 저장 완료: {:.2f}°C", temperature);
 
-        log.debug("  ✓ EnvironmentMetric 저장: rackId={}, temperature={}",
-                rackId, data.getTemperature());
+        } catch (Exception e) {
+            log.error("❌ Rack 229 온도 저장 실패", e);
+        }
     }
 
-    private EnvironmentMetric convertToEntity(MetricRawData data, Long rackId) {
-        LocalDateTime generateTime = data.getTimestamp() != null
-                ? LocalDateTime.ofInstant(Instant.ofEpochSecond(data.getTimestamp()), ZoneId.systemDefault())
-                : LocalDateTime.now();
-
-        return EnvironmentMetric.builder()
-                .rackId(rackId)
-                .generateTime(generateTime)
-                .temperature(data.getTemperature())  // ✅ null 허용
-                .humidity(null)  // 추후 수집 시 업데이트
-                .build();
-    }
-
-    private void updateExisting(EnvironmentMetric existing, EnvironmentMetric newMetric) {
-        // ✅ null이 아닐 때만 업데이트
-        if (newMetric.getTemperature() != null) {
-            existing.setTemperature(newMetric.getTemperature());
-        }
+    /**
+     * 기존 환경 센서 로직 (일반 Rack용)
+     */
+    private void collectGeneralEnvironmentMetrics(Map<Long, MetricRawData> dataMap) {
+        log.debug("🌡️ 일반 환경 센서 메트릭 수집 (현재 미구현)");
     }
 }

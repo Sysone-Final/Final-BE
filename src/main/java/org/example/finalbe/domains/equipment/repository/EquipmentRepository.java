@@ -245,4 +245,6 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
         Long getRackId();
         Long getCount();
     }
+
+
 }

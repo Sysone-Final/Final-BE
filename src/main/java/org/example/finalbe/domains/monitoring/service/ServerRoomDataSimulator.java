@@ -265,6 +265,7 @@ public class ServerRoomDataSimulator {
                 // ❌ 기존의 ENVIRONMENTAL_SENSOR 타입 체크 로직 삭제
             }
 
+            // 🌡️ 환경 메트릭 생성 (랙별)
             log.info("🌡️ 환경 메트릭 생성 시작 - 활성 랙 개수: {}", activeRackIds.size());
 
             for (Long rackId : activeRackIds) {
@@ -280,7 +281,6 @@ public class ServerRoomDataSimulator {
                     if (envMetric != null) {
                         environmentMetricsToSave.add(envMetric);
                         monitoringMetricCache.updateEnvironmentMetric(envMetric);
-                        sseService.sendToRack(rackId, "environment", envMetric);
 
                         if (needsEnvironmentAlertEvaluation(envMetric, rack)) {
                             try {
@@ -291,8 +291,6 @@ public class ServerRoomDataSimulator {
                                         rackId, e.getMessage());
                             }
                         }
-
-                        log.debug("  → Environment 메트릭 생성 완료 (rackId={})", rackId);
                     }
                 } catch (Exception e) {
                     log.error("❌ 랙 {} 환경 메트릭 생성 실패", rackId, e);

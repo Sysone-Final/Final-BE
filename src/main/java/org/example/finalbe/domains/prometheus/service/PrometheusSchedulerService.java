@@ -425,17 +425,34 @@ public class PrometheusSchedulerService {
 
         List<String> instances = equipmentMappingService.getAllInstances();
 
-        for (String instance : instances) {
-            equipmentMappingService.getEquipmentId(instance).ifPresent(equipmentId -> {
-                MetricRawData data = MetricRawData.builder()
-                        .equipmentId(equipmentId)
-                        .instance(instance)
-                        .timestamp(timestamp)
-                        .cpuModes(new HashMap<>())
-                        .build();
-                dataMap.put(equipmentId, data);
-            });
+        // 🔍 디버깅 로그 추가
+        log.info("🔍 dataMap 초기화: equipmentMappingService.getAllInstances() = {} 개",
+                instances.size());
+        log.info("🔍 인스턴스 목록: {}", instances);
+
+        // 256-259 특별 체크
+        for (long id = 256; id <= 259; id++) {
+            Optional<String> instance = equipmentMappingService.getInstance(id);
+            if (instance.isPresent()) {
+                log.info("  ✅ Equipment {} → {}", id, instance.get());
+            } else {
+                log.error("  ❌ Equipment {} 매핑 없음!", id);
+            }
         }
+
+        for (String instance : instances) {
+            Optional<Long> equipmentId = equipmentMappingService.getEquipmentId(instance);
+            if (equipmentId.isPresent()) {
+                MetricRawData data = new MetricRawData();
+                data.setEquipmentId(equipmentId.get());
+                data.setInstance(instance);
+                data.setTimestamp(timestamp);
+                dataMap.put(equipmentId.get(), data);
+            }
+        }
+
+        log.info("🔍 dataMap 최종 크기: {} 개", dataMap.size());
+        log.info("🔍 dataMap keys: {}", dataMap.keySet());
 
         return dataMap;
     }

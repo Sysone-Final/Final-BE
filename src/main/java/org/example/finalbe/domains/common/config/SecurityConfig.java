@@ -30,9 +30,6 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    /**
-     * ✅ @PostConstruct로 SecurityContext 전파 모드 설정
-     */
     @PostConstruct
     public void init() {
         // 비동기 요청 및 SSE에서도 SecurityContext가 전파되도록 설정
@@ -93,10 +90,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
 
-                        // ✅ SSE 구독 엔드포인트: 초기 연결만 인증하고 이후는 비활성화
-                        .requestMatchers("/api/monitoring/subscribe/**").authenticated()
-                        .requestMatchers("/api/prometheus/metrics/stream/**").authenticated()
-                        .requestMatchers("/api/monitoring/server-room/stream/**").authenticated()
+                        .requestMatchers("/api/monitoring/subscribe/**").permitAll()
+                        .requestMatchers("/api/prometheus/metrics/stream/**").permitAll()
+                        .requestMatchers("/api/monitoring/server-room/stream/**").permitAll()
+                        .requestMatchers("/api/alerts/*/subscribe").permitAll()
+
 
                         .requestMatchers("/api/companies/**").authenticated()
                         .requestMatchers("/api/serverroom/**").authenticated()

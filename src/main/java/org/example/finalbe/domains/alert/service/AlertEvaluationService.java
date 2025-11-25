@@ -1,4 +1,4 @@
-// src/main/java/org/example/finalbe/domains/alert/service/AlertEvaluationService.java
+
 package org.example.finalbe.domains.alert.service;
 
 import lombok.RequiredArgsConstructor;
@@ -10,8 +10,10 @@ import org.example.finalbe.domains.alert.repository.AlertHistoryRepository;
 import org.example.finalbe.domains.alert.repository.AlertSettingsRepository;
 import org.example.finalbe.domains.alert.repository.AlertViolationTrackerRepository;
 import org.example.finalbe.domains.common.enumdir.AlertLevel;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.MetricType;
 import org.example.finalbe.domains.common.enumdir.TargetType;
+import org.example.finalbe.domains.datacenter.domain.DataCenter;
 import org.example.finalbe.domains.datacenter.repository.DataCenterRepository;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
@@ -155,34 +157,10 @@ public class AlertEvaluationService {
 
             AlertSettingsDto settings = getAlertSettings();
 
-            // RX 사용률 평가
-            if (metric.getRxUsage() != null) {
-                evaluateNetworkUsage(
-                        equipment,
-                        "rx_usage",
-                        metric.getRxUsage(),
-                        metric.getNicName(),
-                        metric.getGenerateTime(),
-                        settings
-                );
-            }
-
-            // TX 사용률 평가
-            if (metric.getTxUsage() != null) {
-                evaluateNetworkUsage(
-                        equipment,
-                        "tx_usage",
-                        metric.getTxUsage(),
-                        metric.getNicName(),
-                        metric.getGenerateTime(),
-                        settings
-                );
-            }
-
             // 에러율 평가 (RX)
             if (metric.getInErrorPktsTot() != null && metric.getInPktsTot() != null &&
                     metric.getInPktsTot() > 0) {
-                double errorRate = (metric.getInErrorPktsTot().doubleValue() / metric.getInPktsTot().doubleValue()) * 100;
+                double errorRate = (metric.getInErrorPktsTot().doubleValue() / metric.getInPktsTot().doubleValue()) * 100.0;
                 evaluateNetworkErrorRate(
                         equipment,
                         "rx_error_rate",
@@ -196,7 +174,7 @@ public class AlertEvaluationService {
             // 에러율 평가 (TX)
             if (metric.getOutErrorPktsTot() != null && metric.getOutPktsTot() != null &&
                     metric.getOutPktsTot() > 0) {
-                double errorRate = (metric.getOutErrorPktsTot().doubleValue() / metric.getOutPktsTot().doubleValue()) * 100;
+                double errorRate = (metric.getOutErrorPktsTot().doubleValue() / metric.getOutPktsTot().doubleValue()) * 100.0;
                 evaluateNetworkErrorRate(
                         equipment,
                         "tx_error_rate",
@@ -210,7 +188,7 @@ public class AlertEvaluationService {
             // 드롭율 평가 (RX)
             if (metric.getInDiscardPktsTot() != null && metric.getInPktsTot() != null &&
                     metric.getInPktsTot() > 0) {
-                double dropRate = (metric.getInDiscardPktsTot().doubleValue() / metric.getInPktsTot().doubleValue()) * 100;
+                double dropRate = (metric.getInDiscardPktsTot().doubleValue() / metric.getInPktsTot().doubleValue()) * 100.0;
                 evaluateNetworkDropRate(
                         equipment,
                         "rx_drop_rate",
@@ -224,7 +202,7 @@ public class AlertEvaluationService {
             // 드롭율 평가 (TX)
             if (metric.getOutDiscardPktsTot() != null && metric.getOutPktsTot() != null &&
                     metric.getOutPktsTot() > 0) {
-                double dropRate = (metric.getOutDiscardPktsTot().doubleValue() / metric.getOutPktsTot().doubleValue()) * 100;
+                double dropRate = (metric.getOutDiscardPktsTot().doubleValue() / metric.getOutPktsTot().doubleValue()) * 100.0;
                 evaluateNetworkDropRate(
                         equipment,
                         "tx_drop_rate",
@@ -236,37 +214,8 @@ public class AlertEvaluationService {
             }
 
         } catch (Exception e) {
-            log.error("Network 메트릭 알림 평가 실패: equipmentId={}, nic={}",
-                    metric.getEquipmentId(), metric.getNicName(), e);
+            log.error("Network 메트릭 알림 평가 실패: equipmentId={}", metric.getEquipmentId(), e);
         }
-    }
-
-    /**
-     * 네트워크 사용률 평가
-     */
-    private void evaluateNetworkUsage(
-            Equipment equipment,
-            String baseMetricName,
-            Double usage,
-            String nicName,
-            LocalDateTime generateTime,
-            AlertSettingsDto settings) {
-
-        String metricName = baseMetricName + "_" + nicName;
-        Double warningThreshold = 80.0;
-        Double criticalThreshold = 90.0;
-
-        evaluateMetric(
-                TargetType.EQUIPMENT,
-                equipment.getId(),
-                equipment.getName() + " [" + nicName + "]",
-                MetricType.NETWORK,
-                metricName,
-                usage,
-                warningThreshold,
-                criticalThreshold,
-                generateTime
-        );
     }
 
     /**
@@ -425,7 +374,7 @@ public class AlertEvaluationService {
             if (serverRoom.getAvgCpuThresholdWarning() != null && stats.getAvgCpuUsage() != null) {
                 evaluateMetric(
                         TargetType.SERVER_ROOM, serverRoom.getId(), serverRoom.getName(),
-                        MetricType.CPU, "avg_cpu_usage", stats.getAvgCpuUsage(),
+                        MetricType.CPU, "avg_cpu", stats.getAvgCpuUsage(),
                         serverRoom.getAvgCpuThresholdWarning().doubleValue(),
                         serverRoom.getAvgCpuThresholdCritical() != null ?
                                 serverRoom.getAvgCpuThresholdCritical().doubleValue() : null,
@@ -433,11 +382,11 @@ public class AlertEvaluationService {
                 );
             }
 
-            // 평균 Memory 평가
+            // 평균 메모리 평가
             if (serverRoom.getAvgMemoryThresholdWarning() != null && stats.getAvgMemoryUsage() != null) {
                 evaluateMetric(
                         TargetType.SERVER_ROOM, serverRoom.getId(), serverRoom.getName(),
-                        MetricType.MEMORY, "avg_memory_usage", stats.getAvgMemoryUsage(),
+                        MetricType.MEMORY, "avg_memory", stats.getAvgMemoryUsage(),
                         serverRoom.getAvgMemoryThresholdWarning().doubleValue(),
                         serverRoom.getAvgMemoryThresholdCritical() != null ?
                                 serverRoom.getAvgMemoryThresholdCritical().doubleValue() : null,
@@ -445,11 +394,11 @@ public class AlertEvaluationService {
                 );
             }
 
-            // 평균 Disk 평가
+            // 평균 디스크 평가
             if (serverRoom.getAvgDiskThresholdWarning() != null && stats.getAvgDiskUsage() != null) {
                 evaluateMetric(
                         TargetType.SERVER_ROOM, serverRoom.getId(), serverRoom.getName(),
-                        MetricType.DISK, "avg_disk_usage", stats.getAvgDiskUsage(),
+                        MetricType.DISK, "avg_disk", stats.getAvgDiskUsage(),
                         serverRoom.getAvgDiskThresholdWarning().doubleValue(),
                         serverRoom.getAvgDiskThresholdCritical() != null ?
                                 serverRoom.getAvgDiskThresholdCritical().doubleValue() : null,
@@ -512,60 +461,6 @@ public class AlertEvaluationService {
     }
 
     /**
-     * 위반 처리
-     */
-    private void handleViolation(
-            TargetType targetType, Long targetId, String targetName,
-            AlertViolationTracker tracker, AlertLevel level,
-            MetricType metricType, String metricName,
-            Double measuredValue, Double thresholdValue, LocalDateTime metricTime) {
-
-        tracker.setConsecutiveViolations(tracker.getConsecutiveViolations() + 1);
-        tracker.setLastViolationTime(metricTime);
-        tracker.setLastMeasuredValue(measuredValue);
-        tracker.setUpdatedAt(LocalDateTime.now());
-        violationTrackerRepository.save(tracker);
-
-        AlertSettingsDto settings = getAlertSettings();
-
-        if (tracker.getConsecutiveViolations() >= settings.defaultConsecutiveCount()) {
-            if (shouldSendAlert(tracker, settings)) {
-                sendAlert(targetType, targetId, targetName, level, metricType, metricName,
-                        measuredValue, thresholdValue, metricTime);
-                tracker.setLastAlertSentAt(metricTime);
-                violationTrackerRepository.save(tracker);
-            }
-        }
-    }
-
-    /**
-     * 직접 위반 처리
-     */
-    private void handleViolationDirect(
-            TargetType targetType, Long targetId, String targetName,
-            MetricType metricType, String metricName, AlertLevel level,
-            Double measuredValue, Double thresholdValue, LocalDateTime metricTime) {
-
-        AlertViolationTracker tracker = getOrCreateTracker(targetType, targetId, metricType, metricName);
-        handleViolation(targetType, targetId, targetName, tracker, level, metricType, metricName,
-                measuredValue, thresholdValue, metricTime);
-    }
-
-    /**
-     * 알림 전송 여부 확인 (쿨다운 체크)
-     */
-    private boolean shouldSendAlert(AlertViolationTracker tracker, AlertSettingsDto settings) {
-        if (tracker.getLastAlertSentAt() == null) {
-            return true;
-        }
-
-        LocalDateTime cooldownEnd = tracker.getLastAlertSentAt()
-                .plusMinutes(settings.defaultCooldownMinutes());
-
-        return LocalDateTime.now().isAfter(cooldownEnd);
-    }
-
-    /**
      * 알림 전송
      */
     private void sendAlert(
@@ -586,7 +481,14 @@ public class AlertEvaluationService {
                         measuredValue, thresholdValue))
                 .build();
 
-        populateHierarchyIds(alert, targetType, targetId);
+        // ✅ 계층 구조 ID 채우기 및 삭제된 서버실 필터링
+        boolean shouldProceed = populateHierarchyIds(alert, targetType, targetId);
+
+        if (!shouldProceed) {
+            log.debug("⛔ 삭제된 서버실의 알림이므로 생성하지 않음: targetType={}, targetId={}, serverRoomId={}",
+                    targetType, targetId, alert.getServerRoomId());
+            return;
+        }
 
         alertHistoryRepository.save(alert);
         alertNotificationService.sendAlert(alert);
@@ -594,6 +496,99 @@ public class AlertEvaluationService {
         log.warn("🚨 알림 발생 - {} [{}] {}:{} (측정값: {:.1f}, 임계치: {:.0f})",
                 level.name(), metricType.name(), targetName, metricName,
                 measuredValue, thresholdValue);
+    }
+
+    /**
+     * 계층 구조 ID 채우기 (✅ 삭제된 서버실 필터링 추가)
+     * @return true: 알림 생성 계속 진행, false: 알림 생성 중단 (삭제된 서버실)
+     */
+    private boolean populateHierarchyIds(AlertHistory alert, TargetType targetType, Long targetId) {
+        switch (targetType) {
+            case EQUIPMENT -> {
+                alert.setEquipmentId(targetId);
+                equipmentRepository.findByIdWithFullHierarchy(targetId).ifPresent(equipment -> {
+                    if (equipment.getRack() != null) {
+                        Rack rack = equipment.getRack();
+                        alert.setRackId(rack.getId());
+
+                        if (rack.getServerRoom() != null) {
+                            ServerRoom serverRoom = rack.getServerRoom();
+
+                            // ✅ 삭제된 서버실 체크
+                            if (serverRoom.getDelYn() == DelYN.Y) {
+                                log.debug("삭제된 서버실 감지 (Equipment): serverRoomId={}, equipmentId={}",
+                                        serverRoom.getId(), targetId);
+                                return; // alert는 이미 설정되었지만 사용하지 않음
+                            }
+
+                            alert.setServerRoomId(serverRoom.getId());
+
+                            if (serverRoom.getDataCenter() != null) {
+                                alert.setDataCenterId(serverRoom.getDataCenter().getId());
+                            }
+                        }
+                    }
+                });
+
+                // ✅ ServerRoom이 삭제되었는지 확인
+                if (alert.getServerRoomId() != null) {
+                    Optional<ServerRoom> serverRoom = serverRoomRepository.findById(alert.getServerRoomId());
+                    if (serverRoom.isPresent() && serverRoom.get().getDelYn() == DelYN.Y) {
+                        return false;
+                    }
+                }
+            }
+            case RACK -> {
+                alert.setRackId(targetId);
+                rackRepository.findByIdWithServerRoomAndDataCenter(targetId).ifPresent(rack -> {
+                    if (rack.getServerRoom() != null) {
+                        ServerRoom serverRoom = rack.getServerRoom();
+
+                        // ✅ 삭제된 서버실 체크
+                        if (serverRoom.getDelYn() == DelYN.Y) {
+                            log.debug("삭제된 서버실 감지 (Rack): serverRoomId={}, rackId={}",
+                                    serverRoom.getId(), targetId);
+                            return;
+                        }
+
+                        alert.setServerRoomId(serverRoom.getId());
+
+                        if (serverRoom.getDataCenter() != null) {
+                            alert.setDataCenterId(serverRoom.getDataCenter().getId());
+                        }
+                    }
+                });
+
+                // ✅ ServerRoom이 삭제되었는지 확인
+                if (alert.getServerRoomId() != null) {
+                    Optional<ServerRoom> serverRoom = serverRoomRepository.findById(alert.getServerRoomId());
+                    if (serverRoom.isPresent() && serverRoom.get().getDelYn() == DelYN.Y) {
+                        return false;
+                    }
+                }
+            }
+            case SERVER_ROOM -> {
+                alert.setServerRoomId(targetId);
+
+                // ✅ ServerRoom 직접 조회하여 삭제 여부 체크
+                Optional<ServerRoom> serverRoom = serverRoomRepository.findById(targetId);
+                if (serverRoom.isEmpty() || serverRoom.get().getDelYn() == DelYN.Y) {
+                    log.debug("삭제된 서버실 감지 (ServerRoom): serverRoomId={}", targetId);
+                    return false;
+                }
+
+                serverRoom.ifPresent(sr -> {
+                    if (sr.getDataCenter() != null) {
+                        alert.setDataCenterId(sr.getDataCenter().getId());
+                    }
+                });
+            }
+            case DATA_CENTER -> {
+                alert.setDataCenterId(targetId);
+            }
+        }
+
+        return true; // 정상적으로 계속 진행
     }
 
     /**
@@ -606,7 +601,7 @@ public class AlertEvaluationService {
 
         String levelText = level == AlertLevel.CRITICAL ? "위험" : "경고";
 
-        return String.format("[%s] %s %s이(가) %s 임계치 %.0f를 초과했습니다. (현재: %.1f)",
+        return String.format("[%s] %s %s이(가) %s 임계치 %.0f을/를 초과했습니다. (현재: %.1f)",
                 targetType.getDescription(), targetName, metricType.getDescription(),
                 levelText, thresholdValue, measuredValue);
     }
@@ -690,52 +685,56 @@ public class AlertEvaluationService {
     }
 
     /**
-     * 계층 구조 ID 채우기
+     * 위반 처리
      */
-    private void populateHierarchyIds(AlertHistory alert, TargetType targetType, Long targetId) {
-        switch (targetType) {
-            case EQUIPMENT -> {
-                alert.setEquipmentId(targetId);
-                equipmentRepository.findByIdWithFullHierarchy(targetId).ifPresent(equipment -> {
-                    if (equipment.getRack() != null) {
-                        Rack rack = equipment.getRack();
-                        alert.setRackId(rack.getId());
+    private void handleViolation(
+            TargetType targetType, Long targetId, String targetName,
+            AlertViolationTracker tracker, AlertLevel level,
+            MetricType metricType, String metricName,
+            Double measuredValue, Double thresholdValue, LocalDateTime metricTime) {
 
-                        if (rack.getServerRoom() != null) {
-                            ServerRoom serverRoom = rack.getServerRoom();
-                            alert.setServerRoomId(serverRoom.getId());
+        tracker.setConsecutiveViolations(tracker.getConsecutiveViolations() + 1);
+        tracker.setLastViolationTime(metricTime);
+        tracker.setLastMeasuredValue(measuredValue);
+        tracker.setUpdatedAt(LocalDateTime.now());
+        violationTrackerRepository.save(tracker);
 
-                            if (serverRoom.getDataCenter() != null) {
-                                alert.setDataCenterId(serverRoom.getDataCenter().getId());
-                            }
-                        }
-                    }
-                });
-            }
-            case RACK -> {
-                alert.setRackId(targetId);
-                rackRepository.findByIdWithServerRoomAndDataCenter(targetId).ifPresent(rack -> {
-                    if (rack.getServerRoom() != null) {
-                        ServerRoom serverRoom = rack.getServerRoom();
-                        alert.setServerRoomId(serverRoom.getId());
+        AlertSettingsDto settings = getAlertSettings();
 
-                        if (serverRoom.getDataCenter() != null) {
-                            alert.setDataCenterId(serverRoom.getDataCenter().getId());
-                        }
-                    }
-                });
-            }
-            case SERVER_ROOM -> {
-                alert.setServerRoomId(targetId);
-                serverRoomRepository.findByIdWithDataCenter(targetId).ifPresent(serverRoom -> {
-                    if (serverRoom.getDataCenter() != null) {
-                        alert.setDataCenterId(serverRoom.getDataCenter().getId());
-                    }
-                });
-            }
-            case DATA_CENTER -> {
-                alert.setDataCenterId(targetId);
+        if (tracker.getConsecutiveViolations() >= settings.defaultConsecutiveCount()) {
+            if (shouldSendAlert(tracker, settings)) {
+                sendAlert(targetType, targetId, targetName, level, metricType, metricName,
+                        measuredValue, thresholdValue, metricTime);
+                tracker.setLastAlertSentAt(metricTime);
+                violationTrackerRepository.save(tracker);
             }
         }
+    }
+
+    /**
+     * 직접 위반 처리
+     */
+    private void handleViolationDirect(
+            TargetType targetType, Long targetId, String targetName,
+            MetricType metricType, String metricName, AlertLevel level,
+            Double measuredValue, Double thresholdValue, LocalDateTime metricTime) {
+
+        AlertViolationTracker tracker = getOrCreateTracker(targetType, targetId, metricType, metricName);
+        handleViolation(targetType, targetId, targetName, tracker, level, metricType, metricName,
+                measuredValue, thresholdValue, metricTime);
+    }
+
+    /**
+     * 알림 전송 여부 확인 (쿨다운 체크)
+     */
+    private boolean shouldSendAlert(AlertViolationTracker tracker, AlertSettingsDto settings) {
+        if (tracker.getLastAlertSentAt() == null) {
+            return true;
+        }
+
+        LocalDateTime cooldownEnd = tracker.getLastAlertSentAt()
+                .plusMinutes(settings.defaultCooldownMinutes());
+
+        return LocalDateTime.now().isAfter(cooldownEnd);
     }
 }

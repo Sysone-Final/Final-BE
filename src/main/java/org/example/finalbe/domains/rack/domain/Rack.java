@@ -29,64 +29,92 @@ public class Rack extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "rack_id")
-    private Long id; // 랙 ID
+    private Long id;
 
     @Column(name = "rack_name", nullable = false, length = 100)
-    private String rackName; // 랙 이름
+    private String rackName;
 
     @Column(name = "grid_x")
-    private BigDecimal gridX; // X 좌표
+    private BigDecimal gridX;
 
     @Column(name = "grid_y")
-    private BigDecimal gridY; // Y 좌표
+    private BigDecimal gridY;
 
     @Column(name = "total_units")
-    private Integer totalUnits; // 전체 유닛 수
+    private Integer totalUnits;
 
     @Column(name = "used_units")
-    private Integer usedUnits; // 사용 중인 유닛 수
+    private Integer usedUnits;
 
     @Column(name = "available_units")
-    private Integer availableUnits; // 사용 가능한 유닛 수
+    private Integer availableUnits;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "door_direction", length = 10)
-    private DoorDirection doorDirection; // 도어 방향
+    private DoorDirection doorDirection;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "zone_direction", length = 10)
-    private ZoneDirection zoneDirection; // 존 방향
+    private ZoneDirection zoneDirection;
 
     @Column(name = "max_power_capacity", precision = 10, scale = 2)
-    private BigDecimal maxPowerCapacity; // 최대 전력 용량
+    private BigDecimal maxPowerCapacity;
 
     @Column(name = "current_power_usage", precision = 10, scale = 2)
-    private BigDecimal currentPowerUsage; // 현재 전력 사용량
+    private BigDecimal currentPowerUsage;
 
     @Column(name = "measured_power", precision = 10, scale = 2)
-    private BigDecimal measuredPower; // 실측 전력
+    private BigDecimal measuredPower;
 
     @Column(name = "manufacturer", length = 100)
-    private String manufacturer; // 제조사
+    private String manufacturer;
 
     @Column(name = "serial_number", length = 100)
-    private String serialNumber; // 시리얼 번호
+    private String serialNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private RackStatus status; // 랙 상태
+    private RackStatus status;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "rack_type", length = 20)
-    private RackType rackType; // 랙 타입
+    private RackType rackType;
 
     @Column(name = "notes", columnDefinition = "TEXT")
-    private String notes; // 비고
+    private String notes;
 
-    // 서버실(전산실)과의 관계 (N:1)
+    // ✅ 알림 모니터링 활성화 여부
+    @Column(name = "monitoring_enabled")
+    @Builder.Default
+    private Boolean monitoringEnabled = true;
+
+    // ✅ 온도 임계치 (WARNING)
+    @Column(name = "temperature_threshold_warning")
+    private Integer temperatureThresholdWarning;
+
+    // ✅ 온도 임계치 (CRITICAL)
+    @Column(name = "temperature_threshold_critical")
+    private Integer temperatureThresholdCritical;
+
+    // ✅ 습도 최소 임계치 (WARNING)
+    @Column(name = "humidity_threshold_min_warning")
+    private Integer humidityThresholdMinWarning;
+
+    // ✅ 습도 최소 임계치 (CRITICAL)
+    @Column(name = "humidity_threshold_min_critical")
+    private Integer humidityThresholdMinCritical;
+
+    // ✅ 습도 최대 임계치 (WARNING)
+    @Column(name = "humidity_threshold_max_warning")
+    private Integer humidityThresholdMaxWarning;
+
+    // ✅ 습도 최대 임계치 (CRITICAL)
+    @Column(name = "humidity_threshold_max_critical")
+    private Integer humidityThresholdMaxCritical;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "serverRoom_id")
-    private ServerRoom serverRoom; // 서버실(전산실)
+    private ServerRoom serverRoom;
 
     /**
      * 랙 정보 수정
@@ -96,16 +124,39 @@ public class Rack extends BaseTimeEntity {
         this.gridX = request.gridX();
         this.gridY = request.gridY();
         this.totalUnits = request.totalUnits();
-
         this.doorDirection = request.doorDirection();
         this.zoneDirection = request.zoneDirection();
-
         this.maxPowerCapacity = request.maxPowerCapacity();
         this.manufacturer = request.manufacturer();
         this.serialNumber = request.serialNumber();
         this.status = request.status();
         this.rackType = request.rackType();
         this.notes = request.notes();
+    }
+
+    /**
+     * ✅ 환경 임계치 설정
+     */
+    public void updateEnvironmentThresholds(
+            Integer tempWarning,
+            Integer tempCritical,
+            Integer humidMinWarning,
+            Integer humidMinCritical,
+            Integer humidMaxWarning,
+            Integer humidMaxCritical) {
+        this.temperatureThresholdWarning = tempWarning;
+        this.temperatureThresholdCritical = tempCritical;
+        this.humidityThresholdMinWarning = humidMinWarning;
+        this.humidityThresholdMinCritical = humidMinCritical;
+        this.humidityThresholdMaxWarning = humidMaxWarning;
+        this.humidityThresholdMaxCritical = humidMaxCritical;
+    }
+
+    /**
+     * ✅ 모니터링 활성화/비활성화 토글
+     */
+    public void toggleMonitoring() {
+        this.monitoringEnabled = !this.monitoringEnabled;
     }
 
     /**
@@ -190,42 +241,17 @@ public class Rack extends BaseTimeEntity {
      * 장비 배치
      */
     public void placeEquipment(Equipment equipment, Integer startUnit, Integer unitSize) {
-        // 유닛 점유
         this.occupyUnits(unitSize);
-
-        // 전력 사용량 추가
-        if (equipment.getPowerConsumption() != null) {
-            this.addPowerUsage(equipment.getPowerConsumption());
-        }
-
-        // 장비에 랙 정보 설정
         equipment.setRack(this);
         equipment.setStartUnit(startUnit);
         equipment.setUnitSize(unitSize);
     }
 
-    /**
-     * 장비 제거
-     */
-    public void removeEquipment(Equipment equipment) {
-        // 유닛 해제
-        this.releaseUnits(equipment.getUnitSize());
-
-        // 전력 사용량 차감
-        if (equipment.getPowerConsumption() != null) {
-            this.subtractPowerUsage(equipment.getPowerConsumption());
-        }
-
-        // 장비의 랙 정보 제거
-        equipment.setRack(null);
-        equipment.setStartUnit(null);
-    }
 
     /**
      * 장비 이동
      */
     public void moveEquipment(Equipment equipment, Integer fromUnit, Integer toUnit) {
-        // 장비의 시작 유닛만 변경 (유닛 점유/해제는 필요 없음)
         equipment.setStartUnit(toUnit);
     }
 

@@ -1,24 +1,12 @@
 package org.example.finalbe.domains.common.config;
 
-/**
- * packageName    : org.example.finalbe.domains.common.config
- * fileName       : AsyncConfig
- * author         : {sana}
- * date           : 25. 11. 18.
- * description    : 자동 주석 생성
- * ===========================================================
- * DATE              AUTHOR             NOTE
- * -----------------------------------------------------------
- * 25. 11. 18.        {sana}       최초 생성
- */
-
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableAsync
@@ -27,10 +15,27 @@ public class AsyncConfig {
     @Bean(name = "taskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(20);     // 기본 스레드 수
-        executor.setMaxPoolSize(100);      // 최대 스레드 수
-        executor.setQueueCapacity(1000);   // 대기 큐 크기
+        executor.setCorePoolSize(20);
+        executor.setMaxPoolSize(100);
+        executor.setQueueCapacity(1000);
         executor.setThreadNamePrefix("SSE-Async-");
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean(name = "alertExecutor")
+    public Executor alertExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("Alert-");
+
+        // ✅ 큐 포화 시 호출 스레드에서 실행 (거부 방지)
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
+
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
         executor.initialize();
         return executor;
     }

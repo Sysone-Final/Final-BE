@@ -16,39 +16,48 @@ import java.util.Optional;
 public interface CompanyServerRoomRepository extends JpaRepository<CompanyServerRoom, Long> {
 
     /**
-     * 회사별 서버실 매핑 목록 조회
+     * 회사별 서버실 매핑 목록 조회 (서버실 및 데이터센터의 delYn도 체크)
      */
     @Query("""
     SELECT csr FROM CompanyServerRoom csr
     JOIN FETCH csr.company c
     JOIN FETCH csr.serverRoom sr
+    LEFT JOIN FETCH sr.dataCenter dc
     WHERE csr.company.id = :companyId 
     AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND (dc IS NULL OR dc.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N)
     """)
     List<CompanyServerRoom> findByCompanyId(@Param("companyId") Long companyId);
 
     /**
-     * 서버실별 회사 매핑 목록 조회
+     * 서버실별 회사 매핑 목록 조회 (서버실 및 데이터센터의 delYn도 체크)
      */
     @Query("""
     SELECT csr FROM CompanyServerRoom csr
     JOIN FETCH csr.company c
     JOIN FETCH csr.serverRoom sr
+    LEFT JOIN FETCH sr.dataCenter dc
     WHERE csr.serverRoom.id = :serverRoomId 
     AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND (dc IS NULL OR dc.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N)
     """)
     List<CompanyServerRoom> findByServerRoomId(@Param("serverRoomId") Long serverRoomId);
 
     /**
-     * 특정 회사-서버실 매핑 조회
+     * 특정 회사-서버실 매핑 조회 (서버실 및 데이터센터의 delYn도 체크)
      */
     @Query("""
     SELECT csr FROM CompanyServerRoom csr
     JOIN FETCH csr.company c
     JOIN FETCH csr.serverRoom sr
+    LEFT JOIN FETCH sr.dataCenter dc
     WHERE csr.company.id = :companyId 
     AND csr.serverRoom.id = :serverRoomId 
     AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND (dc IS NULL OR dc.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N)
     """)
     Optional<CompanyServerRoom> findByCompanyIdAndServerRoomId(
             @Param("companyId") Long companyId,
@@ -56,14 +65,18 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     );
 
     /**
-     * 매핑 존재 여부 확인
+     * 회사-서버실 매핑 존재 확인 (접근 권한 체크용)
      */
     @Query("""
-    SELECT CASE WHEN COUNT(csr) > 0 THEN true ELSE false END 
-    FROM CompanyServerRoom csr 
-    WHERE csr.company.id = :companyId 
-    AND csr.serverRoom.id = :serverRoomId 
+    SELECT CASE WHEN COUNT(csr) > 0 THEN true ELSE false END
+    FROM CompanyServerRoom csr
+    JOIN csr.serverRoom sr
+    LEFT JOIN sr.dataCenter dc
+    WHERE csr.company.id = :companyId
+    AND csr.serverRoom.id = :serverRoomId
     AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND sr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
+    AND (dc IS NULL OR dc.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N)
     """)
     boolean existsByCompanyIdAndServerRoomId(
             @Param("companyId") Long companyId,
@@ -71,12 +84,17 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     );
 
     /**
-     * 회사가 관리하는 서버실 ID 목록 조회
+     * 회사별 매핑 삭제 (논리 삭제)
      */
     @Query("""
-    SELECT csr.serverRoom.id FROM CompanyServerRoom csr 
-    WHERE csr.company.id = :companyId 
+    UPDATE CompanyServerRoom csr
+    SET csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.Y
+    WHERE csr.company.id = :companyId
+    AND csr.serverRoom.id IN :serverRoomIds
     AND csr.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
     """)
-    List<Long> findServerRoomIdsByCompanyId(@Param("companyId") Long companyId);
+    int softDeleteByCompanyIdAndServerRoomIds(
+            @Param("companyId") Long companyId,
+            @Param("serverRoomIds") List<Long> serverRoomIds
+    );
 }

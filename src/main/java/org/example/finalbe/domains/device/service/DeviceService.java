@@ -10,6 +10,8 @@ import org.example.finalbe.domains.common.exception.BusinessException;
 import org.example.finalbe.domains.common.exception.DuplicateException;
 import org.example.finalbe.domains.common.exception.EntityNotFoundException;
 import org.example.finalbe.domains.companyserverroom.repository.CompanyServerRoomRepository;
+import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import org.example.finalbe.domains.serverroom.repository.ServerRoomRepository;
 import org.example.finalbe.domains.device.domain.Device;
@@ -27,7 +29,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -47,10 +51,8 @@ public class DeviceService {
     private final MemberRepository memberRepository;
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final DeviceHistoryRecorder deviceHistoryRecorder;
+    private final EquipmentRepository equipmentRepository;
 
-    /**
-     * 서버실별 장치 목록 조회
-     */
     public ServerRoomDeviceListResponse getDevicesByServerRoom(Long serverRoomId) {
         log.info("Fetching devices for serverroom: {}", serverRoomId);
 
@@ -62,15 +64,47 @@ public class DeviceService {
         List<Device> devices = deviceRepository.findByServerRoomIdOrderByPosition(
                 serverRoomId, DelYN.N);
 
-        // DTO 변환
-        ServerRoomInfo serverRoomInfo = ServerRoomInfo.from(serverRoom);
-        List<DeviceSimpleInfo> deviceInfos = devices.stream()
-                .map(DeviceSimpleInfo::from)
+
+        List<Equipment> equipments = equipmentRepository.findByServerRoomIdAndDelYn(
+                serverRoomId, DelYN.N);
+        Integer totalEquipmentCount = equipments.size();
+
+        // 1) server 타입 device들의 rackId 수집
+        List<Long> rackIds = devices.stream()
+                .filter(device -> device.getRack() != null)
+                .map(device -> device.getRack().getId())
+                .distinct()
                 .collect(Collectors.toList());
 
-        return ServerRoomDeviceListResponse.of(serverRoomInfo, deviceInfos);
-    }
+        // 2) 한 번의 쿼리로 모든 랙의 장비 개수 조회
+        Map<Long, Long> equipmentCountMap = new HashMap<>();
+        if (!rackIds.isEmpty()) {
+            List<EquipmentRepository.RackEquipmentCount> counts =
+                    equipmentRepository.countEquipmentsByRackIds(rackIds, DelYN.N);
 
+            for (EquipmentRepository.RackEquipmentCount count : counts) {
+                equipmentCountMap.put(count.getRackId(), count.getCount());
+            }
+        }
+
+        // DTO 변환 (각 device에 장비 개수 포함)
+        ServerRoomInfo serverRoomInfo = ServerRoomInfo.from(serverRoom);
+        List<DeviceSimpleInfo> deviceInfos = devices.stream()
+                .map(device -> {
+                    if (device.getRack() != null) {
+                        Long rackId = device.getRack().getId();
+                        Integer equipmentCount = equipmentCountMap
+                                .getOrDefault(rackId, 0L)
+                                .intValue();
+                        return DeviceSimpleInfo.from(device, equipmentCount);
+                    } else {
+                        return DeviceSimpleInfo.from(device, 0);
+                    }
+                })
+                .collect(Collectors.toList());
+
+        return ServerRoomDeviceListResponse.of(serverRoomInfo, deviceInfos, totalEquipmentCount);
+    }
     /**
      * 장치 상세 조회
      */

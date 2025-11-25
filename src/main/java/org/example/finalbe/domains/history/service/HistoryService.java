@@ -4,6 +4,7 @@ package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
 import org.example.finalbe.domains.common.enumdir.Role;
@@ -286,14 +287,17 @@ public class HistoryService {
     public List<Long> getAccessibleServerRoomIds(Member member) {
         if (member.getRole() == Role.ADMIN) {
             // ADMIN은 모든 서버실 접근 가능
-            return serverRoomRepository.findAll().stream()
+            return serverRoomRepository.findByDelYn(DelYN.N).stream()
                     .map(ServerRoom::getId)
                     .collect(Collectors.toList());
         }
 
         // 회사가 관리하는 서버실 조회
         List<Long> serverRoomIds = companyServerRoomRepository
-                .findServerRoomIdsByCompanyId(member.getCompany().getId());
+                .findByCompanyId(member.getCompany().getId())
+                .stream()
+                .map(csr -> csr.getServerRoom().getId())
+                .collect(Collectors.toList());
 
         log.info("User {} (company {}) can access {} serverrooms",
                 member.getId(), member.getCompany().getId(), serverRoomIds.size());

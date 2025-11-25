@@ -24,5 +24,12 @@ public class SSEConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .exposedHeaders("Content-Type", "Cache-Control", "Last-Event-ID")
                 .maxAge(3600);
+
+        registry.addMapping("/api/alerts/**")
+                .allowedOrigins("*")
+                .allowedMethods("GET", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("Content-Type", "Cache-Control", "Last-Event-ID")
+                .maxAge(3600);
     }
 }

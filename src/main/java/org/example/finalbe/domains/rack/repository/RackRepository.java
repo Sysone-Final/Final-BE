@@ -12,18 +12,22 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Rack 데이터 접근 계층
- */
 @Repository
 public interface RackRepository extends JpaRepository<Rack, Long> {
 
-
     /**
-     * 서버실별 랙 목록 조회
+     * 서버실별 랙 목록 조회 (수정됨 - @Query 사용)
      */
     @Query("SELECT r FROM Rack r WHERE r.serverRoom.id = :serverRoomId AND r.delYn = :delYn ORDER BY r.rackName")
     List<Rack> findByServerRoomIdAndDelYn(
+            @Param("serverRoomId") Long serverRoomId,
+            @Param("delYn") DelYN delYn);
+
+    /**
+     * 서버실별 랙 개수 조회 (수정됨 - @Query 사용)
+     */
+    @Query("SELECT COUNT(r) FROM Rack r WHERE r.serverRoom.id = :serverRoomId AND r.delYn = :delYn")
+    long countByServerRoomIdAndDelYn(
             @Param("serverRoomId") Long serverRoomId,
             @Param("delYn") DelYN delYn);
 
@@ -99,12 +103,22 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     /**
      * 활성 랙 목록 조회
      */
-    List<Rack> findByDelYn(DelYN delYn);
-
+    List<Rack> findAllByDelYn(DelYN delYn);
 
     /**
      * 활성 랙 단건 조회
      */
     @Query("SELECT r FROM Rack r WHERE r.id = :id AND r.delYn = 'N'")
     Optional<Rack> findActiveById(@Param("id") Long id);
+
+    /**
+     * Rack 조회 with ServerRoom and DataCenter (Fetch Join)
+     * LazyInitializationException 방지를 위한 메서드
+     */
+    @Query("SELECT r FROM Rack r " +
+            "LEFT JOIN FETCH r.serverRoom sr " +
+            "LEFT JOIN FETCH sr.dataCenter dc " +
+            "WHERE r.id = :rackId")
+    Optional<Rack> findByIdWithServerRoomAndDataCenter(@Param("rackId") Long rackId);
+
 }

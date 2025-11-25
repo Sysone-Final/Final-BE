@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.annotation.PostConstruct;
 import java.util.List;
 
 @Configuration
@@ -28,6 +30,12 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @PostConstruct
+    public void init() {
+        // 비동기 요청 및 SSE에서도 SecurityContext가 전파되도록 설정
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -37,18 +45,58 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 인증 실패 시 /login 리다이렉트 방지 - 401 응답 반환
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
+                            String contentType = request.getHeader("Accept");
+
+                            // SSE 요청인 경우 응답 커밋 방지
+                            if (contentType != null && contentType.contains("text/event-stream")) {
+                                if (!response.isCommitted()) {
+                                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                                    response.setContentType("text/event-stream;charset=UTF-8");
+                                    response.getWriter().write("event: error\ndata: {\"error\":\"Unauthorized\"}\n\n");
+                                    response.getWriter().flush();
+                                }
+                                return;
+                            }
+
+                            // 일반 REST API 요청
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json;charset=UTF-8");
                             response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"인증이 필요합니다.\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            String contentType = request.getHeader("Accept");
+
+                            // SSE 요청인 경우
+                            if (contentType != null && contentType.contains("text/event-stream")) {
+                                if (!response.isCommitted()) {
+                                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                                    response.setContentType("text/event-stream;charset=UTF-8");
+                                    response.getWriter().write("event: error\ndata: {\"error\":\"Forbidden\"}\n\n");
+                                    response.getWriter().flush();
+                                }
+                                return;
+                            }
+
+                            // 일반 REST API 요청
+                            response.setStatus(HttpStatus.FORBIDDEN.value());
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"접근 권한이 없습니다.\"}");
                         })
                 )
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/companies").permitAll()
+
+                        .requestMatchers("/api/monitoring/subscribe/**").permitAll()
+                        .requestMatchers("/api/prometheus/metrics/stream/**").permitAll()
+                        .requestMatchers("/api/monitoring/server-room/stream/**").permitAll()
+                        .requestMatchers("/api/alerts/subscribe").permitAll()
+                        .requestMatchers("/api/alerts/*/subscribe").permitAll()
+
+
                         .requestMatchers("/api/companies/**").authenticated()
                         .requestMatchers("/api/serverroom/**").authenticated()
                         .requestMatchers("/api/company-serverroom/**").authenticated()
@@ -59,7 +107,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/monitoring/**").authenticated()
                         .requestMatchers("/api/members/**").authenticated()
                         .requestMatchers("/api/history/**").authenticated()
-                        .requestMatchers("/api/prometheus/metrics/stream/**").permitAll()
                         .requestMatchers("/api/prometheus/metrics/**").authenticated()
                         .anyRequest().authenticated()
                 )

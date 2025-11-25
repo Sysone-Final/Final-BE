@@ -1,7 +1,4 @@
 spring:
-  application:
-    name: Final-BE
-
   datasource:
     driver-class-name: org.postgresql.Driver
     url: ${DB_URL}
@@ -9,15 +6,15 @@ spring:
     password: ${DB_PASSWORD}
 
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 10
+      maximum-pool-size: 50
+      minimum-idle: 20
       connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      keepalive-time: 300000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      keepalive-time: 60000
       validation-timeout: 5000
       connection-test-query: SELECT 1
-      leak-detection-threshold: 60000
+      leak-detection-threshold: 30000
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -29,28 +26,50 @@ spring:
         format_sql: true
         use_sql_comments: true
         jdbc:
-          batch_size: 50
+          batch_size: 100
         order_inserts: true
         order_updates: true
     open-in-view: false
 
-
-  jackson:
-    time-zone: Asia/Seoul
-    serialization:
-      write-dates-as-timestamps: false
-    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
-
   task:
     execution:
       pool:
-        core-size: 4
-        max-size: 8
-        queue-capacity: 100
-        thread-name-prefix: prometheus-collector-
+        core-size: 8
+        max-size: 16
+        queue-capacity: 200
+        thread-name-prefix: async-executor-
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
+
     scheduling:
       pool:
-        size: 5
+        size: 10
+      thread-name-prefix: scheduler-
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
+
+monitoring:
+  simulator:
+    enabled: true
+    interval-seconds: 5000
+    device-count: 9
+    excluded-equipment-ids: 256,257,258,259
+  scheduler:
+    metrics-interval: 5000         # ✅ 메트릭 수집 간격 5초 고정
+    statistics-interval: 5000      # 통계 수집 간격 5초
+    datacenter-interval: 5000      # 데이터센터 통계 간격 5초
+
+prometheus:
+  base-url: http://112.221.184.61:9090
+  timeout: 30s                     # 30초 타임아웃
+  collection:
+    enabled: true
+    interval: 5000                 # ✅ 5초로 고정
+  client:
+    connect-timeout: 10000         # 연결 타임아웃 10초
+    read-timeout: 30000            # 읽기 타임아웃 30초
 
 jwt:
   secret: ${JWT_SECRET}
@@ -60,38 +79,17 @@ jwt:
 cookie:
   secure: true
 
-monitoring:
-  simulator:
-    enabled: true
-    interval-seconds: 5
-    device-count: 9
-
-# ==================== Prometheus 설정 ====================
-prometheus:
-  server:
-    url: http://112.221.184.61:9090
-
-  collection:
-    enabled: true
-    fixed-delay: 15000
-    initial-delay: 5000
-
-  client:
-    connect-timeout: 5000
-    read-timeout: 10000
-
-  sse:
-    timeout: 3600000
-    heartbeat-interval: 30000
-
-## ==================== 로깅 설정 ====================
 #logging:
 #  level:
 #    root: INFO
 #    org.example.finalbe.domains.prometheus: INFO
-#    org.hibernate.SQL: DEBUG
-#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-#    com.zaxxer.hikari: DEBUG
+#    org.example.finalbe.domains.monitoring: INFO
+#    org.example.finalbe.domains.alert: INFO
+#    org.hibernate.SQL: WARN
+#    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+#    com.zaxxer.hikari: INFO
+#    org.springframework.scheduling: INFO
+#    reactor.netty: WARN
 
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

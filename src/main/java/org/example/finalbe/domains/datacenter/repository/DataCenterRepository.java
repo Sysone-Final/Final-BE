@@ -60,4 +60,13 @@ public interface DataCenterRepository extends JpaRepository<DataCenter, Long> {
         ORDER BY dc.name
     """)
     List<DataCenter> searchByNameAndCompanyId(@Param("keyword") String keyword, @Param("companyId") Long companyId);
+    /**
+     * DelYn으로 데이터센터 목록 조회
+     */
+    List<DataCenter> findAllByDelYn(DelYN delYn);
+
+    /**
+     * DelYn으로 데이터센터 개수 조회
+     */
+    long countByDelYn(DelYN delYn);
 }

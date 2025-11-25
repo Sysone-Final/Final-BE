@@ -1,5 +1,3 @@
-// src/main/java/org/example/finalbe/domains/datacenter/domain/DataCenter.java
-
 package org.example.finalbe.domains.datacenter.domain;
 
 import jakarta.persistence.*;
@@ -13,7 +11,6 @@ import org.example.finalbe.domains.company.domain.Company;
 
 /**
  * 데이터센터 엔티티
- * 서버실을 그룹화하기 위한 목적
  */
 @Entity
 @Table(name = "datacenter",
@@ -31,29 +28,57 @@ public class DataCenter extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "datacenter_id")
-    private Long id; // 데이터센터 ID
+    private Long id;
 
     @Column(name = "code", nullable = false, unique = true, length = 50)
-    private String code; // 데이터센터 코드
+    private String code;
 
     @Column(name = "name", nullable = false, length = 200)
-    private String name; // 데이터센터명
+    private String name;
 
     @Column(name = "address", length = 500)
-    private String address; // 주소
+    private String address;
 
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description; // 설명
+    private String description;
 
-    // 회사 연관관계 추가
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
-    private Company company; // 소속 회사
+    private Company company;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "del_yn", length = 1)
     @Builder.Default
-    private DelYN delYn = DelYN.N; // 삭제 여부
+    private DelYN delYn = DelYN.N;
+
+    // ✅ 알림 모니터링 활성화 여부
+    @Column(name = "monitoring_enabled")
+    @Builder.Default
+    private Boolean monitoringEnabled = true;
+
+    // ✅ CPU 평균 임계치 (WARNING)
+    @Column(name = "avg_cpu_threshold_warning")
+    private Integer avgCpuThresholdWarning;
+
+    // ✅ CPU 평균 임계치 (CRITICAL)
+    @Column(name = "avg_cpu_threshold_critical")
+    private Integer avgCpuThresholdCritical;
+
+    // ✅ 메모리 평균 임계치 (WARNING)
+    @Column(name = "avg_memory_threshold_warning")
+    private Integer avgMemoryThresholdWarning;
+
+    // ✅ 메모리 평균 임계치 (CRITICAL)
+    @Column(name = "avg_memory_threshold_critical")
+    private Integer avgMemoryThresholdCritical;
+
+    // ✅ 디스크 평균 임계치 (WARNING)
+    @Column(name = "avg_disk_threshold_warning")
+    private Integer avgDiskThresholdWarning;
+
+    // ✅ 디스크 평균 임계치 (CRITICAL)
+    @Column(name = "avg_disk_threshold_critical")
+    private Integer avgDiskThresholdCritical;
 
     /**
      * 데이터센터 정보 수정
@@ -72,6 +97,31 @@ public class DataCenter extends BaseTimeEntity {
         if (description != null) {
             this.description = description;
         }
+    }
+
+    /**
+     * ✅ 평균 메트릭 임계치 설정
+     */
+    public void updateAverageThresholds(
+            Integer cpuWarning,
+            Integer cpuCritical,
+            Integer memWarning,
+            Integer memCritical,
+            Integer diskWarning,
+            Integer diskCritical) {
+        this.avgCpuThresholdWarning = cpuWarning;
+        this.avgCpuThresholdCritical = cpuCritical;
+        this.avgMemoryThresholdWarning = memWarning;
+        this.avgMemoryThresholdCritical = memCritical;
+        this.avgDiskThresholdWarning = diskWarning;
+        this.avgDiskThresholdCritical = diskCritical;
+    }
+
+    /**
+     * ✅ 모니터링 활성화/비활성화 토글
+     */
+    public void toggleMonitoring() {
+        this.monitoringEnabled = !this.monitoringEnabled;
     }
 
     /**

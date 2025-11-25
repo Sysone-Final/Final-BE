@@ -280,7 +280,6 @@ public class EquipmentHistoryRecorder {
         snapshot.put("manufacturer", equipment.getManufacturer());
         snapshot.put("serialNumber", equipment.getSerialNumber());
         snapshot.put("ipAddress", equipment.getIpAddress());
-        snapshot.put("powerConsumption", equipment.getPowerConsumption());
         return snapshot;
     }
 

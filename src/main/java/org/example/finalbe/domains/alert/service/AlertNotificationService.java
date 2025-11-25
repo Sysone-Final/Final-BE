@@ -20,7 +20,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class AlertNotificationService {
 
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
-    private static final Long DEFAULT_TIMEOUT = 60L * 60 * 1000; // 1시간
+    private static final Long DEFAULT_TIMEOUT = 3L * 60 * 60 * 1000; // 3시간
 
     /**
      * 전체 알림 구독
@@ -64,31 +64,49 @@ public class AlertNotificationService {
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
 
         emitters.putIfAbsent(topic, new CopyOnWriteArrayList<>());
-        emitters.get(topic).add(emitter);
+        List<SseEmitter> topicEmitters = emitters.get(topic);
 
         emitter.onCompletion(() -> {
             log.debug("SSE 연결 완료: topic={}", topic);
-            emitters.get(topic).remove(emitter);
+            topicEmitters.remove(emitter);
+            if (topicEmitters.isEmpty()) {
+                emitters.remove(topic);
+            }
         });
 
         emitter.onTimeout(() -> {
             log.debug("SSE 연결 타임아웃: topic={}", topic);
-            emitters.get(topic).remove(emitter);
+            topicEmitters.remove(emitter);
+            if (topicEmitters.isEmpty()) {
+                emitters.remove(topic);
+            }
         });
 
         emitter.onError((error) -> {
-            log.error("SSE 연결 오류: topic={}", topic, error);
-            emitters.get(topic).remove(emitter);
+            log.debug("SSE 연결 오류: topic={}, error={}", topic, error.getMessage());
+            topicEmitters.remove(emitter);
+            if (topicEmitters.isEmpty()) {
+                emitters.remove(topic);
+            }
         });
 
+        // 먼저 리스트에 추가한 후 초기 메시지 전송
+        topicEmitters.add(emitter);
+
         try {
+            // 초기 연결 확인 메시지 전송
             emitter.send(SseEmitter.event()
                     .name("connected")
-                    .data("Connected to " + topic));
-            log.info("✅ SSE 연결 성공: topic={}", topic);
+                    .data("Connected to " + topic)
+                    .reconnectTime(3000L)); // 재연결 시간 3초
+            log.info("✅ SSE 연결 성공: topic={}, 현재 구독자 수={}", topic, topicEmitters.size());
         } catch (IOException e) {
-            log.error("SSE 초기 연결 실패: topic={}", topic, e);
-            emitters.get(topic).remove(emitter);
+            log.error("SSE 초기 연결 실패: topic={}, error={}", topic, e.getMessage());
+            topicEmitters.remove(emitter);
+            if (topicEmitters.isEmpty()) {
+                emitters.remove(topic);
+            }
+            throw new RuntimeException("SSE 연결 초기화 실패", e);
         }
 
         return emitter;
@@ -172,6 +190,7 @@ public class AlertNotificationService {
         List<SseEmitter> topicEmitters = emitters.get(topic);
 
         if (topicEmitters == null || topicEmitters.isEmpty()) {
+            log.debug("구독자 없음: topic={}", topic);
             return;
         }
 
@@ -179,13 +198,23 @@ public class AlertNotificationService {
             try {
                 emitter.send(SseEmitter.event()
                         .name(eventName)
-                        .data(data));
-                return false;
+                        .data(data)
+                        .reconnectTime(3000L));
+                return false; // 전송 성공, 유지
             } catch (IOException e) {
-                log.debug("SSE 전송 실패, Emitter 제거: topic={}", topic);
-                return true;
+                log.debug("SSE 전송 실패, Emitter 제거: topic={}, event={}, error={}",
+                         topic, eventName, e.getMessage());
+                return true; // 전송 실패, 제거
             }
         });
+
+        log.debug("SSE 메시지 전송: topic={}, event={}, 구독자={}",
+                 topic, eventName, topicEmitters.size());
+
+        // 구독자가 모두 제거되었으면 토픽도 제거
+        if (topicEmitters.isEmpty()) {
+            emitters.remove(topic);
+        }
     }
 
     /**

@@ -48,7 +48,12 @@ public class ServerRoomDataSimulator {
     @Value("${monitoring.simulator.excluded-equipment-ids:256,257,258,259}")
     private String excludedEquipmentIdsStr;
 
+    @Value("${monitoring.simulator.excluded-rack-ids:229}")
+    private String excludedRackIdsStr;
+
     private Set<Long> excludedEquipmentIds = new HashSet<>();
+    private Set<Long> excludedRackIds = new HashSet<>();
+
 
     // 누적 카운터
     private final Map<String, Long> cumulativeInPackets = new HashMap<>();
@@ -88,6 +93,19 @@ public class ServerRoomDataSimulator {
             }
         }
         log.info("🚫 더미 데이터 생성 제외 장비 ID: {}", excludedEquipmentIds);
+
+        // ✅ Excluded Rack IDs 파싱 추가
+        if (excludedRackIdsStr != null && !excludedRackIdsStr.trim().isEmpty()) {
+            String[] ids = excludedRackIdsStr.split(",");
+            for (String id : ids) {
+                try {
+                    excludedRackIds.add(Long.parseLong(id.trim()));
+                } catch (NumberFormatException e) {
+                    log.warn("⚠️ 잘못된 Excluded Rack ID: {}", id);
+                }
+            }
+        }
+        log.info("🚫 더미 데이터 생성 제외 랙 ID: {}", excludedRackIds);
 
 
         activeEquipments = equipmentRepository.findAll().stream()
@@ -181,8 +199,12 @@ public class ServerRoomDataSimulator {
                     continue;
                 }
 
-                // ✅ 랙 ID 수집
-                activeRackIds.add(equipment.getRack().getId());
+                Long rackId = equipment.getRack().getId();
+
+                // ✅ excluded equipment 또는 excluded rack이 아닌 경우만 activeRackIds에 추가
+                if (!excludedEquipmentIds.contains(equipmentId) && !excludedRackIds.contains(rackId)) {
+                    activeRackIds.add(rackId);
+                }
 
                 if (excludedEquipmentIds.contains(equipmentId)) {
                     log.debug("⏭️ 장비 ID {} 건너뜀 (excluded)", equipmentId);
@@ -269,6 +291,12 @@ public class ServerRoomDataSimulator {
             log.info("🌡️ 환경 메트릭 생성 시작 - 활성 랙 개수: {}", activeRackIds.size());
 
             for (Long rackId : activeRackIds) {
+                // ✅ excluded rack 체크 (안전장치)
+                if (excludedRackIds.contains(rackId)) {
+                    log.debug("⏭️ 랙 ID {} 환경 메트릭 생성 건너뜀 (excluded)", rackId);
+                    continue;
+                }
+
                 try {
                     Rack rack = rackRepository.findById(rackId).orElse(null);
 

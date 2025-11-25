@@ -56,6 +56,7 @@ monitoring:
     interval-seconds: 5000
     device-count: 9
     excluded-equipment-ids: 256,257,258,259
+    excluded-rack-ids: 229
   scheduler:
     metrics-interval: 5000         # ✅ 메트릭 수집 간격 5초 고정
     statistics-interval: 5000      # 통계 수집 간격 5초

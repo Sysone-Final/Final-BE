@@ -3,6 +3,7 @@ package org.example.finalbe.domains.prometheus.service;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.springframework.stereotype.Service;
@@ -27,35 +28,67 @@ public class EquipmentMappingService {
     @PostConstruct
     @Transactional(readOnly = true)
     public void initialize() {
+        log.info("🔄 ===============================================");
         log.info("🔄 Equipment 매핑 초기화 시작...");
 
-        // ✅ 수정: 랙에 배치된 장비만 초기화
-        List<Equipment> equipments = equipmentRepository.findAll();
-        int mappedCount = 0;
-        int skippedCount = 0;
+        List<Equipment> allEquipments = equipmentRepository.findAll();
+        log.info("🔄 DB 전체 장비: {} 개", allEquipments.size());
 
+        // 256-259 특별 체크
+        for (long id = 256; id <= 259; id++) {
+            final long equipId = id;
+            Optional<Equipment> eq = allEquipments.stream()
+                    .filter(e -> e.getId().equals(equipId))
+                    .findFirst();
+
+            if (eq.isPresent()) {
+                Equipment e = eq.get();
+                log.info("  🔍 Equipment {}: code={}, rack={}, delYn={}",
+                        e.getId(),
+                        e.getCode(),
+                        e.getRack() != null ? e.getRack().getId() : "NULL",
+                        e.getDelYn());
+            } else {
+                log.warn("  ❌ Equipment {} DB에 없음!", equipId);
+            }
+        }
+
+        List<Equipment> equipments = allEquipments.stream()
+                .filter(e -> DelYN.N.equals(e.getDelYn()))
+                .filter(e -> e.getRack() != null)
+                .toList();
+
+        log.info("🔄 매핑 대상: {} 개 (활성 + 랙배치)", equipments.size());
+
+        int mappedCount = 0;
         for (Equipment equipment : equipments) {
-            // ✅ 랙에 배치된 장비만 매핑
-            if (equipment.getRack() != null &&
-                    equipment.getCode() != null &&
-                    !equipment.getCode().trim().isEmpty()) {
+            if (equipment.getCode() != null && !equipment.getCode().trim().isEmpty()) {
                 String code = equipment.getCode().trim();
                 instanceToEquipmentIdMap.put(code, equipment.getId());
                 equipmentIdToInstanceMap.put(equipment.getId(), code);
                 equipmentCache.put(equipment.getId(), equipment);
+
+                // 256-259 특별 로그
+                if (equipment.getId() >= 256 && equipment.getId() <= 259) {
+                    log.info("  ✅✅✅ [중요] 매핑 성공: {} → Equipment {}",
+                            code, equipment.getId());
+                }
                 mappedCount++;
-                log.debug("  ✓ {} → Equipment ID: {} (Rack: {})",
-                        code, equipment.getId(), equipment.getRack().getId());
             } else {
-                skippedCount++;
-                if (equipment.getRack() == null) {
-                    log.debug("  ⊘ Equipment ID: {} - 랙 미배치로 스킵", equipment.getId());
+                if (equipment.getId() >= 256 && equipment.getId() <= 259) {
+                    log.error("  ❌❌❌ [중요] Equipment {} code 없음!", equipment.getId());
                 }
             }
         }
 
-        log.info("✅ Equipment 매핑 완료: {} 개 등록, {} 개 스킵 (랙 미배치)",
-                mappedCount, skippedCount);
+        log.info("🔄 최종 매핑: {} 개", mappedCount);
+        log.info("🔄 256-259 매핑 확인:");
+        for (long id = 256; id <= 259; id++) {
+            String instance = equipmentIdToInstanceMap.get(id);
+            log.info("  - Equipment {}: {}", id,
+                    instance != null ? instance : "매핑 안 됨!");
+        }
+        log.info("🔄 ===============================================");
     }
 
     /**

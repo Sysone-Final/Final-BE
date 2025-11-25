@@ -37,7 +37,6 @@ public class AlertEvaluationService {
     private final EquipmentRepository equipmentRepository;
     private final RackRepository rackRepository;
     private final ServerRoomRepository serverRoomRepository;
-    private final DataCenterRepository dataCenterRepository;
     private final AlertHistoryRepository alertHistoryRepository;
     private final AlertViolationTrackerRepository violationTrackerRepository;
     private final AlertSettingsRepository alertSettingsRepository;
@@ -606,7 +605,7 @@ public class AlertEvaluationService {
 
         String levelText = level == AlertLevel.CRITICAL ? "위험" : "경고";
 
-        return String.format("[%s] %s %s이(가) %s 임계치 %.0f를 초과했습니다. (현재: %.1f)",
+        return String.format("[%s] %s %s이(가) %s 임계치 %.0f을/를 초과했습니다. (현재: %.1f)",
                 targetType.getDescription(), targetName, metricType.getDescription(),
                 levelText, thresholdValue, measuredValue);
     }

@@ -3,26 +3,32 @@ package org.example.finalbe.domains.monitoring.service;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
+import org.example.finalbe.domains.common.enumdir.DelYN;
 import org.example.finalbe.domains.equipment.domain.Equipment;
+import org.example.finalbe.domains.equipment.repository.EquipmentRepository;
 import org.example.finalbe.domains.monitoring.domain.DiskMetric;
 import org.example.finalbe.domains.monitoring.domain.EnvironmentMetric;
 import org.example.finalbe.domains.monitoring.domain.NetworkMetric;
 import org.example.finalbe.domains.monitoring.domain.SystemMetric;
 import org.example.finalbe.domains.monitoring.dto.DataCenterStatisticsDto;
+import org.example.finalbe.domains.monitoring.dto.RackStatisticsDto;
 import org.example.finalbe.domains.monitoring.dto.ServerRoomStatisticsDto;
 import org.example.finalbe.domains.monitoring.repository.DiskMetricRepository;
+import org.example.finalbe.domains.monitoring.repository.EnvironmentMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.NetworkMetricRepository;
 import org.example.finalbe.domains.monitoring.repository.SystemMetricRepository;
-import org.example.finalbe.domains.monitoring.repository.EnvironmentMetricRepository;
+import org.example.finalbe.domains.rack.domain.Rack;
+import org.example.finalbe.domains.rack.repository.RackRepository;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.IOException;
-import java.util.*;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -33,7 +39,7 @@ public class SseService {
 
     private final MonitoringMetricCache monitoringMetricCache;
 
-    // 1. 구독자 관리 맵 (ConcurrentHashMap: 스레드 안전)
+    // 구독자 관리 맵 (ConcurrentHashMap: 스레드 안전)
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     private static final Long DEFAULT_TIMEOUT = 60L * 60 * 1000; // 1시간
@@ -44,9 +50,11 @@ public class SseService {
     private final NetworkMetricRepository networkMetricRepository;
     private final EnvironmentMetricRepository environmentMetricRepository;
     private final EquipmentRepository equipmentRepository;
+    private final RackRepository rackRepository;
 
     private final ServerRoomMonitoringService serverRoomMonitoringService;
     private final DataCenterMonitoringService dataCenterMonitoringService;
+    private final RackMonitoringService rackMonitoringService;
 
     /**
      * 장비 메트릭 구독 (equipmentId 기준)
@@ -186,7 +194,9 @@ public class SseService {
     }
 
     /**
-     * 랙 환경 메트릭 구독 (rackId 기준)
+     * 랙 환경 메트릭 및 통계 구독 (rackId 기준)
+     * ✅ 초기 데이터: rack-statistics만 전송 (environment 포함)
+     * ✅ 실시간: rack-statistics만 전송 (environment 중복 제거)
      */
     public SseEmitter subscribeRack(Long rackId) {
         String topic = "rack-" + rackId;
@@ -198,23 +208,37 @@ public class SseService {
     @Async("taskExecutor")
     void asyncSendRackInitialData(Long rackId, SseEmitter emitter) {
         try {
-            // 1. 환경 메트릭 전송
-            monitoringMetricCache.getEnvironmentMetric(rackId)
-                    .ifPresent(data -> emitSafely(emitter, "environment", data));
-
-            if (monitoringMetricCache.getEnvironmentMetric(rackId).isEmpty()) {
-                environmentMetricRepository.findLatestByRackId(rackId)
-                        .ifPresent(data -> emitSafely(emitter, "environment", data));
-            }
-
-            // 2. 랙 통계 전송
+            // ✅ 변경: rack-statistics만 전송 (environment 정보 포함)
             monitoringMetricCache.getRackStatistics(rackId)
                     .ifPresent(data -> emitSafely(emitter, "rack-statistics", data));
 
-            log.info("🚀 [Rack-{}] 초기 데이터 전송 완료 (환경 + 통계)", rackId);
+            // ✅ 캐시에 없으면 새로 계산
+            if (monitoringMetricCache.getRackStatistics(rackId).isEmpty()) {
+                try {
+                    Rack rack = rackRepository.findById(rackId).orElse(null);
+                    if (rack != null) {
+                        RackStatisticsDto statistics = calculateRackStatisticsForInitialData(rackId);
+                        emitSafely(emitter, "rack-statistics", statistics);
+                        log.info("🚀 [Rack-{}] 초기 통계 데이터 계산 및 전송 완료", rackId);
+                    }
+                } catch (Exception e) {
+                    log.error("❌ [Rack-{}] 초기 통계 계산 실패", rackId, e);
+                }
+            } else {
+                log.info("🚀 [Rack-{}] 초기 통계 데이터 전송 완료 (캐시에서)", rackId);
+            }
         } catch (Exception e) {
             log.error("❌ [Rack-{}] 초기 데이터 전송 실패", rackId, e);
         }
+    }
+
+    /**
+     * 초기 데이터 전송용 랙 통계 계산
+     * RackMonitoringService를 직접 호출하여 계산
+     */
+    private RackStatisticsDto calculateRackStatisticsForInitialData(Long rackId) {
+        // RackMonitoringService를 직접 사용하여 전체 통계 계산
+        return rackMonitoringService.calculateRackStatistics(rackId);
     }
 
     /**
@@ -260,6 +284,16 @@ public class SseService {
         asyncSend(topic, eventName, data);
     }
 
+    /**
+     * 랙에 통계 데이터 전송
+     */
+    public void sendToRack(Long rackId, String eventName, Object data) {
+        String topic = "rack-" + rackId;
+        if (!hasSubscribers(topic)) {
+            return;
+        }
+        asyncSend(topic, eventName, data);
+    }
 
     @Async("taskExecutor")
     void asyncSend(String topic, String eventName, Object data) {
@@ -403,15 +437,4 @@ public class SseService {
         }
         asyncSend(topic, eventName, data);
     }
-    /**
-     * 랙에 통계 데이터 전송
-     */
-    public void sendToRack(Long rackId, String eventName, Object data) {
-        String topic = "rack-" + rackId;
-        if (!hasSubscribers(topic)) {
-            return;
-        }
-        asyncSend(topic, eventName, data);
-    }
-
 }

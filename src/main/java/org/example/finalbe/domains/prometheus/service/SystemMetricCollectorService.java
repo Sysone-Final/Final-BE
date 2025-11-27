@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * System 관련 Prometheus 메트릭을 수집하고 변환/저장하는 서비스
+ */
 package org.example.finalbe.domains.prometheus.service;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,7 @@ public class SystemMetricCollectorService {
     private final PrometheusQueryService prometheusQuery;
     private final SystemMetricRepository systemMetricRepository;
 
+    // System 관련 메트릭 전체 수집 및 dataMap 반영
     public void collectAndPopulate(Map<Long, MetricRawData> dataMap) {
         try {
             collectCpuMetrics(dataMap);
@@ -30,43 +35,30 @@ public class SystemMetricCollectorService {
             collectLoadAverage(dataMap);
             collectContextSwitches(dataMap);
         } catch (Exception e) {
-            log.error("❌ SystemMetric 수집 중 오류", e);
+            log.error("System 메트릭 수집 오류", e);
         }
     }
 
+    // CPU 메트릭 수집
     private void collectCpuMetrics(Map<Long, MetricRawData> dataMap) {
         String query = "avg by (instance, mode) (rate(node_cpu_seconds_total[15s]))";
-
-        log.info("🔍 CPU 메트릭 쿼리 실행: {}", query);  // ← 추가
-
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
-
-        log.info("📊 CPU 메트릭 쿼리 결과: {} 개", results.size());  // ← 추가
-
-        if (results.isEmpty()) {
-            log.warn("⚠️ CPU 메트릭 쿼리 결과가 비어있습니다!");  // ← 추가
-            return;
-        }
 
         for (PrometheusResponse.PrometheusResult result : results) {
             String instance = result.getInstance();
             String mode = result.getMode();
             Double value = result.getValue();
 
-            log.debug("  결과: instance={}, mode={}, value={}", instance, mode, value);  // ← 추가
-
             if (instance != null && mode != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
                     data.getCpuModes().put(mode, value * 100);
-                    log.debug("    ✓ 데이터 추가됨");  // ← 추가
-                } else {
-                    log.warn("    ✗ dataMap에서 instance를 찾을 수 없음: {}", instance);  // ← 추가
                 }
             }
         }
     }
 
+    // 메모리 메트릭 수집
     private void collectMemoryMetrics(Map<Long, MetricRawData> dataMap) {
         collectMemoryMetric(dataMap, "node_memory_MemTotal_bytes", MetricRawData::setTotalMemory);
         collectMemoryMetric(dataMap, "node_memory_MemFree_bytes", MetricRawData::setFreeMemory);
@@ -78,15 +70,19 @@ public class SystemMetricCollectorService {
         collectMemoryMetric(dataMap, "node_memory_SwapTotal_bytes", MetricRawData::setTotalSwap);
         collectMemoryMetric(dataMap, "node_memory_SwapUsed_bytes", MetricRawData::setUsedSwap);
     }
-    private void collectMemoryMetric(Map<Long, MetricRawData> dataMap, String metric,
-                                     java.util.function.BiConsumer<MetricRawData, Long> setter) {
+
+    // 단일 메모리 항목 수집
+    private void collectMemoryMetric(
+            Map<Long, MetricRawData> dataMap,
+            String metric,
+            java.util.function.BiConsumer<MetricRawData, Long> setter
+    ) {
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(metric);
 
         for (PrometheusResponse.PrometheusResult result : results) {
             String instance = result.getInstance();
             Double value = result.getValue();
 
-            // ✅ null 체크만 수행 (0도 유효한 값)
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
@@ -96,14 +92,19 @@ public class SystemMetricCollectorService {
         }
     }
 
+    // Load Average 수집
     private void collectLoadAverage(Map<Long, MetricRawData> dataMap) {
         collectLoadMetric(dataMap, "node_load1", MetricRawData::setLoadAvg1);
         collectLoadMetric(dataMap, "node_load5", MetricRawData::setLoadAvg5);
         collectLoadMetric(dataMap, "node_load15", MetricRawData::setLoadAvg15);
     }
 
-    private void collectLoadMetric(Map<Long, MetricRawData> dataMap, String metric,
-                                   java.util.function.BiConsumer<MetricRawData, Double> setter) {
+    // 단일 Load 항목 수집
+    private void collectLoadMetric(
+            Map<Long, MetricRawData> dataMap,
+            String metric,
+            java.util.function.BiConsumer<MetricRawData, Double> setter
+    ) {
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(metric);
 
         for (PrometheusResponse.PrometheusResult result : results) {
@@ -119,6 +120,7 @@ public class SystemMetricCollectorService {
         }
     }
 
+    // Context Switches 수집
     private void collectContextSwitches(Map<Long, MetricRawData> dataMap) {
         String query = "rate(node_context_switches_total[15m])";
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
@@ -126,7 +128,6 @@ public class SystemMetricCollectorService {
         for (PrometheusResponse.PrometheusResult result : results) {
             String instance = result.getInstance();
             Double value = result.getValue();
-
 
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
@@ -137,6 +138,7 @@ public class SystemMetricCollectorService {
         }
     }
 
+    // instance 로 MetricRawData 찾기
     private MetricRawData findDataByInstance(Map<Long, MetricRawData> dataMap, String instance) {
         return dataMap.values().stream()
                 .filter(d -> instance.equals(d.getInstance()))
@@ -144,28 +146,26 @@ public class SystemMetricCollectorService {
                 .orElse(null);
     }
 
+    // MetricRawData 리스트 저장
     public void saveMetrics(List<MetricRawData> dataList) {
-        int successCount = 0;
-        int failureCount = 0;
+        int success = 0, failure = 0;
 
         for (MetricRawData data : dataList) {
             try {
                 saveMetricWithNewTransaction(data);
-                successCount++;
+                success++;
             } catch (Exception e) {
-                failureCount++;
-                log.error("❌ SystemMetric 저장 실패: equipmentId={} - {}",
-                        data.getEquipmentId(), e.getMessage());
+                failure++;
+                log.error("SystemMetric 저장 실패: equipmentId={}", data.getEquipmentId(), e);
             }
         }
 
-        if (failureCount > 0) {
-            log.warn("⚠️ SystemMetric 저장 완료: 성공={}, 실패={}", successCount, failureCount);
-        } else {
-            log.debug("✅ SystemMetric 저장 완료: {} 건", successCount);
+        if (failure > 0) {
+            log.warn("SystemMetric 저장 완료: 성공={}, 실패={}", success, failure);
         }
     }
 
+    // MetricRawData 한 건을 개별 트랜잭션으로 저장
     @Transactional
     public void saveMetricWithNewTransaction(MetricRawData data) {
         LocalDateTime generateTime = data.getTimestamp() != null
@@ -184,31 +184,27 @@ public class SystemMetricCollectorService {
         } else {
             systemMetricRepository.save(metric);
         }
-
-        log.debug("  ✓ SystemMetric 저장: equipmentId={}, time={}",
-                data.getEquipmentId(), generateTime);
     }
 
+    // MetricRawData → SystemMetric 엔티티 변환
     private SystemMetric convertToEntity(MetricRawData data, LocalDateTime generateTime) {
         Map<String, Double> cpuModes = data.getCpuModes();
 
         Long totalMemory = data.getTotalMemory();
-        Long freeMemory = data.getFreeMemory();
         Long availableMemory = data.getAvailableMemory();
-
         Long usedMemory = (totalMemory != null && availableMemory != null)
                 ? totalMemory - availableMemory : null;
 
-        Double usedMemoryPercentage = (totalMemory != null && totalMemory > 0 && usedMemory != null)
-                ? (usedMemory * 100.0 / totalMemory) : null;
+        Double usedMemoryPercentage =
+                (totalMemory != null && totalMemory > 0 && usedMemory != null)
+                        ? (usedMemory * 100.0 / totalMemory) : null;
 
-        // ✅ Swap 관련 변수들 - null 안전하게 처리
         Long swapTotal = data.getTotalSwap();
-        Long swapUsed = data.getUsedSwap() != null ? data.getUsedSwap() : 0L;  // ← 여기서 미리 0L 처리
+        Long swapUsed = data.getUsedSwap() != null ? data.getUsedSwap() : 0L;
 
-        // swapUsed는 이제 절대 null이 아니므로 안전하게 계산
-        Double swapUsedPercentage = (swapTotal != null && swapTotal > 0)
-                ? (swapUsed * 100.0 / swapTotal) : 0.0;  // ← null 대신 0.0 사용
+        Double swapUsedPercentage =
+                (swapTotal != null && swapTotal > 0)
+                        ? (swapUsed * 100.0 / swapTotal) : 0.0;
 
         return SystemMetric.builder()
                 .equipmentId(data.getEquipmentId())
@@ -225,7 +221,7 @@ public class SystemMetricCollectorService {
                 .loadAvg5(data.getLoadAvg5())
                 .loadAvg15(data.getLoadAvg15())
                 .contextSwitches(data.getContextSwitches())
-                .totalMemory(data.getTotalMemory())
+                .totalMemory(totalMemory)
                 .usedMemory(usedMemory)
                 .freeMemory(data.getFreeMemory())
                 .usedMemoryPercentage(usedMemoryPercentage)
@@ -234,11 +230,12 @@ public class SystemMetricCollectorService {
                 .memoryActive(data.getMemoryActive())
                 .memoryInactive(data.getMemoryInactive())
                 .totalSwap(swapTotal)
-                .usedSwap(swapUsed)  // ✅ 이미 안전하게 처리된 변수 사용
-                .usedSwapPercentage(swapUsedPercentage)  // ✅ 안전하게 계산된 값 사용
+                .usedSwap(swapUsed)
+                .usedSwapPercentage(swapUsedPercentage)
                 .build();
     }
 
+    // 기존 엔티티 업데이트
     private void updateExisting(SystemMetric existing, SystemMetric newMetric) {
         existing.setCpuIdle(newMetric.getCpuIdle());
         existing.setCpuUser(newMetric.getCpuUser());

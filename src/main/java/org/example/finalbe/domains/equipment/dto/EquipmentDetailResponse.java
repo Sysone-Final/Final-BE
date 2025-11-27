@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장비 상세 조회 응답 DTO
+ */
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
@@ -7,9 +11,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * 장비 상세 조회 응답 DTO
- */
 @Builder
 public record EquipmentDetailResponse(
         Long id,

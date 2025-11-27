@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 서버실·데이터센터·랙 통계 계산을 스케줄링하여 SSE로 전송하는 서비스
+ */
 package org.example.finalbe.domains.monitoring.service;
 
 import lombok.RequiredArgsConstructor;
@@ -18,10 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-/**
- * 서버실/데이터센터 통계 주기적 갱신 스케줄러
- * 5초마다 모든 활성 서버실과 데이터센터의 통계를 계산하고 SSE로 전송
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -34,11 +34,11 @@ public class AggregatedMonitoringScheduler {
     private final SseService sseService;
     private final AlertEvaluationService alertEvaluationService;
     private final Executor taskExecutor;
-
     private final EquipmentRepository equipmentRepository;
     private final RackMonitoringService rackMonitoringService;
     private final MonitoringMetricCache monitoringMetricCache;
 
+    // 서버실 통계를 계산하고 SSE로 전송
     @Scheduled(fixedRateString = "${monitoring.scheduler.statistics-interval:5000}")
     public void updateServerRoomStatistics() {
         log.debug("=== ServerRoom 통합 모니터링 시작 ===");
@@ -54,7 +54,7 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
-        // ✅ 구독자가 있는 서버실만 처리
+        // 구독자가 있는 서버실만 처리
         List<Long> subscribedServerRoomIds = serverRoomIds.stream()
                 .filter(id -> sseService.hasSubscribers("serverroom-" + id))
                 .collect(Collectors.toList());
@@ -64,13 +64,13 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
-        // ✅ 병렬 처리
+        // 병렬 처리
         List<CompletableFuture<Void>> futures = subscribedServerRoomIds.stream()
                 .map(serverRoomId -> CompletableFuture.runAsync(() -> {
                     long startTime = System.currentTimeMillis();
                     try {
-                        ServerRoomStatisticsDto statistics = serverRoomMonitoringService
-                                .calculateServerRoomStatistics(serverRoomId);
+                        ServerRoomStatisticsDto statistics =
+                                serverRoomMonitoringService.calculateServerRoomStatistics(serverRoomId);
 
                         sseService.sendToServerRoom(serverRoomId, "serverroom-statistics", statistics);
                         alertEvaluationService.evaluateServerRoomStatistics(statistics);
@@ -85,24 +85,21 @@ public class AggregatedMonitoringScheduler {
                 }, taskExecutor))
                 .collect(Collectors.toList());
 
-        // 모든 작업 완료 대기
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         long totalDuration = System.currentTimeMillis() - totalStartTime;
         log.info("📊 ServerRoom 통합 모니터링 완료 - 총 소요시간: {}ms, 처리: {}개",
                 totalDuration, subscribedServerRoomIds.size());
     }
-    /**
-     * 데이터센터 통계 갱신 스케줄러
-     * ✅ fixedRate로 변경: 정확히 5초마다 실행
-     */
+
+    // 데이터센터 통계를 계산하고 SSE로 전송
     @Scheduled(fixedRateString = "${monitoring.scheduler.datacenter-interval:5000}")
     public void updateDataCenterStatistics() {
         log.debug("=== DataCenter 통합 모니터링 시작 ===");
 
         List<Long> dataCenterIds = dataCenterRepository.findAllByDelYn(DelYN.N)
                 .stream()
-                .map(dataCenter -> dataCenter.getId())
+                .map(dc -> dc.getId())
                 .collect(Collectors.toList());
 
         if (dataCenterIds.isEmpty()) {
@@ -110,7 +107,7 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
-        // ✅ 구독자가 있는 데이터센터만 처리
+        // 구독자 있는 데이터센터만 처리
         List<Long> subscribedDataCenterIds = dataCenterIds.stream()
                 .filter(id -> sseService.hasSubscribers("datacenter-" + id))
                 .collect(Collectors.toList());
@@ -120,18 +117,15 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
-        log.debug("처리 대상 데이터센터: {} (총 {}개)", subscribedDataCenterIds, subscribedDataCenterIds.size());
-
         int successCount = 0;
         int failCount = 0;
 
         for (Long dataCenterId : subscribedDataCenterIds) {
             try {
-                DataCenterStatisticsDto statistics = dataCenterMonitoringService
-                        .calculateDataCenterStatistics(dataCenterId);
+                DataCenterStatisticsDto statistics =
+                        dataCenterMonitoringService.calculateDataCenterStatistics(dataCenterId);
 
                 sseService.sendToDataCenter(dataCenterId, "datacenter-statistics", statistics);
-//                alertEvaluationService.evaluateDataCenterStatistics(statistics);
 
                 successCount++;
             } catch (Exception e) {
@@ -143,32 +137,26 @@ public class AggregatedMonitoringScheduler {
         log.debug("DataCenter 통합 모니터링 완료 - 성공: {}, 실패: {}", successCount, failCount);
     }
 
-    /**
-     * 통계 갱신 상태 로깅 (1분마다)
-     */
+    // 활성 서버실/데이터센터 수를 로그로 출력
     @Scheduled(fixedDelay = 60000, initialDelay = 10000)
     public void logStatistics() {
         try {
             int serverRoomCount = (int) serverRoomRepository.countByDelYn(DelYN.N);
             int dataCenterCount = (int) dataCenterRepository.countByDelYn(DelYN.N);
 
-            log.info("📊 모니터링 통계 - 서버실: {} 개, 데이터센터: {} 개 활성화",
-                    serverRoomCount, dataCenterCount);
+            log.info("📊 모니터링 통계 - 서버실: {}개, 데이터센터: {}개 활성화", serverRoomCount, dataCenterCount);
         } catch (Exception e) {
             log.error("통계 로깅 실패", e);
         }
     }
 
-    /**
-     * 랙 통계 갱신 스케줄러 (5초마다)
-     * ✅ 수정: 장비가 있는 랙만 통계 계산
-     */
+    // 랙 통계를 계산하고 SSE로 전송
     @Scheduled(fixedRateString = "${monitoring.scheduler.rack-interval:5000}")
     public void updateRackStatistics() {
         log.debug("=== Rack 통합 모니터링 시작 ===");
         long totalStartTime = System.currentTimeMillis();
 
-        // ✅ 수정: 장비가 배치된 랙만 조회
+        // 장비가 있는 랙만 조회
         List<Long> rackIds = equipmentRepository.findAllDistinctRackIds();
 
         if (rackIds.isEmpty()) {
@@ -176,7 +164,7 @@ public class AggregatedMonitoringScheduler {
             return;
         }
 
-        // ✅ 구독자가 있는 랙만 처리
+        // 구독자가 있는 랙만 처리
         List<Long> subscribedRackIds = rackIds.stream()
                 .filter(id -> sseService.hasSubscribers("rack-" + id))
                 .collect(Collectors.toList());
@@ -192,8 +180,8 @@ public class AggregatedMonitoringScheduler {
                 .map(rackId -> CompletableFuture.runAsync(() -> {
                     long startTime = System.currentTimeMillis();
                     try {
-                        RackStatisticsDto statistics = rackMonitoringService
-                                .calculateRackStatistics(rackId);
+                        RackStatisticsDto statistics =
+                                rackMonitoringService.calculateRackStatistics(rackId);
 
                         monitoringMetricCache.updateRackStatistics(statistics);
                         sseService.sendToRack(rackId, "rack-statistics", statistics);

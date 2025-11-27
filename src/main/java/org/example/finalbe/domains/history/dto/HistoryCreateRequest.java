@@ -79,25 +79,5 @@ public record HistoryCreateRequest(
         }
     }
 
-    /**
-     * 자동 설명 생성
-     */
-    public String generateDescription() {
-        StringBuilder desc = new StringBuilder();
 
-        desc.append("[").append(action.name()).append("] ");
-        desc.append(entityType.name()).append(" - ").append(entityName);
-
-        if (action == HistoryAction.STATUS_CHANGE && changedFields != null && !changedFields.isEmpty()) {
-            Object before = beforeValue != null ? beforeValue.get("status") : null;
-            Object after = afterValue != null ? afterValue.get("status") : null;
-
-            if (before != null && after != null) {
-                desc.append(" (").append(before).append(" → ").append(after).append(")");
-            }
-        }
-
-
-        return desc.toString();
-    }
 }

@@ -1,3 +1,6 @@
+// 작성자: 최산하, 황요한
+// SSE 기반 실시간 메트릭 구독 API 제공 (장비/랙/서버실/데이터센터)
+
 package org.example.finalbe.domains.monitoring.controller;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,15 +26,12 @@ public class SseController {
 
     /**
      * 장비 실시간 메트릭 구독
-     * @param equipmentId 장비 ID
-     * @return SseEmitter
      */
     @GetMapping(value = "/equipment/{equipmentId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribeToEquipment(@PathVariable Long equipmentId, HttpServletResponse response) {
-        // ✅ 초기 인증 확인 (디버깅용)
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         log.debug("🔐 SSE 구독 요청 - Equipment: {}, Auth: {}", equipmentId,
-                  auth != null ? auth.getName() : "Anonymous");
+                auth != null ? auth.getName() : "Anonymous");
 
         applySseHeaders(response);
         return sseService.subscribeEquipment(equipmentId);
@@ -39,14 +39,12 @@ public class SseController {
 
     /**
      * 랙 실시간 환경 메트릭 구독
-     * @param rackId 랙 ID
-     * @return SseEmitter
      */
     @GetMapping(value = "/rack/{rackId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribeToRack(@PathVariable Long rackId, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         log.debug("🔐 SSE 구독 요청 - Rack: {}, Auth: {}", rackId,
-                  auth != null ? auth.getName() : "Anonymous");
+                auth != null ? auth.getName() : "Anonymous");
 
         applySseHeaders(response);
         return sseService.subscribeRack(rackId);
@@ -54,14 +52,12 @@ public class SseController {
 
     /**
      * 서버실 실시간 통계 구독
-     * @param serverRoomId 서버실 ID
-     * @return SseEmitter
      */
     @GetMapping(value = "/serverroom/{serverRoomId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribeToServerRoom(@PathVariable Long serverRoomId, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         log.debug("🔐 SSE 구독 요청 - ServerRoom: {}, Auth: {}", serverRoomId,
-                  auth != null ? auth.getName() : "Anonymous");
+                auth != null ? auth.getName() : "Anonymous");
 
         applySseHeaders(response);
         return sseService.subscribeServerRoom(serverRoomId);
@@ -69,14 +65,12 @@ public class SseController {
 
     /**
      * 데이터센터 실시간 통계 구독
-     * @param dataCenterId 데이터센터 ID
-     * @return SseEmitter
      */
     @GetMapping(value = "/datacenter/{dataCenterId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribeToDataCenter(@PathVariable Long dataCenterId, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         log.debug("🔐 SSE 구독 요청 - DataCenter: {}, Auth: {}", dataCenterId,
-                  auth != null ? auth.getName() : "Anonymous");
+                auth != null ? auth.getName() : "Anonymous");
 
         applySseHeaders(response);
         return sseService.subscribeDataCenter(dataCenterId);

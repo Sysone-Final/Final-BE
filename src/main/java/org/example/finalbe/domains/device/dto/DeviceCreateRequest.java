@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장치 생성 요청 DTO
+ */
 package org.example.finalbe.domains.device.dto;
 
 import jakarta.validation.constraints.Min;
@@ -10,9 +14,6 @@ import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 import java.time.LocalDate;
 
-/**
- * 장치 생성 요청 DTO
- */
 @Builder
 public record DeviceCreateRequest(
         String deviceName,

@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * Rack 히스토리 기록 전담 클래스
+ */
 package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
@@ -14,9 +18,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Rack 히스토리 기록 전담 클래스
- */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -47,7 +48,7 @@ public class RackHistoryRecorder {
     }
 
     /**
-     * Rack 수정 히스토리 (상세 변경 내역 포함)
+     * Rack 수정 히스토리
      */
     public void recordUpdate(Rack oldRack, Rack newRack, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldRack);
@@ -59,7 +60,6 @@ public class RackHistoryRecorder {
             return;
         }
 
-        // 변경 내역 상세 정보 구성
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
@@ -153,6 +153,9 @@ public class RackHistoryRecorder {
         return snapshot;
     }
 
+    /**
+     * 변경된 필드 감지
+     */
     private List<String> detectChangedFields(Map<String, Object> oldSnapshot, Map<String, Object> newSnapshot) {
         List<String> changedFields = new ArrayList<>();
 
@@ -199,6 +202,9 @@ public class RackHistoryRecorder {
         return changeDetails;
     }
 
+    /**
+     * 필드 라벨 변환
+     */
     private String getFieldLabel(String field) {
         return switch (field) {
             case "rackName" -> "랙 이름";
@@ -221,6 +227,9 @@ public class RackHistoryRecorder {
         };
     }
 
+    /**
+     * 값 포맷팅
+     */
     private String formatValue(String field, Object value) {
         if (value == null) {
             return "(없음)";
@@ -238,6 +247,9 @@ public class RackHistoryRecorder {
         };
     }
 
+    /**
+     * 상태 번역
+     */
     private String translateStatus(String status) {
         return switch (status) {
             case "ACTIVE" -> "활성";
@@ -248,6 +260,9 @@ public class RackHistoryRecorder {
         };
     }
 
+    /**
+     * 랙 타입 번역
+     */
     private String translateRackType(String rackType) {
         return switch (rackType) {
             case "STANDARD" -> "표준";
@@ -257,6 +272,9 @@ public class RackHistoryRecorder {
         };
     }
 
+    /**
+     * 도어 방향 번역
+     */
     private String translateDoorDirection(String doorDirection) {
         return switch (doorDirection) {
             case "FRONT" -> "전면";
@@ -266,6 +284,9 @@ public class RackHistoryRecorder {
         };
     }
 
+    /**
+     * 존 방향 번역
+     */
     private String translateZoneDirection(String zoneDirection) {
         return switch (zoneDirection) {
             case "NORTH" -> "북";

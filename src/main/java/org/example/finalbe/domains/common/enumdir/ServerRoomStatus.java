@@ -1,11 +1,12 @@
+/**
+ * 작성자: 황요한
+ * 서버실 상태 열거형
+ */
 package org.example.finalbe.domains.common.enumdir;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/**
- * 서버실 상태 Enum
- */
 @Getter
 @RequiredArgsConstructor
 public enum ServerRoomStatus {

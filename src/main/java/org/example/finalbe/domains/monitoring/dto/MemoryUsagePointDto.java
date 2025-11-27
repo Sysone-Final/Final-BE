@@ -1,26 +1,23 @@
+// 작성자: 최산하
+// 메모리 사용률 시계열 포인트 DTO
+
 package org.example.finalbe.domains.monitoring.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
-/**
- * 메모리 사용률 포인트 DTO
- * 그래프 2.1: 메모리 사용률 시계열 그래프용
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class MemoryUsagePointDto {
 
+    // 타임스탬프
     private LocalDateTime timestamp;
 
-    /**
-     * 메모리 전체 사용률 (%)
-     */
+    // 메모리 사용률 (%)
     private Double memoryUsagePercent;
 }

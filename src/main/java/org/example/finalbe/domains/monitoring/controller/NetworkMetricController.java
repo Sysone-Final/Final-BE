@@ -1,3 +1,6 @@
+// 작성자: 최산하
+// 네트워크 모니터링 API 제공 (섹션/현재 상태/트래픽·사용률 추이/일괄 조회)
+
 package org.example.finalbe.domains.monitoring.controller;
 
 import jakarta.validation.constraints.Min;
@@ -21,28 +24,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 네트워크 메트릭 컨트롤러
- * 네트워크 대시보드 데이터 API 제공
- */
+
 @Slf4j
 @RestController
-@RequestMapping("/api/monitoring/network") // 경로 변경
+@RequestMapping("/api/monitoring/network")
 @RequiredArgsConstructor
 @Validated
 public class NetworkMetricController {
 
-    private final NetworkMetricService networkMetricService; // 서비스 주입 변경
+    private final NetworkMetricService networkMetricService;
 
     /**
      * 네트워크 섹션 전체 데이터 조회
-     * GET /api/monitoring/network/section
-     *
-     * @param equipmentId 장비 ID
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @param aggregationLevel 집계 레벨
-     * @return 네트워크 섹션 데이터
      */
     @GetMapping("/section")
     public ResponseEntity<CommonResDto> getNetworkSection(
@@ -71,11 +64,7 @@ public class NetworkMetricController {
     }
 
     /**
-     * 현재 네트워크 상태만 조회 (게이지용)
-     * GET /api/monitoring/network/current
-     *
-     * @param equipmentId 장비 ID
-     * @return 현재 네트워크 상태
+     * 현재 네트워크 상태 조회
      */
     @GetMapping("/current")
     public ResponseEntity<CommonResDto> getCurrentNetworkStats(
@@ -95,8 +84,7 @@ public class NetworkMetricController {
     }
 
     /**
-     * 네트워크 트래픽 추이만 조회 (그래프 3.7)
-     * GET /api/monitoring/network/traffic-trend
+     * 네트워크 트래픽 추이 조회
      */
     @GetMapping("/traffic-trend")
     public ResponseEntity<CommonResDto> getNetworkTrafficTrend(
@@ -123,8 +111,7 @@ public class NetworkMetricController {
     }
 
     /**
-     * 네트워크 사용률 추이만 조회 (그래프 3.1, 3.2)
-     * GET /api/monitoring/network/usage-trend
+     * 네트워크 사용률 추이 조회
      */
     @GetMapping("/usage-trend")
     public ResponseEntity<CommonResDto> getNetworkUsageTrend(
@@ -150,13 +137,8 @@ public class NetworkMetricController {
         ));
     }
 
-
     /**
      * 여러 장비의 현재 네트워크 상태 일괄 조회
-     * GET /api/monitoring/network/current/batch
-     *
-     * @param equipmentIds 장비 ID 리스트 (쉼표로 구분)
-     * @return 각 장비별 현재 네트워크 상태
      */
     @GetMapping("/current/batch")
     public ResponseEntity<CommonResDto> getCurrentNetworkStatsBatch(
@@ -198,7 +180,6 @@ public class NetworkMetricController {
     }
 
     /**
-     * (CPU 컨트롤러에서 복사)
      * equipmentIds 문자열 파싱
      */
     private List<Long> parseEquipmentIds(String equipmentIds) {

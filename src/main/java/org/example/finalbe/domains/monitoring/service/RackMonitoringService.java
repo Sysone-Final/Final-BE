@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 단위 모니터링 통계 계산 서비스
+ */
 package org.example.finalbe.domains.monitoring.service;
 
 import lombok.RequiredArgsConstructor;
@@ -30,7 +34,7 @@ public class RackMonitoringService {
     private final EquipmentRepository equipmentRepository;
     private final MonitoringMetricCache metricCache;
 
-    // ✅ 임계치 상수 정의
+
     private static final double TEMP_MAX_THRESHOLD = 28.0;
     private static final double TEMP_MIN_THRESHOLD = 18.0;
     private static final double HUMIDITY_MAX_THRESHOLD = 70.0;
@@ -39,7 +43,7 @@ public class RackMonitoringService {
     private static final double MEMORY_THRESHOLD = 85.0;
     private static final double DISK_THRESHOLD = 85.0;
 
-    // ✅ 네트워크 임계치 추가
+
     private static final double NETWORK_ERROR_RATE_THRESHOLD = 1.0;  // 에러 패킷률 1%
     private static final double NETWORK_DROP_RATE_THRESHOLD = 1.0;   // 드롭 패킷률 1%
 
@@ -51,7 +55,7 @@ public class RackMonitoringService {
     private static final double DISK_CRITICAL_THRESHOLD = 90.0;
 
     public RackStatisticsDto calculateRackStatistics(Long rackId) {
-        log.debug("📊 랙 통계 계산 시작: rackId={}", rackId);
+        log.debug("랙 통계 계산 시작: rackId={}", rackId);
 
         Rack rack = rackRepository.findById(rackId)
                 .orElseThrow(() -> new IllegalArgumentException("랙을 찾을 수 없습니다: " + rackId));
@@ -60,7 +64,7 @@ public class RackMonitoringService {
         List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
 
         if (equipments.isEmpty()) {
-            log.debug("⚠️ 랙에 활성 장비가 없습니다: rackId={}", rackId);
+            log.debug("랙에 활성 장비가 없습니다: rackId={}", rackId);
             return createEmptyStatistics(rack, now);
         }
 
@@ -91,12 +95,12 @@ public class RackMonitoringService {
                 .memoryStats(memoryStats)
                 .diskStats(diskStats)
                 .networkStats(networkStats)
-                .isWarning(warningDetails.hasAnyWarning())  // ✅ 경고 플래그 설정
-                .warningDetails(warningDetails)             // ✅ 경고 상세 정보
+                .isWarning(warningDetails.hasAnyWarning())
+                .warningDetails(warningDetails)
                 .build();
     }
 
-    // ✅ 경고 체크 메서드 (네트워크 추가)
+    // 경고 체크 메서드 (네트워크 추가)
     private RackStatisticsDto.WarningDetails checkWarnings(
             RackStatisticsDto.EnvironmentStats environmentStats,
             RackStatisticsDto.CpuStats cpuStats,
@@ -136,15 +140,15 @@ public class RackMonitoringService {
             diskWarning = diskStats.getMaxUsage() > DISK_THRESHOLD;
         }
 
-        // ✅ 네트워크 에러/드롭 체크 추가
+        // 네트워크 에러/드롭 체크 추가
         boolean networkWarning = false;
         if (networkStats.getErrorPacketRate() != null && networkStats.getErrorPacketRate() > NETWORK_ERROR_RATE_THRESHOLD) {
             networkWarning = true;
-            log.warn("⚠️ 네트워크 에러 패킷률 임계치 초과: {}%", networkStats.getErrorPacketRate());
+            log.warn("네트워크 에러 패킷률 임계치 초과: {}%", networkStats.getErrorPacketRate());
         }
         if (networkStats.getDropPacketRate() != null && networkStats.getDropPacketRate() > NETWORK_DROP_RATE_THRESHOLD) {
             networkWarning = true;
-            log.warn("⚠️ 네트워크 드롭 패킷률 임계치 초과: {}%", networkStats.getDropPacketRate());
+            log.warn("네트워크 드롭 패킷률 임계치 초과: {}%", networkStats.getDropPacketRate());
         }
 
         return RackStatisticsDto.WarningDetails.builder()
@@ -309,7 +313,7 @@ public class RackMonitoringService {
             return RackStatisticsDto.SystemLoadStats.builder().equipmentCount(0).build();
         }
 
-        // ✅ 한 번의 루프로 모든 통계 계산
+        // 한 번의 루프로 모든 통계 계산
         double sumLoadAvg1 = 0.0, maxLoadAvg1 = Double.MIN_VALUE;
         double sumLoadAvg5 = 0.0, maxLoadAvg5 = Double.MIN_VALUE;
         double sumLoadAvg15 = 0.0, maxLoadAvg15 = Double.MIN_VALUE;
@@ -528,10 +532,10 @@ public class RackMonitoringService {
         if (totalInPackets > 0) {
             errorPacketRate = (totalInErrors * 100.0 / totalInPackets);
             if (errorPacketRate > 5.0) {
-                log.warn("⚠️ 높은 에러 패킷률 감지: {0}% (에러: {1}, 전체: {2})",
+                log.warn("높은 에러 패킷률 감지: {0}% (에러: {1}, 전체: {2})",
                         String.format("%.2f", errorPacketRate), totalInErrors, totalInPackets);
             } else {
-                log.debug("✅ 정상 에러 패킷률: {0}% (에러: {1}, 전체: {2})",
+                log.debug("정상 에러 패킷률: {0}% (에러: {1}, 전체: {2})",
                         String.format("%.2f", errorPacketRate), totalInErrors, totalInPackets);
             }
         }
@@ -540,10 +544,10 @@ public class RackMonitoringService {
         if (totalOutPackets > 0) {
             dropPacketRate = (totalOutErrors * 100.0 / totalOutPackets);
             if (dropPacketRate > 5.0) {
-                log.warn("⚠️ 높은 드롭 패킷률 감지: {0}% (드롭: {1}, 전체: {2})",
+                log.warn("높은 드롭 패킷률 감지: {0}% (드롭: {1}, 전체: {2})",
                         String.format("%.2f", dropPacketRate), totalOutErrors, totalOutPackets);
             } else {
-                log.debug("✅ 정상 드롭 패킷률: {0}% (드롭: {1}, 전체: {2})",
+                log.debug("정상 드롭 패킷률: {0}% (드롭: {1}, 전체: {2})",
                         String.format("%.2f", dropPacketRate), totalOutErrors, totalOutPackets);
             }
         }
@@ -690,7 +694,7 @@ public class RackMonitoringService {
                         .cpu(false)
                         .memory(false)
                         .disk(false)
-                        .network(false)  // ✅ 네트워크 필드 추가
+                        .network(false)
                         .build())
                 .build();
     }

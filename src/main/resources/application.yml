@@ -1,3 +1,4 @@
+# 작성자 : 황요한
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
@@ -6,34 +7,37 @@ spring:
     password: ${DB_PASSWORD}
 
     hikari:
-      maximum-pool-size: 50
-      minimum-idle: 20
-      connection-timeout: 30000
-      idle-timeout: 300000
-      max-lifetime: 600000
-      keepalive-time: 60000
-      validation-timeout: 5000
+      # HikariCP 커넥션 풀 설정
+      maximum-pool-size: 50         # 최대 커넥션 수
+      minimum-idle: 20              # 최소 유휴 커넥션 수
+      connection-timeout: 30000     # 커넥션 획득 대기 시간
+      idle-timeout: 300000          # idle 커넥션 유지 시간
+      max-lifetime: 600000          # 커넥션 max lifetime
+      keepalive-time: 60000         # KeepAlive 주기
+      validation-timeout: 5000      # Validation timeout
       connection-test-query: SELECT 1
-      leak-detection-threshold: 30000
+      leak-detection-threshold: 30000  # 커넥션 누수 감지 시간
 
   jpa:
+    # Hibernate 및 JPA 설정
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: update              # 스키마 자동 업데이트
+    show-sql: false                 # SQL 출력 여부
     properties:
       hibernate:
-        format_sql: true
-        use_sql_comments: true
+        format_sql: true            # SQL 포맷팅
+        use_sql_comments: true      # SQL 주석 표시
         jdbc:
-          batch_size: 100
-        order_inserts: true
-        order_updates: true
-    open-in-view: false
+          batch_size: 100           # Batch insert/update 크기
+        order_inserts: true         # INSERT 순서 최적화
+        order_updates: true         # UPDATE 순서 최적화
+    open-in-view: false             # OSIV 비활성화(성능 개선)
 
   task:
     execution:
       pool:
+        # @Async 스레드 풀 설정
         core-size: 8
         max-size: 16
         queue-capacity: 200
@@ -43,6 +47,7 @@ spring:
         await-termination-period: 30s
 
     scheduling:
+      # @Scheduled 스레드 풀 설정
       pool:
         size: 10
       thread-name-prefix: scheduler-
@@ -52,45 +57,41 @@ spring:
 
 monitoring:
   simulator:
+    # 모니터링 시뮬레이터 설정
     enabled: true
     interval-seconds: 5000
     device-count: 9
     excluded-equipment-ids: 256,257,258,259
     excluded-rack-ids: 229
+
   scheduler:
-    metrics-interval: 5000         # ✅ 메트릭 수집 간격 5초 고정
-    statistics-interval: 5000      # 통계 수집 간격 5초
-    datacenter-interval: 5000      # 데이터센터 통계 간격 5초
+    # 메트릭 수집/통계 스케줄 주기
+    metrics-interval: 5000
+    statistics-interval: 5000
+    datacenter-interval: 5000
 
 prometheus:
+  # Prometheus 서버 설정
   base-url: http://112.221.184.61:9090
-  timeout: 30s                     # 30초 타임아웃
+  timeout: 30s
   collection:
-    enabled: true
-    interval: 5000                 # ✅ 5초로 고정
+    enabled: true        # Prometheus 수집 활성화
+    interval: 5000       # 수집 간격(ms)
   client:
-    connect-timeout: 10000         # 연결 타임아웃 10초
-    read-timeout: 30000            # 읽기 타임아웃 30초
+    connect-timeout: 10000  # HTTP 연결 Timeout
+    read-timeout: 30000     # 응답 대기 Timeout
 
 jwt:
+  # JWT 인증 설정
   secret: ${JWT_SECRET}
-  access-token-validity: 7200000
-  refresh-token-validity: 604800000
+  access-token-validity: 7200000       # ACCESS TOKEN 2시간
+  refresh-token-validity: 604800000    # REFRESH TOKEN 7일
 
 cookie:
-  secure: true
+  # Cookie 옵션
+  secure: true              # HTTPS에서만 전송
 
-#logging:
-#  level:
-#    root: INFO
-#    org.example.finalbe.domains.prometheus: INFO
-#    org.example.finalbe.domains.monitoring: INFO
-#    org.example.finalbe.domains.alert: INFO
-#    org.hibernate.SQL: WARN
-#    org.hibernate.type.descriptor.sql.BasicBinder: WARN
-#    com.zaxxer.hikari: INFO
-#    org.springframework.scheduling: INFO
-#    reactor.netty: WARN
-
+logging:
+  # 콘솔 로그 포맷 설정
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n"

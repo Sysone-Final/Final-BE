@@ -1,9 +1,10 @@
+/**
+ * 작성자: 황요한
+ * 엔티티를 찾을 수 없을 때 발생하는 예외
+ * HTTP 상태 코드: 404 (Not Found)
+ */
 package org.example.finalbe.domains.common.exception;
 
-/**
- * 엔티티를 찾을 수 없을 때 발생하는 예외
- * HTTP 상태 코드: 404 Not Found
- */
 public class EntityNotFoundException extends RuntimeException {
 
     /**

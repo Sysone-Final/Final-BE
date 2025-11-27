@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 서버실 모니터링용 시뮬레이터 서비스
+ */
 package org.example.finalbe.domains.monitoring.service;
 
 import jakarta.annotation.PostConstruct;
@@ -77,9 +81,11 @@ public class ServerRoomDataSimulator {
 
     private static final double HOURLY_PROBABILITY = 1.0 / 4320.0;
 
+
+    /** 초기 데이터 로드 및 시뮬레이터 준비 */
     @PostConstruct
     public void init() {
-        log.info("🚀 서버실 데이터 시뮬레이터 초기화 시작...");
+        log.info("🚀 서버실 데이터 시뮬레이터 초기화 시작");
 
         // Excluded Equipment IDs 파싱
         if (excludedEquipmentIdsStr != null && !excludedEquipmentIdsStr.trim().isEmpty()) {
@@ -92,9 +98,8 @@ public class ServerRoomDataSimulator {
                 }
             }
         }
-        log.info("🚫 더미 데이터 생성 제외 장비 ID: {}", excludedEquipmentIds);
 
-        // ✅ Excluded Rack IDs 파싱 추가
+        //Excluded Rack IDs 파싱 추가
         if (excludedRackIdsStr != null && !excludedRackIdsStr.trim().isEmpty()) {
             String[] ids = excludedRackIdsStr.split(",");
             for (String id : ids) {
@@ -118,11 +123,9 @@ public class ServerRoomDataSimulator {
                 .filter(r -> DelYN.N.equals(r.getDelYn()))
                 .collect(java.util.stream.Collectors.toCollection(CopyOnWriteArrayList::new));
 
-        log.info("📊 DB에서 로드된 장비 총 개수: {} (랙 배치된 장비만)", activeEquipments.size());
-        log.info("📊 DB에서 로드된 랙 총 개수: {}", activeRacks.size());
 
         if (activeEquipments.isEmpty()) {
-            log.warn("⚠️ DB에 랙에 배치된 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
+            log.warn("DB에 랙에 배치된 장비가 없습니다. 시뮬레이터가 동작하지 않습니다.");
             return;
         }
 
@@ -131,7 +134,7 @@ public class ServerRoomDataSimulator {
             EquipmentType type = equipment.getType();
 
             if (excludedEquipmentIds.contains(equipmentId)) {
-                log.info("⏭️ 장비 ID {}는 실제 Prometheus 데이터 사용 - 더미 생성 제외", equipmentId);
+                log.info("장비 ID {}는 실제 Prometheus 데이터 사용 - 더미 생성 제외", equipmentId);
                 continue;
             }
 
@@ -155,19 +158,17 @@ public class ServerRoomDataSimulator {
                 .filter(e -> !excludedEquipmentIds.contains(e.getId()))
                 .count();
 
-        log.info("✅ 초기화 완료! {}개 장비(랙 배치 + 더미 생성 대상) + {}개 랙 모니터링 시작",
+        log.info("초기화 완료! {}개 장비(랙 배치 + 더미 생성 대상) + {}개 랙 모니터링 시작",
                 activeCount, activeRacks.size());
     }
 
+
+    /** 주기적으로 장비 메트릭 생성 */
     @Scheduled(fixedDelayString = "${monitoring.simulator.interval-seconds:5000}", initialDelay = 2000)
     @Transactional
     public void generateRealtimeMetrics() {
-        log.info("📊 =================================================");
-        log.info("📊 generateRealtimeMetrics 시작");
-        log.info("📊 activeEquipments 총 개수: {}", activeEquipments.size());
-
         if (activeEquipments.isEmpty()) {
-            log.warn("⚠️ activeEquipments가 비어있어서 메트릭 생성 중단!");
+            log.warn("activeEquipments가 비어있어서 메트릭 생성 중단!");
             return;
         }
 
@@ -185,7 +186,7 @@ public class ServerRoomDataSimulator {
         int processed = 0;
         int alertEvaluationCount = 0;
 
-        // ✅ 랙 ID를 수집할 Set 추가
+
         Set<Long> activeRackIds = new HashSet<>();
 
         try {
@@ -201,7 +202,7 @@ public class ServerRoomDataSimulator {
 
                 Long rackId = equipment.getRack().getId();
 
-                // ✅ excluded equipment 또는 excluded rack이 아닌 경우만 activeRackIds에 추가
+                // excluded equipment 또는 excluded rack이 아닌 경우만 activeRackIds에 추가
                 if (!excludedEquipmentIds.contains(equipmentId) && !excludedRackIds.contains(rackId)) {
                     activeRackIds.add(rackId);
                 }
@@ -284,14 +285,10 @@ public class ServerRoomDataSimulator {
                             equipmentId, nics != null ? nics.size() : 0);
                 }
 
-                // ❌ 기존의 ENVIRONMENTAL_SENSOR 타입 체크 로직 삭제
+
             }
 
-            // 🌡️ 환경 메트릭 생성 (랙별)
-            log.info("🌡️ 환경 메트릭 생성 시작 - 활성 랙 개수: {}", activeRackIds.size());
-
             for (Long rackId : activeRackIds) {
-                // ✅ excluded rack 체크 (안전장치)
                 if (excludedRackIds.contains(rackId)) {
                     log.debug("⏭️ 랙 ID {} 환경 메트릭 생성 건너뜀 (excluded)", rackId);
                     continue;
@@ -339,43 +336,29 @@ public class ServerRoomDataSimulator {
 
             maybeUpdateAnomalies();
 
-            long duration = System.currentTimeMillis() - startTime;
-
-            log.info("📊 메트릭 생성 완료:");
-            log.info("  - 전체 장비: {}", activeEquipments.size());
-            log.info("  - Excluded 제외: {}", skippedExcluded);
-            log.info("  - 삭제됨 제외: {}", skippedDeleted);
-            log.info("  - 랙 미배치 제외: {}", skippedNoRack);
-            log.info("  - 실제 처리: {}", processed);
-            log.info("  - 활성 랙: {}", activeRackIds.size());
-            log.info("  - System 메트릭: {}", systemMetricsToSave.size());
-            log.info("  - Disk 메트릭: {}", diskMetricsToSave.size());
-            log.info("  - Network 메트릭: {}", networkMetricsToSave.size());
-            log.info("  - Environment 메트릭: {}", environmentMetricsToSave.size());
-
             int totalMetrics = systemMetricsToSave.size() + diskMetricsToSave.size() +
                     networkMetricsToSave.size() + environmentMetricsToSave.size();
             if (totalMetrics > 0) {
-                log.info("  ✅ 알림 평가 실행: {} 건 (전체 메트릭의 {}%)",
+                log.info(" 알림 평가 실행: {} 건 (전체 메트릭의 {}%)",
                         alertEvaluationCount,
                         String.format("%.1f", alertEvaluationCount * 100.0 / totalMetrics));
             }
 
-            log.info("🚀 SSE 전송 완료 & DB 작업 할당 끝: {}ms 소요", duration);
-            log.info("📊 =================================================");
 
         } catch (Exception e) {
-            log.error("❌ 메트릭 생성 중 오류 발생", e);
+            log.error(" 메트릭 생성 중 오류 발생", e);
         }
     }
 
+
+    /** 시뮬레이터에 장비 추가 */
     public void addEquipment(Equipment equipment) {
         if (equipment == null) {
             log.warn("⚠️ addEquipment: equipment가 null입니다.");
             return;
         }
 
-        // ✅ 랙 배치 여부 체크
+        // 랙 배치 여부 체크
         if (equipment.getRack() == null) {
             log.info("⊘ 장비 ID {}는 랙에 배치되지 않아 시뮬레이터에 등록하지 않습니다.", equipment.getId());
             return;
@@ -691,11 +674,10 @@ public class ServerRoomDataSimulator {
         metric.setInPktsTot(newInPackets);
         metric.setOutPktsTot(newOutPackets);
 
-        // ✅ 초당 패킷 수
+        // 초당 패킷 수
         metric.setInPktsPerSec((double) inPacketsInc / 15.0);
         metric.setOutPktsPerSec((double) outPacketsInc / 15.0);
 
-        // ==================== 바이트 처리 (추가) ====================
         long prevInBytes = cumulativeInBytes.getOrDefault(key, 0L);
         long prevOutBytes = cumulativeOutBytes.getOrDefault(key, 0L);
 
@@ -1174,7 +1156,7 @@ public class ServerRoomDataSimulator {
                 .build();
 
         // 온도
-        double baseTemp = 22 + rand.nextDouble() * 4;  // 22~26°C
+        double baseTemp = 22 + rand.nextDouble() * 4;
         double temperature = state.hasTemperatureAnomaly ?
                 Math.min(35, baseTemp + 8 + rand.nextDouble() * 5) : baseTemp;
 

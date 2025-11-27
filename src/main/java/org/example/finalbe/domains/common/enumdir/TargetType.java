@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 알림 대상 타입 열거형
+ */
 package org.example.finalbe.domains.common.enumdir;
 
 public enum TargetType {

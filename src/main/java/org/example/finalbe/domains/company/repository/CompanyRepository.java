@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * Company 데이터 접근 계층
+ */
 package org.example.finalbe.domains.company.repository;
 
 import org.example.finalbe.domains.company.domain.Company;
@@ -9,9 +13,6 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Company 데이터 접근 계층
- */
 public interface CompanyRepository extends JpaRepository<Company, Long> {
 
     /**

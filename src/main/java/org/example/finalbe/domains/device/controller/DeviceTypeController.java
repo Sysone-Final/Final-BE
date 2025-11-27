@@ -1,3 +1,8 @@
+/**
+ * 작성자: 황요한
+ * 장치 타입 컨트롤러
+ * - 장치 타입 목록 조회 API 제공
+ */
 package org.example.finalbe.domains.device.controller;
 
 import lombok.RequiredArgsConstructor;
@@ -11,10 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * 장치 타입 컨트롤러
- * 장치 타입 조회 API 제공
- */
 @RestController
 @RequestMapping("/api/device-types")
 @RequiredArgsConstructor
@@ -24,7 +25,7 @@ public class DeviceTypeController {
     private final DeviceTypeService deviceTypeService;
 
     /**
-     * 모든 장치 타입 조회
+     * 장치 타입 전체 조회
      * GET /api/device-types
      *
      * @return 장치 타입 목록
@@ -32,7 +33,13 @@ public class DeviceTypeController {
     @GetMapping
     public ResponseEntity<CommonResDto> getAllDeviceTypes() {
         List<DeviceTypeListResponse> deviceTypes = deviceTypeService.getAllDeviceTypes();
-        return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "장치 타입 목록 조회 완료", deviceTypes));
+
+        CommonResDto response = new CommonResDto(
+                HttpStatus.OK,
+                "장치 타입 목록 조회 완료",
+                deviceTypes
+        );
+
+        return ResponseEntity.ok(response);
     }
 }

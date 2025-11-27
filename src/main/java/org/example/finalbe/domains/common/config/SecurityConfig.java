@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * Spring Security 설정 클래스
+ */
 package org.example.finalbe.domains.common.config;
 
 import lombok.RequiredArgsConstructor;
@@ -32,7 +36,6 @@ public class SecurityConfig {
 
     @PostConstruct
     public void init() {
-        // 비동기 요청 및 SSE에서도 SecurityContext가 전파되도록 설정
         SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
     }
 
@@ -49,7 +52,6 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             String contentType = request.getHeader("Accept");
 
-                            // SSE 요청인 경우 응답 커밋 방지
                             if (contentType != null && contentType.contains("text/event-stream")) {
                                 if (!response.isCommitted()) {
                                     response.setStatus(HttpStatus.UNAUTHORIZED.value());
@@ -60,7 +62,6 @@ public class SecurityConfig {
                                 return;
                             }
 
-                            // 일반 REST API 요청
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json;charset=UTF-8");
                             response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"인증이 필요합니다.\"}");
@@ -68,7 +69,6 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             String contentType = request.getHeader("Accept");
 
-                            // SSE 요청인 경우
                             if (contentType != null && contentType.contains("text/event-stream")) {
                                 if (!response.isCommitted()) {
                                     response.setStatus(HttpStatus.FORBIDDEN.value());
@@ -79,7 +79,6 @@ public class SecurityConfig {
                                 return;
                             }
 
-                            // 일반 REST API 요청
                             response.setStatus(HttpStatus.FORBIDDEN.value());
                             response.setContentType("application/json;charset=UTF-8");
                             response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"접근 권한이 없습니다.\"}");

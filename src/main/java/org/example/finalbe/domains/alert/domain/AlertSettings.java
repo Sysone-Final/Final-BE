@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 알림 관련 기본 임계치 및 설정값을 저장하는 엔티티
+ */
 package org.example.finalbe.domains.alert.domain;
 
 import jakarta.persistence.*;
@@ -19,35 +23,34 @@ public class AlertSettings {
     @Column(name = "setting_id")
     private Long id;
 
-    @Column(name = "default_consecutive_count", nullable = false)
+    // 기본 연속 발생 횟수
+    @Column(nullable = false)
     @Builder.Default
     private Integer defaultConsecutiveCount = 3;
 
-    @Column(name = "default_cooldown_minutes", nullable = false)
+    // 기본 쿨다운 시간 (분)
+    @Column(nullable = false)
     @Builder.Default
     private Integer defaultCooldownMinutes = 10;
 
-    @Column(name = "network_error_rate_warning")
+    // 네트워크 에러율 기준
     @Builder.Default
     private Double networkErrorRateWarning = 0.1;
 
-    @Column(name = "network_error_rate_critical")
     @Builder.Default
     private Double networkErrorRateCritical = 1.0;
 
-    @Column(name = "network_drop_rate_warning")
+    // 네트워크 드롭율 기준
     @Builder.Default
     private Double networkDropRateWarning = 0.1;
 
-    @Column(name = "network_drop_rate_critical")
     @Builder.Default
     private Double networkDropRateCritical = 1.0;
 
-    @Column(name = "created_at")
+    // 생성/수정 시간
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "updated_at")
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 }

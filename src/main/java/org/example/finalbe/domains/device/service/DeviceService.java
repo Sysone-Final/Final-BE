@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장치 서비스 클래스
+ */
 package org.example.finalbe.domains.device.service;
 
 import lombok.RequiredArgsConstructor;
@@ -34,10 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 장치 서비스
- * 서버실 내 장치의 생성, 조회, 수정, 삭제 처리
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -53,30 +53,28 @@ public class DeviceService {
     private final DeviceHistoryRecorder deviceHistoryRecorder;
     private final EquipmentRepository equipmentRepository;
 
+    /**
+     * 서버실별 장치 목록 조회
+     */
     public ServerRoomDeviceListResponse getDevicesByServerRoom(Long serverRoomId) {
         log.info("Fetching devices for serverroom: {}", serverRoomId);
 
-        // 서버실 조회
         ServerRoom serverRoom = serverRoomRepository.findActiveById(serverRoomId)
                 .orElseThrow(() -> new EntityNotFoundException("서버실", serverRoomId));
 
-        // 장치 목록 조회
         List<Device> devices = deviceRepository.findByServerRoomIdOrderByPosition(
                 serverRoomId, DelYN.N);
-
 
         List<Equipment> equipments = equipmentRepository.findByServerRoomIdAndDelYn(
                 serverRoomId, DelYN.N);
         Integer totalEquipmentCount = equipments.size();
 
-        // 1) server 타입 device들의 rackId 수집
         List<Long> rackIds = devices.stream()
                 .filter(device -> device.getRack() != null)
                 .map(device -> device.getRack().getId())
                 .distinct()
                 .collect(Collectors.toList());
 
-        // 2) 한 번의 쿼리로 모든 랙의 장비 개수 조회
         Map<Long, Long> equipmentCountMap = new HashMap<>();
         if (!rackIds.isEmpty()) {
             List<EquipmentRepository.RackEquipmentCount> counts =
@@ -87,7 +85,6 @@ public class DeviceService {
             }
         }
 
-        // DTO 변환 (각 device에 장비 개수 포함)
         ServerRoomInfo serverRoomInfo = ServerRoomInfo.from(serverRoom);
         List<DeviceSimpleInfo> deviceInfos = devices.stream()
                 .map(device -> {
@@ -105,6 +102,7 @@ public class DeviceService {
 
         return ServerRoomDeviceListResponse.of(serverRoomInfo, deviceInfos, totalEquipmentCount);
     }
+
     /**
      * 장치 상세 조회
      */
@@ -153,7 +151,6 @@ public class DeviceService {
             rack = rackRepository.findActiveById(request.rackId())
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
 
-            // Rack에 이미 활성 장치가 있는지 확인 (1:1 관계 검증)
             if (deviceRepository.existsActiveDeviceByRackId(request.rackId())) {
                 throw new BusinessException("이미 다른 장치가 해당 랙에 배치되어 있습니다. 한 랙에는 하나의 장치만 배치할 수 있습니다.");
             }
@@ -162,7 +159,6 @@ public class DeviceService {
         Device device = request.toEntity(deviceType, serverRoom, rack);
         Device savedDevice = deviceRepository.save(device);
 
-        // 히스토리 기록
         deviceHistoryRecorder.recordCreate(savedDevice, currentMember);
 
         log.info("Device created successfully with id: {}", savedDevice.getId());
@@ -183,7 +179,6 @@ public class DeviceService {
         Device device = deviceRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
-        // 수정 전 스냅샷 저장 (히스토리용)
         Device oldDevice = cloneDevice(device);
 
         if (request.deviceName() != null) {
@@ -226,9 +221,7 @@ public class DeviceService {
             Rack rack = rackRepository.findActiveById(request.rackId())
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
 
-            // 다른 Rack으로 변경하는 경우, 해당 Rack에 이미 장치가 있는지 확인
             if (device.getRack() == null || !device.getRack().getId().equals(request.rackId())) {
-                // Rack에 이미 다른 활성 장치가 있는지 확인 (현재 장치 제외)
                 if (deviceRepository.existsActiveDeviceByRackIdExcludingDevice(request.rackId(), id)) {
                     throw new BusinessException("이미 다른 장치가 해당 랙에 배치되어 있습니다. 한 랙에는 하나의 장치만 배치할 수 있습니다.");
                 }
@@ -237,7 +230,6 @@ public class DeviceService {
             device.setRack(rack);
         }
 
-        // 히스토리 기록
         deviceHistoryRecorder.recordUpdate(oldDevice, device, currentMember);
 
         log.info("Device updated successfully");
@@ -258,7 +250,6 @@ public class DeviceService {
         Device device = deviceRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
-        // 이전 위치 저장
         String oldPosition = String.format("(%d, %d, %d) rotation: %d",
                 device.getGridY(), device.getGridX(), device.getGridZ(), device.getRotation());
 
@@ -269,11 +260,9 @@ public class DeviceService {
                 request.rotation() != null ? request.rotation() : 0
         );
 
-        // 새 위치
         String newPosition = String.format("(%d, %d, %d) rotation: %d",
                 device.getGridY(), device.getGridX(), device.getGridZ(), device.getRotation());
 
-        // 히스토리 기록
         deviceHistoryRecorder.recordMove(device, oldPosition, newPosition, currentMember);
 
         log.info("Device position updated successfully");
@@ -295,12 +284,10 @@ public class DeviceService {
         Device device = deviceRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("장치", id));
 
-        // 이전 상태 저장
         String oldStatus = device.getStatus() != null ? device.getStatus().name() : "UNKNOWN";
 
         device.changeStatus(DeviceStatus.valueOf(request.status()), request.reason());
 
-        // 히스토리 기록
         deviceHistoryRecorder.recordStatusChange(device, oldStatus, request.status(), currentMember);
 
         log.info("Device status changed successfully");
@@ -323,14 +310,14 @@ public class DeviceService {
 
         device.softDelete();
 
-        // 히스토리 기록
         deviceHistoryRecorder.recordDelete(device, currentMember);
 
         log.info("Device soft deleted successfully");
     }
 
-    // === Private Helper Methods ===
-
+    /**
+     * 현재 로그인한 사용자 조회
+     */
     private Member getCurrentMember() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -352,12 +339,18 @@ public class DeviceService {
         }
     }
 
+    /**
+     * 쓰기 권한 확인
+     */
     private void validateWritePermission(Member member) {
         if (member.getRole() == Role.VIEWER) {
             throw new AccessDeniedException("조회 권한만 있습니다. 수정 권한이 필요합니다.");
         }
     }
 
+    /**
+     * 장치 접근 권한 확인
+     */
     private void validateDeviceAccess(Member member, Long deviceId) {
         if (member.getRole() == Role.ADMIN) {
             return;
@@ -377,6 +370,9 @@ public class DeviceService {
         }
     }
 
+    /**
+     * 장치 복제 (히스토리 기록용)
+     */
     private Device cloneDevice(Device device) {
         return Device.builder()
                 .id(device.getId())

@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * CompanyServerRoom 데이터 접근 계층
+ */
 package org.example.finalbe.domains.companyserverroom.repository;
 
 import org.example.finalbe.domains.common.enumdir.DelYN;
@@ -9,14 +13,10 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * CompanyServerRoom 데이터 접근 계층
- * (회사-서버실 매핑)
- */
 public interface CompanyServerRoomRepository extends JpaRepository<CompanyServerRoom, Long> {
 
     /**
-     * 회사별 서버실 매핑 목록 조회 (서버실 및 데이터센터의 delYn도 체크)
+     * 회사별 서버실 매핑 목록 조회
      */
     @Query("""
     SELECT csr FROM CompanyServerRoom csr
@@ -31,7 +31,7 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     List<CompanyServerRoom> findByCompanyId(@Param("companyId") Long companyId);
 
     /**
-     * 서버실별 회사 매핑 목록 조회 (서버실 및 데이터센터의 delYn도 체크)
+     * 서버실별 회사 매핑 목록 조회
      */
     @Query("""
     SELECT csr FROM CompanyServerRoom csr
@@ -46,7 +46,7 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     List<CompanyServerRoom> findByServerRoomId(@Param("serverRoomId") Long serverRoomId);
 
     /**
-     * 특정 회사-서버실 매핑 조회 (서버실 및 데이터센터의 delYn도 체크)
+     * 특정 회사-서버실 매핑 조회
      */
     @Query("""
     SELECT csr FROM CompanyServerRoom csr
@@ -65,7 +65,7 @@ public interface CompanyServerRoomRepository extends JpaRepository<CompanyServer
     );
 
     /**
-     * 회사-서버실 매핑 존재 확인 (접근 권한 체크용)
+     * 회사-서버실 매핑 존재 확인
      */
     @Query("""
     SELECT CASE WHEN COUNT(csr) > 0 THEN true ELSE false END

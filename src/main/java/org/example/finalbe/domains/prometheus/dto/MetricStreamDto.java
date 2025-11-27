@@ -1,7 +1,9 @@
+// 작성자: 황요한
+// Prometheus → SSE 스트림 전송용 변환 DTO
+
 package org.example.finalbe.domains.prometheus.dto;
 
 import lombok.Builder;
-
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -15,6 +17,7 @@ public record MetricStreamDto(
         NetworkMetricDto network,
         EnvironmentMetricDto environment
 ) {
+
     @Builder
     public record SystemMetricDto(
             Map<String, Double> cpu,
@@ -77,21 +80,27 @@ public record MetricStreamDto(
             Double humidity
     ) {}
 
-    public static MetricStreamDto from(org.example.finalbe.domains.prometheus.dto.MetricRawData raw) {
+    /**
+     * Raw → Stream 변환
+     */
+    public static MetricStreamDto from(MetricRawData raw) {
         return MetricStreamDto.builder()
                 .equipmentId(raw.getEquipmentId())
                 .instance(raw.getInstance())
                 .timestamp(raw.getTimestamp() != null
-                        ? LocalDateTime.ofInstant(
-                        java.time.Instant.ofEpochSecond(raw.getTimestamp()),
-                        java.time.ZoneId.systemDefault())
-                        : LocalDateTime.now())
+                                ? LocalDateTime.ofInstant(
+                                java.time.Instant.ofEpochSecond(raw.getTimestamp()),
+                                java.time.ZoneId.systemDefault()
+                        )
+                                : LocalDateTime.now()
+                )
                 .system(SystemMetricDto.builder()
                         .cpu(raw.getCpuModes())
                         .memory(MemoryDto.builder()
                                 .total(raw.getTotalMemory())
                                 .used(raw.getTotalMemory() != null && raw.getFreeMemory() != null
-                                        ? raw.getTotalMemory() - raw.getFreeMemory() : null)
+                                        ? raw.getTotalMemory() - raw.getFreeMemory()
+                                        : null)
                                 .free(raw.getFreeMemory())
                                 .usedPercentage(raw.getTotalMemory() != null && raw.getTotalMemory() > 0
                                         && raw.getFreeMemory() != null
@@ -100,7 +109,7 @@ public record MetricStreamDto(
                                 .build())
                         .swap(SwapDto.builder()
                                 .total(raw.getTotalSwap())
-                                .used(raw.getUsedSwap())  // ✅ getFreeSwap() → getUsedSwap()
+                                .used(raw.getUsedSwap())
                                 .usedPercentage(raw.getTotalSwap() != null && raw.getTotalSwap() > 0
                                         && raw.getUsedSwap() != null
                                         ? (raw.getUsedSwap() * 100.0) / raw.getTotalSwap()
@@ -114,9 +123,9 @@ public record MetricStreamDto(
                         .contextSwitches(raw.getContextSwitches())
                         .build())
                 .disk(DiskMetricDto.builder()
-                        .totalBytes(raw.getTotalDisk())       // ✅ getDiskTotalBytes() → getTotalDisk()
-                        .usedBytes(raw.getUsedDisk())         // ✅ getDiskUsedBytes() → getUsedDisk()
-                        .freeBytes(raw.getFreeDisk())         // ✅ getDiskFreeBytes() → getFreeDisk()
+                        .totalBytes(raw.getTotalDisk())
+                        .usedBytes(raw.getUsedDisk())
+                        .freeBytes(raw.getFreeDisk())
                         .usedPercentage(raw.getTotalDisk() != null && raw.getTotalDisk() > 0
                                 && raw.getUsedDisk() != null
                                 ? (raw.getUsedDisk() * 100.0) / raw.getTotalDisk()
@@ -136,7 +145,7 @@ public record MetricStreamDto(
                         .build())
                 .environment(EnvironmentMetricDto.builder()
                         .temperature(raw.getTemperature())
-                        .humidity(null)
+                        .humidity(null) // Prometheus에 아직 없음
                         .build())
                 .build();
     }

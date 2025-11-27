@@ -1,3 +1,10 @@
+/**
+ * 작성자: 황요한
+ * 회사(Company) 엔티티
+ * - 회사 기본 정보 관리
+ * - Soft Delete(논리 삭제) 지원
+ * - 부분 수정(updateInfo) 기능 제공
+ */
 package org.example.finalbe.domains.company.domain;
 
 import jakarta.persistence.*;
@@ -8,15 +15,14 @@ import lombok.NoArgsConstructor;
 import org.example.finalbe.domains.common.domain.BaseTimeEntity;
 import org.example.finalbe.domains.common.enumdir.DelYN;
 
-/**
- * 회사 엔티티
- */
 @Entity
-@Table(name = "company",
+@Table(
+        name = "company",
         indexes = {
                 @Index(name = "idx_company_name", columnList = "name"),
                 @Index(name = "idx_company_code", columnList = "code")
-        })
+        }
+)
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -58,7 +64,6 @@ public class Company extends BaseTimeEntity {
     @Column(name = "industry", length = 100)
     private String industry; // 업종
 
-
     @Column(name = "description", columnDefinition = "TEXT")
     private String description; // 회사 설명
 
@@ -77,7 +82,8 @@ public class Company extends BaseTimeEntity {
     private DelYN delYn = DelYN.N; // 삭제 여부 (N: 정상, Y: 삭제)
 
     /**
-     * 회사 정보 수정 (부분 수정 지원)
+     * 회사 정보 부분 수정
+     * null 또는 빈 값("")은 무시하고 기존 값 유지
      */
     public void updateInfo(
             String name,
@@ -94,45 +100,19 @@ public class Company extends BaseTimeEntity {
             String establishedDate,
             String logoUrl
     ) {
-        if (name != null && !name.trim().isEmpty()) {
-            this.name = name;
-        }
-        if (businessNumber != null && !businessNumber.trim().isEmpty()) {
-            this.businessNumber = businessNumber;
-        }
-        if (ceoName != null && !ceoName.trim().isEmpty()) {
-            this.ceoName = ceoName;
-        }
-        if (phone != null && !phone.trim().isEmpty()) {
-            this.phone = phone;
-        }
-        if (fax != null && !fax.trim().isEmpty()) {
-            this.fax = fax;
-        }
-        if (email != null && !email.trim().isEmpty()) {
-            this.email = email;
-        }
-        if (address != null && !address.trim().isEmpty()) {
-            this.address = address;
-        }
-        if (website != null && !website.trim().isEmpty()) {
-            this.website = website;
-        }
-        if (industry != null && !industry.trim().isEmpty()) {
-            this.industry = industry;
-        }
-        if (description != null && !description.trim().isEmpty()) {
-            this.description = description;
-        }
-        if (employeeCount != null) {
-            this.employeeCount = employeeCount;
-        }
-        if (establishedDate != null && !establishedDate.trim().isEmpty()) {
-            this.establishedDate = establishedDate;
-        }
-        if (logoUrl != null && !logoUrl.trim().isEmpty()) {
-            this.logoUrl = logoUrl;
-        }
+        if (isValid(name)) this.name = name;
+        if (isValid(businessNumber)) this.businessNumber = businessNumber;
+        if (isValid(ceoName)) this.ceoName = ceoName;
+        if (isValid(phone)) this.phone = phone;
+        if (isValid(fax)) this.fax = fax;
+        if (isValid(email)) this.email = email;
+        if (isValid(address)) this.address = address;
+        if (isValid(website)) this.website = website;
+        if (isValid(industry)) this.industry = industry;
+        if (isValid(description)) this.description = description;
+        if (employeeCount != null) this.employeeCount = employeeCount;
+        if (isValid(establishedDate)) this.establishedDate = establishedDate;
+        if (isValid(logoUrl)) this.logoUrl = logoUrl;
     }
 
     /**
@@ -143,9 +123,16 @@ public class Company extends BaseTimeEntity {
     }
 
     /**
-     * 삭제된 회사 복구
+     * 삭제 복구
      */
     public void restore() {
         this.delYn = DelYN.N;
+    }
+
+    /**
+     * 문자열 유효성 체크 (null 또는 공백은 false)
+     */
+    private boolean isValid(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장비 서비스 클래스
+ */
 package org.example.finalbe.domains.equipment.service;
 
 import lombok.RequiredArgsConstructor;
@@ -30,9 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * 장비 서비스
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -48,8 +49,7 @@ public class EquipmentService {
     private final EquipmentMappingService equipmentMappingService;
 
     /**
-     * 메인 조회: 페이지네이션 + 전체 필터
-     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=&onlyUnassigned=
+     * 장비 목록 조회 (페이지네이션 + 필터)
      */
     public EquipmentPageResponse getEquipmentsWithFilters(
             int page, int size, String keyword, EquipmentType type, EquipmentStatus status,
@@ -65,12 +65,10 @@ public class EquipmentService {
         Page<Equipment> equipmentPage;
 
         if (currentMember.getRole() == Role.ADMIN) {
-            // ADMIN은 전체 조회
             equipmentPage = equipmentRepository.searchEquipmentsWithFilters(
                     keyword, type, status, serverRoomId, onlyUnassigned, DelYN.N, pageable);
             log.info("Admin user - fetched {} equipments", equipmentPage.getTotalElements());
         } else {
-            // 일반 사용자는 자기 회사 장비만 조회
             Long companyId = currentMember.getCompany().getId();
             equipmentPage = equipmentRepository.searchEquipmentsWithFiltersByCompany(
                     keyword, type, status, serverRoomId, onlyUnassigned, companyId, DelYN.N, pageable);
@@ -84,7 +82,7 @@ public class EquipmentService {
     }
 
     /**
-     * 랙별 장비 목록 조회 (랙 정보 포함)
+     * 랙별 장비 목록 조회
      */
     public RackWithEquipmentsResponse getEquipmentsByRack(
             Long rackId, String status, String type, String sortBy) {
@@ -95,14 +93,11 @@ public class EquipmentService {
             throw new IllegalArgumentException("유효하지 않은 랙 ID입니다.");
         }
 
-        // 랙 정보 조회
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
-        // 장비 목록 조회
         List<Equipment> equipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
 
-        // 필터링 및 정렬
         List<EquipmentListResponse> equipmentResponses = equipments.stream()
                 .filter(eq -> status == null || eq.getStatus().name().equals(status))
                 .filter(eq -> type == null || eq.getType().name().equals(type))
@@ -196,7 +191,6 @@ public class EquipmentService {
 
     /**
      * 장비 생성
-     * ✅ 수정: 랙에 배치된 경우에만 Simulator에 등록
      */
     @Transactional
     public EquipmentDetailResponse createEquipment(EquipmentCreateRequest request) {
@@ -209,13 +203,11 @@ public class EquipmentService {
             throw new IllegalArgumentException("장비명을 입력해주세요.");
         }
 
-        // 랙은 선택적으로 설정 가능
         Rack rack = null;
         if (request.rackId() != null && request.rackId() > 0) {
             rack = rackRepository.findActiveById(request.rackId())
                     .orElseThrow(() -> new EntityNotFoundException("랙", request.rackId()));
 
-            // 랙이 있을 때만 권한 확인
             if (currentMember.getRole() != Role.ADMIN) {
                 Long serverRoomId = rack.getServerRoom().getId();
                 Long companyId = currentMember.getCompany().getId();
@@ -237,19 +229,15 @@ public class EquipmentService {
 
         Equipment equipment = request.toEntity(rack);
 
-        // 회사 ID 자동 설정
         equipment.setCompanyId(currentMember.getCompany().getId());
 
         Equipment savedEquipment = equipmentRepository.save(equipment);
 
-        // ✅ 수정: 랙이 있을 때만 메트릭 수집 시작
         if (rack != null) {
             rack.placeEquipment(savedEquipment, request.startUnit(), request.unitSize());
 
-            // Prometheus 매핑 추가
             equipmentMappingService.addEquipmentMapping(savedEquipment);
 
-            // ✅ 수정: Simulator 등록 (랙 배치 필수 - addEquipment 내부에서 체크됨)
             if (savedEquipment.getType() == EquipmentType.SERVER ||
                     savedEquipment.getType() == EquipmentType.STORAGE) {
                 try {
@@ -275,7 +263,6 @@ public class EquipmentService {
 
     /**
      * 장비 수정
-     * ✅ 수정: 랙 변경 시 Simulator 등록/제거 처리
      */
     @Transactional
     public EquipmentDetailResponse updateEquipment(Long id, EquipmentUpdateRequest request) {
@@ -304,13 +291,10 @@ public class EquipmentService {
             }
         }
 
-        // === 수정 전 상태 저장 ===
         Equipment oldEquipment = cloneEquipment(equipment);
-
 
         Long oldRackId = equipment.getRack() != null ? equipment.getRack().getId() : null;
 
-        // === 상태 변경 감지 ===
         boolean isStatusChanged = false;
         String oldStatus = null;
         String newStatus = null;
@@ -321,7 +305,6 @@ public class EquipmentService {
             isStatusChanged = !Objects.equals(oldStatus, newStatus);
         }
 
-        // === 장비 정보 업데이트 ===
         equipment.updateInfo(
                 request.equipmentName(),
                 request.equipmentCode(),
@@ -351,19 +334,15 @@ public class EquipmentService {
 
         Equipment updatedEquipment = equipmentRepository.save(equipment);
 
-
         Long newRackId = updatedEquipment.getRack() != null ? updatedEquipment.getRack().getId() : null;
         boolean rackChanged = !Objects.equals(oldRackId, newRackId);
 
         if (rackChanged) {
-            // Prometheus 매핑 업데이트
             equipmentMappingService.updateEquipmentMapping(updatedEquipment);
-
 
             EquipmentType type = updatedEquipment.getType();
             if (type == EquipmentType.SERVER || type == EquipmentType.STORAGE) {
                 if (newRackId != null) {
-                    // 랙에 배치됨 → Simulator에 추가
                     try {
                         serverRoomDataSimulator.addEquipment(updatedEquipment);
                         log.info("✅ 장비가 랙에 배치되어 메트릭 수집 시작 (Equipment ID: {}, Rack ID: {})",
@@ -372,7 +351,6 @@ public class EquipmentService {
                         log.error("⚠️ 시뮬레이터 등록 실패: {}", e.getMessage());
                     }
                 } else {
-                    // 랙에서 제거됨 → Simulator에서 제거
                     try {
                         serverRoomDataSimulator.removeEquipment(id);
                         log.info("⊘ 장비가 랙에서 제거되어 메트릭 수집 중단 (Equipment ID: {})", id);
@@ -383,7 +361,6 @@ public class EquipmentService {
             }
         }
 
-        // === 히스토리 기록 ===
         if (isStatusChanged) {
             equipmentHistoryRecorder.recordStatusChange(
                     updatedEquipment, oldStatus, newStatus, currentMember);
@@ -419,16 +396,13 @@ public class EquipmentService {
 
         Rack rack = equipment.getRack();
         if (rack != null) {
-            // 유닛 해제
             rack.releaseUnits(equipment.getUnitSize());
 
-            // 전력 사용량 차감
             if (equipment.getPowerConsumption() != null) {
                 rack.subtractPowerUsage(equipment.getPowerConsumption());
             }
         }
 
-        // ✅ 추가: 메트릭 수집 매핑 제거
         equipmentMappingService.removeEquipmentMapping(id);
         log.info("✅ 장비 삭제로 메트릭 수집 중단 (Equipment ID: {})", id);
 
@@ -441,7 +415,6 @@ public class EquipmentService {
 
     /**
      * 장비 대량 삭제
-     * DELETE /api/equipments with body {ids: [1,2,3]}
      */
     @Transactional
     public void deleteMultipleEquipments(List<Long> ids) {
@@ -467,8 +440,6 @@ public class EquipmentService {
 
     /**
      * 장비 대량 상태 변경
-     * PUT /api/equipments/status
-     * Body: {"ids": [1, 2, 3], "status": "MAINTENANCE"}
      */
     @Transactional
     public EquipmentStatusBulkUpdateResponse updateMultipleEquipmentStatus(
@@ -488,7 +459,6 @@ public class EquipmentService {
             throw new IllegalArgumentException("변경할 상태를 입력해주세요.");
         }
 
-        // 상태 값 유효성 검증
         EquipmentStatus newStatus;
         try {
             newStatus = EquipmentStatus.valueOf(request.status().toUpperCase());
@@ -501,10 +471,8 @@ public class EquipmentService {
 
         for (Long equipmentId : request.ids()) {
             try {
-                // 권한 확인
                 validateEquipmentAccess(currentMember, equipmentId);
 
-                // 장비 조회
                 Equipment equipment = equipmentRepository.findById(equipmentId)
                         .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
@@ -514,14 +482,11 @@ public class EquipmentService {
                     continue;
                 }
 
-                // 상태 변경 전 값 저장
                 String oldStatus = equipment.getStatus() != null ? equipment.getStatus().name() : null;
 
-                // 상태 변경
                 equipment.setStatus(newStatus);
                 equipmentRepository.save(equipment);
 
-                // 히스토리 기록
                 equipmentHistoryRecorder.recordStatusChange(
                         equipment, newStatus.name(), oldStatus, currentMember);
 
@@ -545,7 +510,7 @@ public class EquipmentService {
                         failedIds.stream()
                                 .map(id -> EquipmentStatusBulkUpdateResponse.FailedEquipment.builder()
                                         .equipmentId(id)
-                                        .equipmentName(null)   // 필요하면 조회해서 채우기
+                                        .equipmentName(null)
                                         .reason("상태 변경 실패")
                                         .build())
                                 .toList()
@@ -554,8 +519,9 @@ public class EquipmentService {
 
     }
 
-    // ========== Private 헬퍼 메서드 ==========
-
+    /**
+     * 현재 로그인한 사용자 조회
+     */
     private Member getCurrentMember() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -577,12 +543,18 @@ public class EquipmentService {
         }
     }
 
+    /**
+     * 쓰기 권한 확인
+     */
     private void validateWritePermission(Member member) {
         if (member.getRole() != Role.ADMIN && member.getRole() != Role.OPERATOR) {
             throw new AccessDeniedException("장비를 생성/수정할 권한이 없습니다.");
         }
     }
 
+    /**
+     * 삭제 권한 확인
+     */
     private void validateDeletePermission(Member member) {
         if (member.getRole() != Role.ADMIN) {
             throw new AccessDeniedException("장비를 삭제할 권한이 없습니다.");
@@ -590,29 +562,25 @@ public class EquipmentService {
     }
 
     /**
-     * 장비 접근 권한 검증 (CompanyServerRoom 기반)
+     * 장비 접근 권한 검증
      */
     private void validateEquipmentAccess(Member member, Long equipmentId) {
         if (member.getRole() == Role.ADMIN) {
-            return; // ADMIN은 모든 장비 접근 가능
+            return;
         }
 
         Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        // 장비가 랙에 속하지 않은 경우 (미배정 장비)
         if (equipment.getRack() == null) {
-            // 미배정 장비는 같은 회사 소속이면 접근 가능
             if (!Objects.equals(equipment.getCompanyId(), member.getCompany().getId())) {
                 throw new AccessDeniedException("해당 장비에 대한 접근 권한이 없습니다.");
             }
             return;
         }
 
-        // 장비가 속한 서버실 확인
         Long serverRoomId = equipment.getRack().getServerRoom().getId();
 
-        // 회사-서버실 매핑 확인
         boolean hasAccess = companyServerRoomRepository
                 .existsByCompanyIdAndServerRoomId(member.getCompany().getId(), serverRoomId);
 
@@ -622,7 +590,7 @@ public class EquipmentService {
     }
 
     /**
-     * Equipment Deep Copy (히스토리 기록용)
+     * 장비 복제 (히스토리 기록용)
      */
     private Equipment cloneEquipment(Equipment original) {
         return Equipment.builder()

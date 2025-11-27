@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 클래스: 회원가입 요청 DTO (회원 생성 요청 데이터 전달)
+
 package org.example.finalbe.domains.member.dto;
 
 import jakarta.validation.constraints.*;
@@ -28,15 +31,12 @@ public record MemberSignupRequest(
         @Pattern(regexp = "^\\d{2,3}-\\d{3,4}-\\d{4}$", message = "올바른 전화번호 형식이 아닙니다.")
         String phone,
 
-
         @Min(value = 1, message = "유효하지 않은 회사 ID입니다.")
         Long companyId,
 
         String role
 ) {
-    /**
-     * DTO를 Entity로 변환
-     */
+    // DTO → Member 엔티티 변환
     public Member toEntity(String encodedPassword, Company company) {
         return Member.builder()
                 .userName(this.userName)

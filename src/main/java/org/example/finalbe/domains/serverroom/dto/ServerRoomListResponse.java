@@ -1,27 +1,25 @@
+/**
+ * 작성자: 황요한
+ * 서버실 목록 조회 응답 DTO
+ */
 package org.example.finalbe.domains.serverroom.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
-/**
- * 서버실 목록 조회 응답 DTO (DataCenter 정보 포함)
- */
 @Builder
 public record ServerRoomListResponse(
-        Long id,
-        String name,
-        String code,
-        String location,
-        Integer floor,
-        ServerRoomStatus status,
-        Long dataCenterId,
-        String dataCenterName,
-        String dataCenterAddress
+        Long id,                  // 서버실 ID
+        String name,              // 서버실 이름
+        String code,              // 서버실 코드
+        String location,          // 위치
+        Integer floor,            // 층수
+        ServerRoomStatus status,  // 상태
+        Long dataCenterId,        // 데이터센터 ID
+        String dataCenterName,    // 데이터센터 이름
+        String dataCenterAddress  // 데이터센터 주소
 ) {
-    /**
-     * Entity → DTO 변환
-     */
     public static ServerRoomListResponse from(ServerRoom serverRoom) {
         if (serverRoom == null) {
             throw new IllegalArgumentException("ServerRoom 엔티티가 null입니다.");

@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 생성 요청 DTO
+ */
 package org.example.finalbe.domains.rack.dto;
 
 import jakarta.validation.constraints.*;
@@ -11,9 +15,6 @@ import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.math.BigDecimal;
 
-/**
- * 랙 생성 요청 DTO
- */
 @Builder
 public record RackCreateRequest(
         @NotBlank(message = "랙 이름을 입력해주세요.")
@@ -31,7 +32,6 @@ public record RackCreateRequest(
         Integer totalUnits,
 
         DoorDirection doorDirection,
-
         ZoneDirection zoneDirection,
 
         @DecimalMin(value = "0.0", message = "최대 전력 용량은 0 이상이어야 합니다.")
@@ -44,7 +44,6 @@ public record RackCreateRequest(
         String serialNumber,
 
         RackStatus status,
-
         RackType rackType,
 
         @Size(max = 1000, message = "비고는 1000자를 초과할 수 없습니다.")

@@ -1,3 +1,6 @@
+// 작성자: 최산하
+// 환경 모니터링 API 제공 (온도/습도 섹션, 추이, 현재 상태, 일괄 조회)
+
 package org.example.finalbe.domains.monitoring.controller;
 
 import jakarta.validation.constraints.Min;
@@ -21,32 +24,22 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 환경 메트릭 컨트롤러
- * 환경(온도/습도) 대시보드 데이터 API 제공 (랙 기준)
- */
+
 @Slf4j
 @RestController
-@RequestMapping("/api/monitoring/environment") // 경로 변경
+@RequestMapping("/api/monitoring/environment")
 @RequiredArgsConstructor
 @Validated
 public class EnvironmentMetricController {
 
-    private final EnvironmentMetricService environmentMetricService; // 서비스 주입 변경
+    private final EnvironmentMetricService environmentMetricService;
 
     /**
      * 환경 섹션 전체 데이터 조회
-     * GET /api/monitoring/environment/section
-     *
-     * @param rackId 랙 ID (equipmentId 아님)
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @param aggregationLevel 집계 레벨
-     * @return 환경 섹션 데이터
      */
     @GetMapping("/section")
     public ResponseEntity<CommonResDto> getEnvironmentSection(
-            @RequestParam @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long rackId, // 파라미터 이름 변경
+            @RequestParam @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long rackId,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
             @RequestParam(required = false)
@@ -56,9 +49,8 @@ public class EnvironmentMetricController {
         if (endTime == null) endTime = LocalDateTime.now();
         if (startTime == null) startTime = endTime.minusHours(1);
 
-        if (aggregationLevel == null) {
+        if (aggregationLevel == null)
             aggregationLevel = environmentMetricService.determineOptimalAggregationLevel(startTime, endTime);
-        }
 
         EnvironmentSectionResponseDto response = environmentMetricService.getEnvironmentSectionData(
                 rackId, startTime, endTime, aggregationLevel);
@@ -71,15 +63,11 @@ public class EnvironmentMetricController {
     }
 
     /**
-     * 현재 환경 상태만 조회 (게이지용)
-     * GET /api/monitoring/environment/current
-     *
-     * @param rackId 랙 ID
-     * @return 현재 환경 상태
+     * 현재 환경 상태 조회
      */
     @GetMapping("/current")
     public ResponseEntity<CommonResDto> getCurrentEnvironmentStats(
-            @RequestParam @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long rackId) { // 파라미터 이름 변경
+            @RequestParam @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long rackId) {
 
         LocalDateTime endTime = LocalDateTime.now();
         LocalDateTime startTime = endTime.minusHours(1);
@@ -95,8 +83,7 @@ public class EnvironmentMetricController {
     }
 
     /**
-     * 온도 추이만 조회
-     * GET /api/monitoring/environment/temperature-trend
+     * 온도 추이 조회
      */
     @GetMapping("/temperature-trend")
     public ResponseEntity<CommonResDto> getTemperatureTrend(
@@ -123,8 +110,7 @@ public class EnvironmentMetricController {
     }
 
     /**
-     * 습도 추이만 조회
-     * GET /api/monitoring/environment/humidity-trend
+     * 습도 추이 조회
      */
     @GetMapping("/humidity-trend")
     public ResponseEntity<CommonResDto> getHumidityTrend(
@@ -152,20 +138,16 @@ public class EnvironmentMetricController {
 
     /**
      * 여러 랙의 현재 환경 상태 일괄 조회
-     * GET /api/monitoring/environment/current/batch
-     *
-     * @param rackIds 랙 ID 리스트 (쉼표로 구분)
-     * @return 각 랙별 현재 환경 상태
      */
     @GetMapping("/current/batch")
     public ResponseEntity<CommonResDto> getCurrentEnvironmentStatsBatch(
-            @RequestParam @NotBlank(message = "랙 ID를 입력해주세요.") String rackIds) { // 파라미터 이름 변경
+            @RequestParam @NotBlank(message = "랙 ID를 입력해주세요.") String rackIds) {
 
         log.info("📥 일괄 환경 상태 조회 요청 - rackIds: {}", rackIds);
 
         List<Long> rackIdList;
         try {
-            rackIdList = parseRackIds(rackIds); // 헬퍼 메소드 이름 변경
+            rackIdList = parseRackIds(rackIds);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new CommonResDto(
                     HttpStatus.BAD_REQUEST,
@@ -177,7 +159,7 @@ public class EnvironmentMetricController {
         if (rackIdList.size() > 50) {
             return ResponseEntity.badRequest().body(new CommonResDto(
                     HttpStatus.BAD_REQUEST,
-                    "한 번에 최대 50개의 랙만 조회 가능합니다. (요청: " + rackIdList.size() + "개)",
+                    "한 번에 최대 50개의 랙만 조회 가능합니다.",
                     null
             ));
         }
@@ -186,7 +168,8 @@ public class EnvironmentMetricController {
                 .distinct()
                 .collect(Collectors.toList());
 
-        EnvironmentCurrentStatsBatchDto result = environmentMetricService.getCurrentEnvironmentStatsBatch(rackIdList);
+        EnvironmentCurrentStatsBatchDto result =
+                environmentMetricService.getCurrentEnvironmentStatsBatch(rackIdList);
 
         return ResponseEntity.ok(new CommonResDto(
                 HttpStatus.OK,
@@ -199,7 +182,7 @@ public class EnvironmentMetricController {
     /**
      * rackIds 문자열 파싱
      */
-    private List<Long> parseRackIds(String rackIds) { // 메소드 이름 변경
+    private List<Long> parseRackIds(String rackIds) {
         if (rackIds == null || rackIds.trim().isEmpty()) {
             throw new IllegalArgumentException("랙 ID가 비어있습니다.");
         }

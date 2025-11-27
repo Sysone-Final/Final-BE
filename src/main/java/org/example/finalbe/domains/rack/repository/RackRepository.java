@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 관련 조회 레포지토리
+ */
 package org.example.finalbe.domains.rack.repository;
 
 import org.example.finalbe.domains.common.enumdir.DelYN;
@@ -15,33 +19,22 @@ import java.util.Optional;
 @Repository
 public interface RackRepository extends JpaRepository<Rack, Long> {
 
-    /**
-     * 서버실별 랙 목록 조회 (수정됨 - @Query 사용)
-     */
+    // 서버실별 랙 목록 조회
     @Query("SELECT r FROM Rack r WHERE r.serverRoom.id = :serverRoomId AND r.delYn = :delYn ORDER BY r.rackName")
-    List<Rack> findByServerRoomIdAndDelYn(
-            @Param("serverRoomId") Long serverRoomId,
-            @Param("delYn") DelYN delYn);
+    List<Rack> findByServerRoomIdAndDelYn(@Param("serverRoomId") Long serverRoomId,
+                                          @Param("delYn") DelYN delYn);
 
-    /**
-     * 서버실별 랙 개수 조회 (수정됨 - @Query 사용)
-     */
+    // 서버실별 랙 개수 조회
     @Query("SELECT COUNT(r) FROM Rack r WHERE r.serverRoom.id = :serverRoomId AND r.delYn = :delYn")
-    long countByServerRoomIdAndDelYn(
-            @Param("serverRoomId") Long serverRoomId,
-            @Param("delYn") DelYN delYn);
+    long countByServerRoomIdAndDelYn(@Param("serverRoomId") Long serverRoomId,
+                                     @Param("delYn") DelYN delYn);
 
-    /**
-     * 상태별 랙 목록 조회
-     */
+    // 상태별 랙 목록 조회
     @Query("SELECT r FROM Rack r WHERE r.status = :status AND r.delYn = :delYn ORDER BY r.rackName")
-    List<Rack> findByStatusAndDelYn(
-            @Param("status") RackStatus status,
-            @Param("delYn") DelYN delYn);
+    List<Rack> findByStatusAndDelYn(@Param("status") RackStatus status,
+                                    @Param("delYn") DelYN delYn);
 
-    /**
-     * 키워드 검색 (서버실 내)
-     */
+    // 키워드 검색 (서버실 내)
     @Query("""
         SELECT r FROM Rack r
         WHERE r.serverRoom.id = :serverRoomId
@@ -49,13 +42,10 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
         AND r.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
         ORDER BY r.rackName
     """)
-    List<Rack> searchByKeywordInServerRoom(
-            @Param("keyword") String keyword,
-            @Param("serverRoomId") Long serverRoomId);
+    List<Rack> searchByKeywordInServerRoom(@Param("keyword") String keyword,
+                                           @Param("serverRoomId") Long serverRoomId);
 
-    /**
-     * 키워드 검색 (회사 접근 가능 범위)
-     */
+    // 키워드 검색 (회사 접근 범위)
     @Query("""
         SELECT r FROM Rack r
         JOIN r.serverRoom sr
@@ -65,13 +55,10 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
         AND r.delYn = org.example.finalbe.domains.common.enumdir.DelYN.N
         ORDER BY r.rackName
     """)
-    List<Rack> searchByKeywordForCompany(
-            @Param("keyword") String keyword,
-            @Param("companyId") Long companyId);
+    List<Rack> searchByKeywordForCompany(@Param("keyword") String keyword,
+                                         @Param("companyId") Long companyId);
 
-    /**
-     * 전체 키워드 검색
-     */
+    // 전체 키워드 검색
     @Query("""
         SELECT r FROM Rack r
         WHERE r.rackName LIKE %:keyword%
@@ -80,45 +67,35 @@ public interface RackRepository extends JpaRepository<Rack, Long> {
     """)
     List<Rack> searchByKeyword(@Param("keyword") String keyword);
 
-    /**
-     * 랙 이름 존재 여부 확인 (서버실별)
-     */
-    @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END " +
-            "FROM Rack r " +
-            "WHERE r.rackName = :rackName " +
-            "AND r.serverRoom.id = :serverRoomId " +
-            "AND r.delYn = :delYn")
-    boolean existsByRackNameAndServerRoomIdAndDelYn(
-            @Param("rackName") String rackName,
-            @Param("serverRoomId") Long serverRoomId,
-            @Param("delYn") DelYN delYn
-    );
+    // 랙 이름 중복 확인
+    @Query("""
+        SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
+        FROM Rack r
+        WHERE r.rackName = :rackName
+        AND r.serverRoom.id = :serverRoomId
+        AND r.delYn = :delYn
+    """)
+    boolean existsByRackNameAndServerRoomIdAndDelYn(@Param("rackName") String rackName,
+                                                    @Param("serverRoomId") Long serverRoomId,
+                                                    @Param("delYn") DelYN delYn);
 
-    /**
-     * 활성 장비 전체 조회 (delYn = 'N')
-     */
+    // 활성 장비 목록 조회
     @Query("SELECT e FROM Equipment e WHERE e.delYn = 'N'")
     List<Equipment> findAllActive();
 
-    /**
-     * 활성 랙 목록 조회
-     */
+    // 활성 랙 목록 조회
     List<Rack> findAllByDelYn(DelYN delYn);
 
-    /**
-     * 활성 랙 단건 조회
-     */
+    // 활성 랙 단건 조회
     @Query("SELECT r FROM Rack r WHERE r.id = :id AND r.delYn = 'N'")
     Optional<Rack> findActiveById(@Param("id") Long id);
 
-    /**
-     * Rack 조회 with ServerRoom and DataCenter (Fetch Join)
-     * LazyInitializationException 방지를 위한 메서드
-     */
-    @Query("SELECT r FROM Rack r " +
-            "LEFT JOIN FETCH r.serverRoom sr " +
-            "LEFT JOIN FETCH sr.dataCenter dc " +
-            "WHERE r.id = :rackId")
+    // Rack 조회 + ServerRoom + DataCenter Fetch Join
+    @Query("""
+        SELECT r FROM Rack r
+        LEFT JOIN FETCH r.serverRoom sr
+        LEFT JOIN FETCH sr.dataCenter dc
+        WHERE r.id = :rackId
+    """)
     Optional<Rack> findByIdWithServerRoomAndDataCenter(@Param("rackId") Long rackId);
-
 }

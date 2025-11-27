@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장치 관리 컨트롤러
+ */
 package org.example.finalbe.domains.device.controller;
 
 import jakarta.validation.Valid;
@@ -14,10 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * 장치 관리 컨트롤러
- * 서버실 내 장치의 생성, 조회, 수정, 삭제 API 제공
- */
 @RestController
 @RequestMapping("/api/devices")
 @RequiredArgsConstructor
@@ -28,7 +28,6 @@ public class DeviceController {
 
     /**
      * 서버실별 장치 목록 조회
-     * GET /api/devices/serverroom/{serverRoomId}
      */
     @GetMapping("/serverroom/{serverRoomId}")
     public ResponseEntity<CommonResDto> getDevicesByServerRoom(
@@ -41,7 +40,6 @@ public class DeviceController {
 
     /**
      * 장치 상세 조회
-     * GET /api/devices/{id}
      */
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getDeviceById(
@@ -54,7 +52,6 @@ public class DeviceController {
 
     /**
      * 장치 생성
-     * POST /api/devices
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -69,7 +66,6 @@ public class DeviceController {
 
     /**
      * 장치 수정
-     * PUT /api/devices/{id}
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -84,7 +80,6 @@ public class DeviceController {
 
     /**
      * 장치 삭제
-     * DELETE /api/devices/{id}
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -98,7 +93,6 @@ public class DeviceController {
 
     /**
      * 장치 상태 변경
-     * PUT /api/devices/{id}/status
      */
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -113,7 +107,6 @@ public class DeviceController {
 
     /**
      * 장치 위치 변경
-     * PUT /api/devices/{id}/position
      */
     @PutMapping("/{id}/position")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")

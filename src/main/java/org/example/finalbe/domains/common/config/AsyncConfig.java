@@ -12,6 +12,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableAsync
 public class AsyncConfig {
 
+    /**
+     * 작성자: 최산하
+     * SSE 및 일반 비동기 작업용 실행자
+     */
     @Bean(name = "taskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -23,6 +27,10 @@ public class AsyncConfig {
         return executor;
     }
 
+    /**
+     * 작성자: 황요한
+     * 알림 평가 및 알림 생성 전용 실행자
+     */
     @Bean(name = "alertExecutor")
     public Executor alertExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -31,7 +39,7 @@ public class AsyncConfig {
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("Alert-");
 
-        // ✅ 큐 포화 시 호출 스레드에서 실행 (거부 방지)
+        // 큐 포화 시 이전 작업 제거 후 실행 (거부 방지)
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
 
         executor.setWaitForTasksToCompleteOnShutdown(true);

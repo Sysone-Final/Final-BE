@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * Device 데이터 접근 계층
+ */
 package org.example.finalbe.domains.device.repository;
 
 import org.example.finalbe.domains.common.enumdir.DelYN;
@@ -10,9 +14,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Device 데이터 접근 계층
- */
 @Repository
 public interface DeviceRepository extends JpaRepository<Device, Long> {
 
@@ -22,7 +23,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     boolean existsByDeviceCodeAndDelYn(String deviceCode, DelYN delYn);
 
     /**
-     * 활성 장치 조회 (ID) - Rack이 없어도 조회 가능
+     * 활성 장치 조회
      */
     @Query("SELECT d FROM Device d " +
             "LEFT JOIN d.rack r " +
@@ -32,7 +33,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     Optional<Device> findActiveById(@Param("id") Long id);
 
     /**
-     * 서버실별 장치 조회 (위치순 정렬) - Rack 유무 관계없이 조회
+     * 서버실별 장치 조회
      */
     @Query("SELECT d FROM Device d " +
             "LEFT JOIN d.rack r " +
@@ -45,7 +46,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
             @Param("delYn") DelYN delYn);
 
     /**
-     * 특정 Rack의 활성 장치 조회 (랙 삭제 시 사용)
+     * 특정 Rack의 활성 장치 조회
      */
     @Query("SELECT d FROM Device d " +
             "WHERE d.rack.id = :rackId " +
@@ -53,7 +54,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findActiveByRackId(@Param("rackId") Long rackId);
 
     /**
-     * 모든 활성 장치 조회 - Rack 유무 관계없이 조회
+     * 모든 활성 장치 조회
      */
     @Query("SELECT d FROM Device d " +
             "LEFT JOIN d.rack r " +
@@ -62,7 +63,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findAllActive();
 
     /**
-     * 특정 Rack에 활성 장치가 이미 존재하는지 확인 (1:1 관계 검증용)
+     * 특정 Rack에 활성 장치가 존재하는지 확인
      */
     @Query("SELECT CASE WHEN COUNT(d) > 0 THEN true ELSE false END " +
             "FROM Device d " +

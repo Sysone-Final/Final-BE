@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장치 수정 요청 DTO
+ */
 package org.example.finalbe.domains.device.dto;
 
 import jakarta.validation.constraints.*;
@@ -5,9 +9,6 @@ import lombok.Builder;
 
 import java.time.LocalDate;
 
-/**
- * 장치 수정 요청 DTO
- */
 @Builder
 public record DeviceUpdateRequest(
         @Size(max = 100, message = "장치명은 100자를 초과할 수 없습니다.")

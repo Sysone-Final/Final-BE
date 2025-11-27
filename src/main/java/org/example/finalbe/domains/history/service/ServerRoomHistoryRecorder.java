@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 서버실(ServerRoom)의 변경 이력을 기록하는 클래스
+
 package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
@@ -14,9 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * ServerRoom 히스토리 기록 전담 클래스 (개선 버전)
- */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -24,9 +24,7 @@ public class ServerRoomHistoryRecorder {
 
     private final HistoryService historyService;
 
-    /**
-     * ServerRoom 생성 히스토리
-     */
+    // 서버실 생성 이력을 기록
     public void recordCreate(ServerRoom serverRoom, Member member) {
 
         log.info("===== BEFORE HISTORY RECORD =====");
@@ -50,9 +48,7 @@ public class ServerRoomHistoryRecorder {
         historyService.recordHistory(request);
     }
 
-    /**
-     * ServerRoom 수정 히스토리 (상세 변경 내역 포함)
-     */
+    // 서버실 수정 이력을 기록
     public void recordUpdate(ServerRoom oldServerRoom, ServerRoom newServerRoom, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldServerRoom);
         Map<String, Object> newSnapshot = buildSnapshot(newServerRoom);
@@ -63,7 +59,6 @@ public class ServerRoomHistoryRecorder {
             return;
         }
 
-        // 변경 내역 상세 정보 구성
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
@@ -87,9 +82,7 @@ public class ServerRoomHistoryRecorder {
         log.info("ServerRoom update history recorded: {} fields changed", changedFields.size());
     }
 
-    /**
-     * ServerRoom 상태 변경 히스토리
-     */
+    // 서버실 상태 변경 이력을 기록
     public void recordStatusChange(ServerRoom serverRoom, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(serverRoom.getId())
@@ -111,9 +104,7 @@ public class ServerRoomHistoryRecorder {
         log.info("ServerRoom status change history recorded: {} -> {}", oldStatus, newStatus);
     }
 
-    /**
-     * ServerRoom 삭제 히스토리
-     */
+    // 서버실 삭제 이력을 기록
     public void recordDelete(ServerRoom serverRoom, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(serverRoom.getId())
@@ -133,9 +124,7 @@ public class ServerRoomHistoryRecorder {
         historyService.recordHistory(request);
     }
 
-    /**
-     * ServerRoom 상태 스냅샷 생성
-     */
+    // 서버실 상태 스냅샷을 생성
     private Map<String, Object> buildSnapshot(ServerRoom serverRoom) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("name", serverRoom.getName());
@@ -157,6 +146,7 @@ public class ServerRoomHistoryRecorder {
         return snapshot;
     }
 
+    // 변경된 필드를 추출
     private List<String> detectChangedFields(Map<String, Object> oldSnapshot, Map<String, Object> newSnapshot) {
         List<String> changedFields = new ArrayList<>();
 
@@ -174,13 +164,10 @@ public class ServerRoomHistoryRecorder {
         return changedFields;
     }
 
-    /**
-     * 변경 내역 상세 정보 구성
-     */
-    private Map<String, Object> buildChangeDetails(
-            Map<String, Object> oldSnapshot,
-            Map<String, Object> newSnapshot,
-            List<String> changedFields) {
+    // 변경 상세 정보를 구성
+    private Map<String, Object> buildChangeDetails(Map<String, Object> oldSnapshot,
+                                                   Map<String, Object> newSnapshot,
+                                                   List<String> changedFields) {
 
         Map<String, Object> changeDetails = new HashMap<>();
 
@@ -196,13 +183,14 @@ public class ServerRoomHistoryRecorder {
                     "fieldLabel", fieldLabel,
                     "oldValue", oldValueStr,
                     "newValue", newValueStr,
-                    "changeDescription", String.format("%s: %s → %s", fieldLabel, oldValueStr, newValueStr)
+                    "changeDescription", fieldLabel + ": " + oldValueStr + " → " + newValueStr
             ));
         }
 
         return changeDetails;
     }
 
+    // 필드명을 한글 레이블로 변환
     private String getFieldLabel(String field) {
         return switch (field) {
             case "name" -> "전산실 이름";
@@ -225,10 +213,9 @@ public class ServerRoomHistoryRecorder {
         };
     }
 
+    // 필드값을 표시용 문자열로 변환
     private String formatValue(String field, Object value) {
-        if (value == null) {
-            return "(없음)";
-        }
+        if (value == null) return "(없음)";
 
         return switch (field) {
             case "totalArea" -> value + " m²";
@@ -240,6 +227,7 @@ public class ServerRoomHistoryRecorder {
         };
     }
 
+    // 서버실 상태값을 한글로 변환
     private String translateStatus(String status) {
         return switch (status) {
             case "ACTIVE" -> "활성";

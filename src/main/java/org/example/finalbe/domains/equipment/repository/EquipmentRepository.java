@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 설명: 장비(Equipment) 관련 데이터베이스 조회를 담당하는 Repository
+
 package org.example.finalbe.domains.equipment.repository;
 
 import org.example.finalbe.domains.common.enumdir.DelYN;
@@ -15,15 +18,11 @@ import java.util.Optional;
 
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
-    /**
-     * ID로 활성 장비 조회
-     */
+    // ID로 활성 장비 조회
     @Query("SELECT e FROM Equipment e WHERE e.id = :id AND e.delYn = 'N'")
     Optional<Equipment> findActiveById(@Param("id") Long id);
 
-    /**
-     * 전체 장비 검색 (ADMIN용 - 페이지네이션 + 필터)
-     */
+    // 관리자용 장비 검색 (필터 + 페이지네이션)
     @Query("""
         SELECT e FROM Equipment e
         LEFT JOIN e.rack r
@@ -51,9 +50,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             Pageable pageable
     );
 
-    /**
-     * 회사별 장비 검색 (일반 사용자용 - 페이지네이션 + 필터)
-     */
+    // 회사별 장비 검색 (필터 + 페이지네이션)
     @Query("""
         SELECT e FROM Equipment e
         LEFT JOIN e.rack r
@@ -83,9 +80,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             Pageable pageable
     );
 
-    /**
-     * 랙별 장비 조회
-     */
+    // 랙 ID로 장비 조회
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "WHERE r.id = :rackId " +
@@ -96,17 +91,13 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    /**
-     * 특정 Rack의 활성 장비 조회 (랙 삭제 시 사용)
-     */
+    // 특정 랙의 활성 장비 조회
     @Query("SELECT e FROM Equipment e " +
             "WHERE e.rack.id = :rackId " +
             "AND e.delYn = 'N'")
     List<Equipment> findActiveByRackId(@Param("rackId") Long rackId);
 
-    /**
-     * 서버실별 조회
-     */
+    // 서버실 ID로 장비 조회
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverRoom sr " +
@@ -118,14 +109,10 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    /**
-     * 장비 코드 중복 체크
-     */
+    // 장비 코드 중복 체크
     boolean existsByCodeAndDelYn(String code, DelYN delYn);
 
-    /**
-     * 검색 (키워드)
-     */
+    // 키워드 검색
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "WHERE (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -138,9 +125,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    /**
-     * 검색 (키워드 + 회사)
-     */
+    // 키워드 + 회사 조건 검색
     @Query("SELECT DISTINCT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverRoom sr " +
@@ -157,18 +142,14 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    /**
-     * 활성 장비 전체 조회 (delYn = 'N', Rack도 활성)
-     */
+    // 전체 활성 장비 조회
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN e.rack r " +
             "WHERE e.delYn = 'N' " +
             "AND (r IS NULL OR r.delYn = 'N')")
     List<Equipment> findAllActive();
 
-    /**
-     * ID로 장비 조회 (Rack, ServerRoom까지 fetch join)
-     */
+    // ID로 조회 (Rack, ServerRoom까지 fetch)
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverRoom sr " +
@@ -177,16 +158,11 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     List<Equipment> findByDelYn(DelYN delYN);
 
-
-    /**
-     * 여러 랙의 장비 목록 조회
-     */
+    // 여러 랙의 장비 목록 조회
     @Query("SELECT e FROM Equipment e WHERE e.rack.id IN :rackIds AND e.delYn = :delYn")
     List<Equipment> findByRackIdInAndDelYn(@Param("rackIds") List<Long> rackIds, @Param("delYn") DelYN delYn);
 
-    /**
-     * 여러 랙의 특정 상태 장비 개수 조회
-     */
+    // 여러 랙의 특정 상태 장비 개수 조회
     @Query("SELECT COUNT(e) FROM Equipment e WHERE e.rack.id IN :rackIds AND e.status = :status AND e.delYn = :delYn")
     long countByRackIdInAndStatusAndDelYn(
             @Param("rackIds") List<Long> rackIds,
@@ -194,10 +170,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    /**
-     * Equipment 조회 with Rack, ServerRoom, DataCenter (Fetch Join)
-     * LazyInitializationException 방지를 위한 메서드
-     */
+    // 장비 전체 구조 Fetch Join
     @Query("SELECT e FROM Equipment e " +
             "LEFT JOIN FETCH e.rack r " +
             "LEFT JOIN FETCH r.serverRoom sr " +
@@ -205,10 +178,7 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "WHERE e.id = :equipmentId")
     Optional<Equipment> findByIdWithFullHierarchy(@Param("equipmentId") Long equipmentId);
 
-
-    /**
-     * 특정 서버실에서 장비가 배치된 랙 ID 목록 조회
-     */
+    // 특정 서버실에서 장비가 배치된 랙 ID 목록 조회
     @Query("SELECT DISTINCT e.rack.id FROM Equipment e " +
             "WHERE e.rack.serverRoom.id = :serverRoomId " +
             "AND e.delYn = 'N' " +
@@ -216,20 +186,14 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             "AND e.rack IS NOT NULL")
     List<Long> findDistinctRackIdsByServerRoomId(@Param("serverRoomId") Long serverRoomId);
 
-    /**
-     * 전체 시스템에서 장비가 배치된 모든 랙 ID 목록 조회
-     */
+    // 전체 시스템의 랙 ID 목록 조회
     @Query("SELECT DISTINCT e.rack.id FROM Equipment e " +
             "WHERE e.delYn = 'N' " +
             "AND e.rack IS NOT NULL " +
             "AND e.rack.delYn = 'N'")
     List<Long> findAllDistinctRackIds();
 
-
-    /**
-     * 여러 랙의 장비 개수를 Map으로 반환
-     * Key: rackId, Value: 장비 개수
-     */
+    // 여러 랙의 장비 개수 조회 (Projection)
     @Query("SELECT e.rack.id as rackId, COUNT(e) as count " +
             "FROM Equipment e " +
             "WHERE e.rack.id IN :rackIds " +
@@ -240,11 +204,8 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
             @Param("delYn") DelYN delYn
     );
 
-    // RackEquipmentCount 인터페이스 (Projection)
     interface RackEquipmentCount {
         Long getRackId();
         Long getCount();
     }
-
-
 }

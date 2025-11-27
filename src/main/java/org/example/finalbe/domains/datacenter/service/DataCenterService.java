@@ -1,5 +1,7 @@
-// src/main/java/org/example/finalbe/domains/datacenter/service/DataCenterService.java
-
+/**
+ * 작성자: 황요한
+ * 데이터센터 서비스 클래스
+ */
 package org.example.finalbe.domains.datacenter.service;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -61,7 +63,7 @@ public class DataCenterService {
     }
 
     /**
-     * 쓰기 권한 확인 (ADMIN, OPERATOR만 가능)
+     * 쓰기 권한 확인
      */
     private void validateWritePermission(Member member) {
         if (member.getRole() != Role.ADMIN && member.getRole() != Role.OPERATOR) {
@@ -82,7 +84,6 @@ public class DataCenterService {
         }
 
         DataCenter dataCenter = request.toEntity();
-        // 현재 사용자의 회사로 설정
         dataCenter.setCompany(currentMember.getCompany());
 
         DataCenter savedDataCenter = dataCenterRepository.save(dataCenter);
@@ -97,7 +98,7 @@ public class DataCenterService {
     }
 
     /**
-     * 데이터센터 목록 조회 (회원의 companyId로 필터링)
+     * 데이터센터 목록 조회
      */
     public List<DataCenterListResponse> getAllDataCenters() {
         Member currentMember = getCurrentMember();
@@ -107,11 +108,9 @@ public class DataCenterService {
         List<DataCenter> dataCenters;
 
         if (currentMember.getRole() == Role.ADMIN) {
-            // ADMIN은 모든 데이터센터 조회
             dataCenters = dataCenterRepository.findByDelYn(DelYN.N);
             log.info("Admin user - returning all {} data centers", dataCenters.size());
         } else {
-            // 일반 사용자: 자신의 회사 데이터센터만 조회
             dataCenters = dataCenterRepository.findByCompanyIdAndDelYn(
                     currentMember.getCompany().getId(), DelYN.N);
             log.info("Non-admin user - returning {} data centers for company: {}",
@@ -124,7 +123,7 @@ public class DataCenterService {
     }
 
     /**
-     * 데이터센터 상세 조회 (서버실 목록 포함)
+     * 데이터센터 상세 조회
      */
     public DataCenterDetailResponse getDataCenterById(Long dataCenterId) {
         Member currentMember = getCurrentMember();
@@ -132,7 +131,6 @@ public class DataCenterService {
         DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("데이터센터", dataCenterId));
 
-        // 권한 확인: ADMIN이 아니면 자신의 회사 데이터센터만 접근 가능
         if (currentMember.getRole() != Role.ADMIN) {
             if (dataCenter.getCompany() == null ||
                     !dataCenter.getCompany().getId().equals(currentMember.getCompany().getId())) {
@@ -140,7 +138,6 @@ public class DataCenterService {
             }
         }
 
-        // delYn이 N인 서버실만 조회
         List<ServerRoom> serverRooms = serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId, DelYN.N);
         List<ServerRoomSimpleResponse> serverRoomResponses = serverRooms.stream()
                 .map(ServerRoomSimpleResponse::from)
@@ -161,7 +158,6 @@ public class DataCenterService {
         DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("데이터센터", dataCenterId));
 
-        // 권한 확인
         if (currentMember.getRole() != Role.ADMIN) {
             if (dataCenter.getCompany() == null ||
                     !dataCenter.getCompany().getId().equals(currentMember.getCompany().getId())) {
@@ -171,7 +167,6 @@ public class DataCenterService {
 
         dataCenter.updateInfo(request.name(), request.address(), request.description());
 
-        // delYn이 N인 서버실만 조회
         List<ServerRoom> serverRooms = serverRoomRepository.findByDataCenterIdAndDelYn(dataCenterId, DelYN.N);
         List<ServerRoomSimpleResponse> serverRoomResponses = serverRooms.stream()
                 .map(ServerRoomSimpleResponse::from)
@@ -182,7 +177,7 @@ public class DataCenterService {
     }
 
     /**
-     * 데이터센터 삭제 (Soft Delete)
+     * 데이터센터 삭제
      */
     @Transactional
     public void deleteDataCenter(Long dataCenterId) {
@@ -192,7 +187,6 @@ public class DataCenterService {
         DataCenter dataCenter = dataCenterRepository.findActiveById(dataCenterId)
                 .orElseThrow(() -> new EntityNotFoundException("데이터센터", dataCenterId));
 
-        // 권한 확인
         if (currentMember.getRole() != Role.ADMIN) {
             if (dataCenter.getCompany() == null ||
                     !dataCenter.getCompany().getId().equals(currentMember.getCompany().getId())) {
@@ -217,11 +211,9 @@ public class DataCenterService {
         List<DataCenter> searchResults;
 
         if (currentMember.getRole() == Role.ADMIN) {
-            // ADMIN은 전체 검색
             searchResults = dataCenterRepository.searchByName(name);
             log.info("Admin user - searched all data centers, found: {}", searchResults.size());
         } else {
-            // 일반 사용자: 자신의 회사 데이터센터 중에서만 검색
             searchResults = dataCenterRepository.searchByNameAndCompanyId(name, currentMember.getCompany().getId());
             log.info("Non-admin user - searched company data centers, found: {}", searchResults.size());
         }

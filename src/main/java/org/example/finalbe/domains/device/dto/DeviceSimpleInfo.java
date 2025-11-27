@@ -1,11 +1,12 @@
+/**
+ * 작성자: 황요한
+ * 장치 간단 정보 DTO
+ */
 package org.example.finalbe.domains.device.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.device.domain.Device;
 
-/**
- * 장치 간단 정보 DTO (서버실 정보 제외)
- */
 @Builder
 public record DeviceSimpleInfo(
         Long id,
@@ -22,7 +23,7 @@ public record DeviceSimpleInfo(
         Long rackId,
         Integer equipmentCount
 ) {
-    public static DeviceSimpleInfo from(Device device,Integer equipmentCount) {
+    public static DeviceSimpleInfo from(Device device, Integer equipmentCount) {
         return DeviceSimpleInfo.builder()
                 .id(device.getId())
                 .deviceName(device.getDeviceName())

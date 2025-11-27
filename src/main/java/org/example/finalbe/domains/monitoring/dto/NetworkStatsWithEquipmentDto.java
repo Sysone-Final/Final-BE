@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장비의 네트워크 상태와 조회 결과를 포함하는 DTO
+ */
 package org.example.finalbe.domains.monitoring.dto;
 
 import lombok.AllArgsConstructor;
@@ -5,37 +9,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 장비 정보가 포함된 네트워크 상태 DTO
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class NetworkStatsWithEquipmentDto {
 
-    /**
-     * 장비 ID
-     */
-    private Long equipmentId;
-
-    /**
-     * 장비명 (선택적)
-     */
-    private String equipmentName;
-
-    /**
-     * 조회 성공 여부
-     */
-    private Boolean success;
-
-    /**
-     * 실패 시 에러 메시지
-     */
-    private String errorMessage;
-
-    /**
-     * 네트워크 상태 정보
-     */
-    private NetworkCurrentStatsDto networkStats;
+    private Long equipmentId;          // 장비 ID
+    private String equipmentName;      // 장비명(선택)
+    private Boolean success;           // 조회 성공 여부
+    private String errorMessage;       // 실패 시 에러 메시지
+    private NetworkCurrentStatsDto networkStats; // 네트워크 상태 정보
 }

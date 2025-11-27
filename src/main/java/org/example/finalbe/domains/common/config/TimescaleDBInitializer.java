@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * TimescaleDB 자동 설정 클래스
+ */
 //package org.example.finalbe.domains.common.config;
 //
 //import jakarta.annotation.PostConstruct;
@@ -6,12 +10,6 @@
 //import org.springframework.jdbc.core.JdbcTemplate;
 //import org.springframework.stereotype.Component;
 //
-///**
-// * TimescaleDB 자동 설정
-// * - Hypertable 생성
-// * - Compression Policy 설정
-// * - Retention Policy 설정
-// */
 //@Slf4j
 //@Component
 //@RequiredArgsConstructor
@@ -26,16 +24,9 @@
 //        log.info("=".repeat(80));
 //
 //        try {
-//            // 1. TimescaleDB 익스텐션 확인
 //            checkTimescaleExtension();
-//
-//            // 2. Hypertable 생성
 //            createHypertables();
-//
-//            // 3. 압축 정책 설정
 //            setupCompressionPolicies();
-//
-//            // 4. 보관 정책 설정
 //            setupRetentionPolicies();
 //
 //            log.info("=".repeat(80));
@@ -50,10 +41,9 @@
 //        }
 //    }
 //
-//    // ========================================
-//    // 1. TimescaleDB 익스텐션 확인
-//    // ========================================
-//
+//    /**
+//     * TimescaleDB 익스텐션 확인
+//     */
 //    private void checkTimescaleExtension() {
 //        String sql = "SELECT COUNT(*) FROM pg_extension WHERE extname = 'timescaledb'";
 //        Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
@@ -65,14 +55,12 @@
 //        log.info("✅ TimescaleDB 익스텐션 확인 완료");
 //    }
 //
-//    // ========================================
-//    // 2. Hypertable 생성
-//    // ========================================
-//
+//    /**
+//     * Hypertable 생성
+//     */
 //    private void createHypertables() {
 //        log.info("📊 Hypertable 생성 중...");
 //
-//        // 우리가 실제로 사용하는 테이블들
 //        createHypertableIfNotExists("system_metrics", "generate_time");
 //        createHypertableIfNotExists("disk_metrics", "generate_time");
 //        createHypertableIfNotExists("network_metrics", "generate_time");
@@ -83,7 +71,6 @@
 //
 //    private void createHypertableIfNotExists(String tableName, String timeColumn) {
 //        try {
-//            // 이미 hypertable인지 확인
 //            String checkSql = "SELECT COUNT(*) FROM timescaledb_information.hypertables WHERE hypertable_name = ?";
 //            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, tableName);
 //
@@ -92,7 +79,6 @@
 //                return;
 //            }
 //
-//            // Hypertable 생성
 //            String createSql = String.format(
 //                    "SELECT create_hypertable('%s', '%s', chunk_time_interval => INTERVAL '1 day', if_not_exists => TRUE)",
 //                    tableName, timeColumn
@@ -106,10 +92,9 @@
 //        }
 //    }
 //
-//    // ========================================
-//    // 3. 압축 정책 설정
-//    // ========================================
-//
+//    /**
+//     * 압축 정책 설정
+//     */
 //    private void setupCompressionPolicies() {
 //        log.info("🗜️ 압축 정책 설정 중...");
 //
@@ -123,7 +108,6 @@
 //
 //    private void setupCompressionForTable(String tableName, String segmentBy) {
 //        try {
-//            // 이미 압축 설정됐는지 확인
 //            String checkSql = "SELECT COUNT(*) FROM timescaledb_information.compression_settings WHERE hypertable_name = ?";
 //            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, tableName);
 //
@@ -132,14 +116,12 @@
 //                return;
 //            }
 //
-//            // 압축 활성화
 //            String alterSql = String.format(
 //                    "ALTER TABLE %s SET (timescaledb.compress, timescaledb.compress_segmentby = '%s')",
 //                    tableName, segmentBy
 //            );
 //            jdbcTemplate.execute(alterSql);
 //
-//            // 압축 정책 추가 (7일 지난 데이터)
 //            String policySql = String.format(
 //                    "SELECT add_compression_policy('%s', INTERVAL '7 days')",
 //                    tableName
@@ -153,14 +135,12 @@
 //        }
 //    }
 //
-//    // ========================================
-//    // 4. 보관 정책 설정
-//    // ========================================
-//
+//    /**
+//     * 보관 정책 설정
+//     */
 //    private void setupRetentionPolicies() {
 //        log.info("🗑️ 보관 정책 설정 중...");
 //
-//        // 모든 메트릭 테이블: 90일 보관
 //        setupRetentionForTable("system_metrics", 90);
 //        setupRetentionForTable("disk_metrics", 90);
 //        setupRetentionForTable("network_metrics", 90);

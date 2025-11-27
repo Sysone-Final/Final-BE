@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 실장도 조회 및 장비 배치/이동을 처리하는 컨트롤러
+ */
 package org.example.finalbe.domains.rack.controller;
 
 import jakarta.validation.Valid;
@@ -14,10 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * 랙 실장도 관리 컨트롤러
- * 장비 배치 및 이동 API 제공
- */
 @RestController
 @RequestMapping("/api/racks")
 @RequiredArgsConstructor
@@ -26,14 +26,7 @@ public class RackElevationController {
 
     private final RackElevationService rackElevationService;
 
-    /**
-     * 랙 실장도 조회
-     * GET /api/racks/{id}/elevation
-     *
-     * @param id 랙 ID
-     * @param view 뷰 타입 (FRONT/REAR, 기본값: FRONT)
-     * @return 랙 실장도 정보 (유닛별 장비 배치 현황)
-     */
+    // 랙 실장도 조회
     @GetMapping("/{id}/elevation")
     public ResponseEntity<CommonResDto> getRackElevation(
             @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id,
@@ -43,15 +36,7 @@ public class RackElevationController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 실장도 조회 완료", elevation));
     }
 
-    /**
-     * 장비 배치
-     * POST /api/racks/{id}/equipment/{equipmentId}/place
-     *
-     * @param id 랙 ID
-     * @param equipmentId 장비 ID
-     * @param request 배치 요청 DTO (시작 유닛, 유닛 크기 등)
-     * @return 배치 완료 메시지
-     */
+    // 장비 배치
     @PostMapping("/{id}/equipment/{equipmentId}/place")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> placeEquipment(
@@ -63,15 +48,7 @@ public class RackElevationController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "장비 배치 완료", null));
     }
 
-    /**
-     * 장비 이동
-     * PUT /api/racks/{id}/equipment/{equipmentId}/move
-     *
-     * @param id 랙 ID
-     * @param equipmentId 장비 ID
-     * @param request 이동 요청 DTO (이전 유닛, 이동할 유닛)
-     * @return 이동 완료 메시지
-     */
+    // 장비 이동
     @PutMapping("/{id}/equipment/{equipmentId}/move")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> moveEquipment(
@@ -83,14 +60,7 @@ public class RackElevationController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "장비 이동 완료", null));
     }
 
-    /**
-     * 장비 배치 검증
-     * POST /api/racks/{id}/validate-placement
-     *
-     * @param id 랙 ID
-     * @param request 배치 요청 DTO
-     * @return 배치 가능 여부 및 검증 결과
-     */
+    // 장비 배치 검증
     @PostMapping("/{id}/validate-placement")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> validateEquipmentPlacement(
@@ -101,13 +71,7 @@ public class RackElevationController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "배치 검증 완료", validationResult));
     }
 
-    /**
-     * 랙 사용률 조회
-     * GET /api/racks/{id}/utilization
-     *
-     * @param id 랙 ID
-     * @return 랙 사용률 정보 (유닛, 전력 사용률)
-     */
+    // 랙 사용률 조회
     @GetMapping("/{id}/utilization")
     public ResponseEntity<CommonResDto> getRackUtilization(
             @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id) {

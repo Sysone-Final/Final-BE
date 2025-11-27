@@ -1,5 +1,7 @@
-// src/main/java/org/example/finalbe/domains/datacenter/controller/DataCenterController.java
-
+/**
+ * 작성자: 황요한
+ * 데이터센터 관리 API 컨트롤러
+ */
 package org.example.finalbe.domains.datacenter.controller;
 
 import jakarta.validation.Valid;
@@ -15,9 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * 데이터센터 관리 API 컨트롤러
- */
 @RestController
 @RequestMapping("/api/datacenters")
 @RequiredArgsConstructor
@@ -28,7 +27,6 @@ public class DataCenterController {
 
     /**
      * 데이터센터 목록 조회
-     * GET /api/datacenters
      */
     @GetMapping
     public ResponseEntity<CommonResDto> getAllDataCenters() {
@@ -38,7 +36,6 @@ public class DataCenterController {
 
     /**
      * 데이터센터 상세 조회
-     * GET /api/datacenters/{id}
      */
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getDataCenterById(
@@ -49,7 +46,6 @@ public class DataCenterController {
 
     /**
      * 데이터센터 생성
-     * POST /api/datacenters
      */
     @PostMapping
     public ResponseEntity<CommonResDto> createDataCenter(@Valid @RequestBody DataCenterCreateRequest request) {
@@ -60,7 +56,6 @@ public class DataCenterController {
 
     /**
      * 데이터센터 수정
-     * PUT /api/datacenters/{id}
      */
     @PutMapping("/{id}")
     public ResponseEntity<CommonResDto> updateDataCenter(
@@ -72,7 +67,6 @@ public class DataCenterController {
 
     /**
      * 데이터센터 삭제
-     * DELETE /api/datacenters/{id}
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<CommonResDto> deleteDataCenter(
@@ -83,7 +77,6 @@ public class DataCenterController {
 
     /**
      * 데이터센터 검색
-     * GET /api/datacenters/search?name={name}
      */
     @GetMapping("/search")
     public ResponseEntity<CommonResDto> searchDataCenters(@RequestParam String name) {

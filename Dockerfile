@@ -1,3 +1,4 @@
+# 작성자 : 최산하
 # 1단계: Gradle을 사용하여 애플리케이션 빌드
 # Stage 1: Build the application using Gradle
 FROM gradle:8.4-jdk17-alpine AS build

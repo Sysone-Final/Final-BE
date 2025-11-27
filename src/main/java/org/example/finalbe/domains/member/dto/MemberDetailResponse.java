@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 회원 상세 정보 응답 DTO
+ */
 package org.example.finalbe.domains.member.dto;
 
 import lombok.Builder;
@@ -7,30 +11,24 @@ import org.example.finalbe.domains.member.domain.Member;
 
 import java.time.LocalDateTime;
 
-/**
- * 회원 상세 정보 응답 DTO
- */
 @Builder
 public record MemberDetailResponse(
         Long id,
-        String userName,           // 로그인 아이디
-        String name,               // 사용자 이름
-        String email,              // 사용자 이메일
-        String phone,              // 전화번호
-        String city,               // 도시
-        String street,             // 상세 주소
-        String zipcode,            // 우편번호
-        Role role,                 // 권한 (ADMIN, OPERATOR, VIEWER)
-        UserStatus status,         // 계정 상태
-        Long companyId,            // 회사 ID
-        String companyName,        // 회사명
-        LocalDateTime lastLoginAt, // 마지막 로그인 시각
-        LocalDateTime createdAt,   // 생성 시각
-        LocalDateTime updatedAt    // 수정 시각
+        String userName,
+        String name,
+        String email,
+        String phone,
+        String city,
+        String street,
+        String zipcode,
+        Role role,
+        UserStatus status,
+        Long companyId,
+        String companyName,
+        LocalDateTime lastLoginAt,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {
-    /**
-     * Entity를 DTO로 변환
-     */
     public static MemberDetailResponse from(Member member) {
         return MemberDetailResponse.builder()
                 .id(member.getId())

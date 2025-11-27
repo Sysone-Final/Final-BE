@@ -1,5 +1,7 @@
-// src/main/java/org/example/finalbe/domains/serverroom/dto/ServerRoomCreateRequest.java
-
+/**
+ * 작성자: 황요한
+ * 서버실 생성 요청 DTO
+ */
 package org.example.finalbe.domains.serverroom.dto;
 
 import jakarta.validation.constraints.NotBlank;
@@ -10,50 +12,26 @@ import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
 import java.math.BigDecimal;
 
-/**
- * 서버실 생성 요청 DTO (DataCenter 필드 추가)
- */
 @Builder
 public record ServerRoomCreateRequest(
-        @NotBlank(message = "서버실 이름은 필수입니다.")
-        @Size(max = 100, message = "서버실 이름은 100자 이하여야 합니다.")
-        String name,
-
-        @Size(max = 50, message = "서버실 코드는 50자 이하여야 합니다.")
-        String code,
-
-        @Size(max = 255, message = "위치는 255자 이하여야 합니다.")
-        String location,
-
-        Integer floor,
-
-        Integer rows,
-
-        Integer columns,
-
-        ServerRoomStatus status,
-
-        String description,
-
-        BigDecimal totalArea,
-
-        BigDecimal totalPowerCapacity,
-
-        BigDecimal totalCoolingCapacity,
-
-        BigDecimal temperatureMin,
-
-        BigDecimal temperatureMax,
-
-        BigDecimal humidityMin,
-
-        BigDecimal humidityMax,
-
-        Long dataCenterId
+        @NotBlank @Size(max = 100) String name,            // 이름
+        @Size(max = 50) String code,                       // 코드
+        @Size(max = 255) String location,                  // 위치
+        Integer floor,                                     // 층수
+        Integer rows,                                      // 그리드 행
+        Integer columns,                                   // 그리드 열
+        ServerRoomStatus status,                           // 상태
+        String description,                                // 설명
+        BigDecimal totalArea,                              // 총 면적
+        BigDecimal totalPowerCapacity,                     // 전력 용량
+        BigDecimal totalCoolingCapacity,                   // 냉각 용량
+        BigDecimal temperatureMin,                         // 온도 최소
+        BigDecimal temperatureMax,                         // 온도 최대
+        BigDecimal humidityMin,                            // 습도 최소
+        BigDecimal humidityMax,                            // 습도 최대
+        Long dataCenterId                                  // 데이터센터 ID
 ) {
-    /**
-     * DTO → Entity 변환
-     */
+    /** Entity 변환 */
     public ServerRoom toEntity() {
         return ServerRoom.builder()
                 .name(name)

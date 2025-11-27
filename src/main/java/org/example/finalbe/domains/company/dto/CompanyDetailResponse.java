@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 회사 상세 조회 응답 DTO
+ */
 package org.example.finalbe.domains.company.dto;
 
 import lombok.Builder;
@@ -5,9 +9,6 @@ import org.example.finalbe.domains.company.domain.Company;
 
 import java.time.LocalDateTime;
 
-/**
- * 회사 상세 조회 응답 DTO
- */
 @Builder
 public record CompanyDetailResponse(
         Long id,

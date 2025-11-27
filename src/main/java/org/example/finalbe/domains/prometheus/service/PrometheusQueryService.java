@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * Prometheus 서버에 PromQL 쿼리를 요청하여 메트릭 결과를 조회하는 서비스
+ */
 package org.example.finalbe.domains.prometheus.service;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +26,7 @@ public class PrometheusQueryService {
     private final WebClient prometheusWebClient;
     private final PrometheusProperties properties;
 
+    // PromQL 쿼리를 실행하고 결과를 반환
     public List<PrometheusResponse.PrometheusResult> query(String promql) {
         try {
             log.debug("🔍 PromQL: {}", promql);
@@ -34,19 +39,15 @@ public class PrometheusQueryService {
                             .build())
                     .retrieve()
                     .bodyToMono(PrometheusResponse.class)
-                    // ✅ 타임아웃 30초 (설정값 사용)
-                    .timeout(Duration.ofMillis(
-                            properties.getClient().getReadTimeout()))
-                    // ✅ 재시도 로직 추가 (최대 2번, 1초 간격)
+                    .timeout(Duration.ofMillis(properties.getClient().getReadTimeout()))
                     .retryWhen(Retry.backoff(2, Duration.ofSeconds(1))
-                            .filter(throwable ->
-                                    !(throwable instanceof WebClientResponseException.NotFound))
+                            .filter(throwable -> !(throwable instanceof WebClientResponseException.NotFound))
                             .doBeforeRetry(retrySignal ->
                                     log.warn("⚠️ Prometheus 쿼리 재시도 중... ({}회): {}",
                                             retrySignal.totalRetries() + 1, promql))
-                            .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) -> {
+                            .onRetryExhaustedThrow((spec, signal) -> {
                                 log.error("❌ Prometheus 쿼리 재시도 실패: {}", promql);
-                                return retrySignal.failure();
+                                return signal.failure();
                             }))
                     .onErrorResume(WebClientResponseException.class, ex -> {
                         log.error("❌ Prometheus API 오류 [{}]: {} - Query: {}",

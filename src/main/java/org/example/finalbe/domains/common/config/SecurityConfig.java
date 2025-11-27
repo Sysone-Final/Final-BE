@@ -92,6 +92,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/monitoring/subscribe/**").permitAll()
                         .requestMatchers("/api/prometheus/metrics/stream/**").permitAll()
                         .requestMatchers("/api/monitoring/server-room/stream/**").permitAll()
+                        .requestMatchers("/api/alerts/subscribe").permitAll()
                         .requestMatchers("/api/alerts/*/subscribe").permitAll()
 
 

@@ -24,7 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class AlertNotificationService {
 
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
-    private static final Long DEFAULT_TIMEOUT = 60L * 60 * 1000; // 1시간
+    private static final Long DEFAULT_TIMEOUT = 3L * 60 * 60 * 1000; // 3시간
 
     // 전체 알림 구독
     public SseEmitter subscribeAll() {
@@ -56,20 +56,28 @@ public class AlertNotificationService {
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
 
         emitters.putIfAbsent(topic, new CopyOnWriteArrayList<>());
-        emitters.get(topic).add(emitter);
+        List<SseEmitter> topicEmitters = emitters.get(topic);
 
         emitter.onCompletion(() -> emitters.get(topic).remove(emitter));
         emitter.onTimeout(() -> emitters.get(topic).remove(emitter));
         emitter.onError(e -> emitters.get(topic).remove(emitter));
 
+        // 먼저 리스트에 추가한 후 초기 메시지 전송
+        topicEmitters.add(emitter);
+
         try {
+            // 초기 연결 확인 메시지 전송
             emitter.send(SseEmitter.event()
                     .name("connected")
                     .data("Connected to " + topic));
             log.info("SSE 연결 성공: topic={}", topic);
         } catch (IOException e) {
-            log.error("SSE 초기 연결 실패: topic={}", topic, e);
-            emitters.get(topic).remove(emitter);
+            log.error("SSE 초기 연결 실패: topic={}, error={}", topic, e.getMessage());
+            topicEmitters.remove(emitter);
+            if (topicEmitters.isEmpty()) {
+                emitters.remove(topic);
+            }
+            throw new RuntimeException("SSE 연결 초기화 실패", e);
         }
 
         return emitter;
@@ -140,6 +148,14 @@ public class AlertNotificationService {
                 return true;
             }
         });
+
+        log.debug("SSE 메시지 전송: topic={}, event={}, 구독자={}",
+                 topic, eventName, topicEmitters.size());
+
+        // 구독자가 모두 제거되었으면 토픽도 제거
+        if (topicEmitters.isEmpty()) {
+            emitters.remove(topic);
+        }
     }
 
     // 특정 topic 구독자 수 조회

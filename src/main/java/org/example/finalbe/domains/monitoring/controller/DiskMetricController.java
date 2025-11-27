@@ -1,3 +1,6 @@
+// 작성자: 최산하
+// 디스크 모니터링 API 제공 (섹션 데이터, 사용률 추이, I/O 추이, 현재 상태, 일괄 조회)
+
 package org.example.finalbe.domains.monitoring.controller;
 
 import jakarta.validation.constraints.Min;
@@ -21,10 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 디스크 메트릭 컨트롤러
- * 디스크 대시보드 데이터 API 제공
- */
+
 @Slf4j
 @RestController
 @RequestMapping("/api/monitoring/disk") // 경로 변경
@@ -36,13 +36,6 @@ public class DiskMetricController {
 
     /**
      * 디스크 섹션 전체 데이터 조회
-     * GET /api/monitoring/disk/section
-     *
-     * @param equipmentId 장비 ID
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @param aggregationLevel 집계 레벨
-     * @return 디스크 섹션 데이터
      */
     @GetMapping("/section")
     public ResponseEntity<CommonResDto> getDiskSection(
@@ -53,19 +46,11 @@ public class DiskMetricController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(required = false) AggregationLevel aggregationLevel) {
 
-        // 기본값 설정
-        if (endTime == null) {
-            endTime = LocalDateTime.now();
-        }
-        if (startTime == null) {
-            startTime = endTime.minusHours(1);
-        }
+        if (endTime == null) endTime = LocalDateTime.now();
+        if (startTime == null) startTime = endTime.minusHours(1);
 
-        // 집계 레벨 자동 선택
-        if (aggregationLevel == null) {
-            // CpuMetricService의 헬퍼 메소드를 사용 (DiskMetricService가 주입받고 있음)
+        if (aggregationLevel == null)
             aggregationLevel = diskMetricService.determineOptimalAggregationLevel(startTime, endTime);
-        }
 
         DiskSectionResponseDto response = diskMetricService.getDiskSectionData(
                 equipmentId, startTime, endTime, aggregationLevel);
@@ -78,11 +63,7 @@ public class DiskMetricController {
     }
 
     /**
-     * 현재 디스크 상태만 조회 (게이지용)
-     * GET /api/monitoring/disk/current
-     *
-     * @param equipmentId 장비 ID
-     * @return 현재 디스크 상태
+     * 현재 디스크 상태 조회
      */
     @GetMapping("/current")
     public ResponseEntity<CommonResDto> getCurrentDiskStats(
@@ -102,8 +83,7 @@ public class DiskMetricController {
     }
 
     /**
-     * 디스크 사용률 추이만 조회 (그래프 4.1)
-     * GET /api/monitoring/disk/usage-trend
+     * 디스크 사용률 추이 조회
      */
     @GetMapping("/usage-trend")
     public ResponseEntity<CommonResDto> getDiskUsageTrend(
@@ -114,15 +94,10 @@ public class DiskMetricController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(required = false) AggregationLevel aggregationLevel) {
 
-        if (endTime == null) {
-            endTime = LocalDateTime.now();
-        }
-        if (startTime == null) {
-            startTime = endTime.minusHours(1);
-        }
-        if (aggregationLevel == null) {
+        if (endTime == null) endTime = LocalDateTime.now();
+        if (startTime == null) startTime = endTime.minusHours(1);
+        if (aggregationLevel == null)
             aggregationLevel = diskMetricService.determineOptimalAggregationLevel(startTime, endTime);
-        }
 
         DiskSectionResponseDto response = diskMetricService.getDiskSectionData(
                 equipmentId, startTime, endTime, aggregationLevel);
@@ -135,8 +110,7 @@ public class DiskMetricController {
     }
 
     /**
-     * 디스크 I/O 추이만 조회 (그래프 4.2)
-     * GET /api/monitoring/disk/io-trend
+     * 디스크 I/O 추이 조회
      */
     @GetMapping("/io-trend")
     public ResponseEntity<CommonResDto> getDiskIoTrend(
@@ -147,15 +121,10 @@ public class DiskMetricController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(required = false) AggregationLevel aggregationLevel) {
 
-        if (endTime == null) {
-            endTime = LocalDateTime.now();
-        }
-        if (startTime == null) {
-            startTime = endTime.minusHours(1);
-        }
-        if (aggregationLevel == null) {
+        if (endTime == null) endTime = LocalDateTime.now();
+        if (startTime == null) startTime = endTime.minusHours(1);
+        if (aggregationLevel == null)
             aggregationLevel = diskMetricService.determineOptimalAggregationLevel(startTime, endTime);
-        }
 
         DiskSectionResponseDto response = diskMetricService.getDiskSectionData(
                 equipmentId, startTime, endTime, aggregationLevel);
@@ -169,10 +138,6 @@ public class DiskMetricController {
 
     /**
      * 여러 장비의 현재 디스크 상태 일괄 조회
-     * GET /api/monitoring/disk/current/batch
-     *
-     * @param equipmentIds 장비 ID 리스트 (쉼표로 구분, 예: "1,2,3,4,5")
-     * @return 각 장비별 현재 디스크 상태
      */
     @GetMapping("/current/batch")
     public ResponseEntity<CommonResDto> getCurrentDiskStatsBatch(
@@ -194,7 +159,7 @@ public class DiskMetricController {
         if (equipmentIdList.size() > 50) {
             return ResponseEntity.badRequest().body(new CommonResDto(
                     HttpStatus.BAD_REQUEST,
-                    "한 번에 최대 50개의 장비만 조회 가능합니다. (요청: " + equipmentIdList.size() + "개)",
+                    "한 번에 최대 50개의 장비만 조회 가능합니다.",
                     null
             ));
         }
@@ -214,7 +179,6 @@ public class DiskMetricController {
     }
 
     /**
-     * (CPU 컨트롤러에서 복사)
      * equipmentIds 문자열 파싱
      */
     private List<Long> parseEquipmentIds(String equipmentIds) {

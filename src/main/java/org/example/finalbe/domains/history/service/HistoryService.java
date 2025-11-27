@@ -1,5 +1,7 @@
-// src/main/java/org/example/finalbe/domains/history/service/HistoryService.java
-
+/**
+ * 작성자: 황요한
+ * 히스토리 서비스 클래스
+ */
 package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
@@ -31,13 +33,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * 히스토리 서비스
- * 변경 이력 조회 및 통계 제공
- *
- * 접근 제어: CompanyServerRoom 기준
- * - 사용자가 소속된 회사가 관리하는 서버실만 접근 가능
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -50,7 +45,7 @@ public class HistoryService {
     private final CompanyServerRoomRepository companyServerRoomRepository;
 
     /**
-     * 히스토리 기록 (내부 사용)
+     * 히스토리 기록
      */
     @Transactional
     public void recordHistory(HistoryCreateRequest request) {
@@ -89,7 +84,6 @@ public class HistoryService {
         Member currentMember = getCurrentMember();
         log.info("Searching history for serverroom: {}", request.serverRoomId());
 
-        // 서버실 접근 권한 확인 (CompanyServerRoom 기준)
         validateServerRoomAccess(currentMember, request.serverRoomId());
 
         Pageable pageable = PageRequest.of(
@@ -127,7 +121,6 @@ public class HistoryService {
             endDate = LocalDateTime.now();
         }
 
-        // 작업 타입별 카운트
         List<Object[]> actionCounts = historyRepository.countByActionAndDateRange(
                 serverRoomId, startDate, endDate);
         Map<HistoryAction, Long> actionCountMap = new HashMap<>();
@@ -139,7 +132,6 @@ public class HistoryService {
             totalCount += count;
         }
 
-        // 엔티티 타입별 카운트
         List<Object[]> entityTypeCounts = historyRepository.countByEntityTypeAndDateRange(
                 serverRoomId, startDate, endDate);
         Map<EntityType, Long> entityTypeCountMap = new HashMap<>();
@@ -149,7 +141,6 @@ public class HistoryService {
             entityTypeCountMap.put(entityType, count);
         }
 
-        // 최근 활동 많은 자산 TOP 10
         Pageable topEntitiesPageable = PageRequest.of(0, 10);
         List<Object[]> topEntitiesData = historyRepository.findTopActiveEntities(
                 serverRoomId, startDate, endDate, topEntitiesPageable);
@@ -162,7 +153,6 @@ public class HistoryService {
                         .build())
                 .collect(Collectors.toList());
 
-        // 최근 활동 많은 사용자 TOP 10
         Pageable topUsersPageable = PageRequest.of(0, 10);
         List<Object[]> topUsersData = historyRepository.findTopActiveUsers(
                 serverRoomId, startDate, endDate, topUsersPageable);
@@ -188,7 +178,7 @@ public class HistoryService {
     }
 
     /**
-     * 내 히스토리 조회 (본인만)
+     * 내 히스토리 조회
      */
     public Page<HistoryResponse> getMyHistory(Integer page, Integer size) {
         Member currentMember = getCurrentMember();
@@ -204,7 +194,7 @@ public class HistoryService {
     }
 
     /**
-     * 특정 사용자 히스토리 조회 (ADMIN 전용)
+     * 특정 사용자 히스토리 조회
      */
     public Page<HistoryResponse> getUserHistory(Long userId, Integer page, Integer size) {
         Member currentMember = getCurrentMember();
@@ -235,7 +225,7 @@ public class HistoryService {
     }
 
     /**
-     * 엔티티별 히스토리 목록 조회 (페이징)
+     * 엔티티별 히스토리 목록 조회
      */
     public Page<HistoryDetailResponse> getHistoryByEntity(
             EntityType entityType,
@@ -254,7 +244,7 @@ public class HistoryService {
     }
 
     /**
-     * 서버실별 최근 히스토리 조회 (상세 정보 포함)
+     * 서버실별 최근 히스토리 조회
      */
     public Page<HistoryDetailResponse> getRecentHistoriesWithDetails(
             Long serverRoomId,
@@ -276,23 +266,14 @@ public class HistoryService {
 
     /**
      * 사용자가 접근 가능한 모든 서버실 ID 조회
-     *
-     * 접근 제어 로직:
-     * - ADMIN: 모든 서버실 접근 가능
-     * - 일반 사용자: 자신의 회사가 관리하는 서버실만 접근 가능
-     *
-     * @param member 사용자
-     * @return 접근 가능한 서버실 ID 목록
      */
     public List<Long> getAccessibleServerRoomIds(Member member) {
         if (member.getRole() == Role.ADMIN) {
-            // ADMIN은 모든 서버실 접근 가능
             return serverRoomRepository.findByDelYn(DelYN.N).stream()
                     .map(ServerRoom::getId)
                     .collect(Collectors.toList());
         }
 
-        // 회사가 관리하는 서버실 조회
         List<Long> serverRoomIds = companyServerRoomRepository
                 .findByCompanyId(member.getCompany().getId())
                 .stream()
@@ -306,9 +287,7 @@ public class HistoryService {
     }
 
     /**
-     * 사용자의 접근 가능한 서버실 목록 조회 (API용)
-     *
-     * @return 접근 가능한 서버실 목록 (DTO)
+     * 사용자의 접근 가능한 서버실 목록 조회
      */
     public List<ServerRoomAccessResponse> getMyAccessibleServerRooms() {
         Member currentMember = getCurrentMember();
@@ -328,8 +307,6 @@ public class HistoryService {
                         .build())
                 .collect(Collectors.toList());
     }
-
-    // ========== Private Helper Methods ==========
 
     /**
      * 현재 로그인한 사용자 조회
@@ -355,15 +332,7 @@ public class HistoryService {
     }
 
     /**
-     * 서버실 접근 권한 검증 (CompanyServerRoom 기준)
-     *
-     * 접근 제어 로직:
-     * 1. ADMIN은 모든 서버실 접근 가능
-     * 2. 일반 사용자는 자신의 회사가 관리하는 서버실만 접근 가능
-     *
-     * @param member 사용자
-     * @param serverRoomId 서버실 ID
-     * @throws AccessDeniedException 접근 권한이 없는 경우
+     * 서버실 접근 권한 검증
      */
     private void validateServerRoomAccess(Member member, Long serverRoomId) {
         if (serverRoomId == null) {
@@ -375,7 +344,6 @@ public class HistoryService {
             return;
         }
 
-        // 회사-서버실 매핑 확인
         boolean hasAccess = companyServerRoomRepository
                 .existsByCompanyIdAndServerRoomId(member.getCompany().getId(), serverRoomId);
 

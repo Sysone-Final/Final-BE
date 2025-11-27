@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 실장도 응답 DTO
+ */
 package org.example.finalbe.domains.rack.dto;
 
 import lombok.Builder;
@@ -8,11 +12,9 @@ import org.example.finalbe.domains.equipment.domain.Equipment;
 import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 랙 실장도 응답 DTO
- */
 @Builder
 public record RackElevationResponse(
         Long rackId,
@@ -25,10 +27,10 @@ public record RackElevationResponse(
         List<UnitSlot> units
 ) {
     public static RackElevationResponse from(Rack rack, List<Equipment> equipments, String view) {
-        List<UnitSlot> units = new java.util.ArrayList<>();
+        List<UnitSlot> units = new ArrayList<>();
 
         for (int i = rack.getTotalUnits(); i >= 1; i--) {
-            final int unitNumber = i;
+            int unitNumber = i;
 
             Equipment equipment = equipments.stream()
                     .filter(eq -> unitNumber >= eq.getStartUnit()
@@ -69,6 +71,9 @@ public record RackElevationResponse(
                 .build();
     }
 
+    /**
+     * 랙 유닛 슬롯 정보 DTO
+     */
     @Builder
     public record UnitSlot(
             Integer unitNumber,

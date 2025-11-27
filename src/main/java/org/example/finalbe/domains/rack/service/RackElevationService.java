@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 실장도 및 장비 배치 서비스
+ */
 package org.example.finalbe.domains.rack.service;
 
 import lombok.RequiredArgsConstructor;
@@ -32,9 +36,8 @@ public class RackElevationService {
     private final EquipmentMappingService equipmentMappingService;
     private final ServerRoomDataSimulator serverRoomDataSimulator;
 
+    // 랙 실장도 조회
     public RackElevationResponse getRackElevation(Long id, String view) {
-        log.debug("Fetching rack elevation for id: {}, view: {}", id, view);
-
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));
 
@@ -43,67 +46,48 @@ public class RackElevationService {
         return RackElevationResponse.from(rack, equipments, view);
     }
 
-    /**
-     * 장비를 랙에 배치
-     * ✅ 수정: 배치 시 Simulator에 자동 등록
-     */
+    // 장비 배치
     @Transactional
     public void placeEquipment(Long rackId, Long equipmentId, EquipmentPlacementRequest request) {
-        log.info("Placing equipment {} on rack {} at unit {}", equipmentId, rackId, request.startUnit());
-
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
         Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        // 배치 검증
         Map<String, Object> validation = validateEquipmentPlacement(rackId, request);
         if (!(Boolean) validation.get("isValid")) {
             throw new BusinessException((String) validation.get("message"));
         }
 
-        // 유닛 점유
         rack.occupyUnits(request.unitSize());
 
-        // 전력 사용량 추가
         if (request.powerConsumption() != null) {
             rack.addPowerUsage(request.powerConsumption());
         }
 
-        // 장비 정보 업데이트
         equipment.setRack(rack);
         equipment.setStartUnit(request.startUnit());
         equipment.setUnitSize(request.unitSize());
 
         equipmentMappingService.addEquipmentMapping(equipment);
 
-
-        if (equipment.getType() == EquipmentType.SERVER ||
-                equipment.getType() == EquipmentType.STORAGE) {
+        if (equipment.getType() == EquipmentType.SERVER || equipment.getType() == EquipmentType.STORAGE) {
             try {
                 serverRoomDataSimulator.addEquipment(equipment);
-                log.info("✅ Simulator에 장비 등록 완료 (Equipment ID: {})", equipmentId);
-            } catch (Exception e) {
-                log.error("⚠️ 시뮬레이터 등록 실패: {}", e.getMessage());
-            }
+            } catch (Exception ignored) {}
         }
-
-        log.info("✅ Equipment placed successfully - 메트릭 수집 시작됨");
     }
 
+    // 장비 이동
     @Transactional
     public void moveEquipment(Long rackId, Long equipmentId, EquipmentMoveRequest request) {
-        log.info("Moving equipment {} on rack {} from unit {} to unit {}",
-                equipmentId, rackId, request.fromUnit(), request.toUnit());
-
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
         Equipment equipment = equipmentRepository.findActiveById(equipmentId)
                 .orElseThrow(() -> new EntityNotFoundException("장비", equipmentId));
 
-        // 새 위치 배치 검증
         EquipmentPlacementRequest placementRequest = EquipmentPlacementRequest.builder()
                 .startUnit(request.toUnit())
                 .unitSize(equipment.getUnitSize())
@@ -114,19 +98,16 @@ public class RackElevationService {
             throw new BusinessException((String) validation.get("message"));
         }
 
-        // 장비 이동 (시작 유닛 업데이트)
         equipment.setStartUnit(request.toUnit());
-
-        log.info("Equipment moved successfully");
     }
 
+    // 장비 배치 검증
     public Map<String, Object> validateEquipmentPlacement(Long rackId, EquipmentPlacementRequest request) {
         Map<String, Object> result = new HashMap<>();
 
         Rack rack = rackRepository.findActiveById(rackId)
                 .orElseThrow(() -> new EntityNotFoundException("랙", rackId));
 
-        // 유닛 범위 검증
         if (request.startUnit() < 1 || request.startUnit() > rack.getTotalUnits()) {
             result.put("isValid", false);
             result.put("message", "시작 유닛이 랙 범위를 벗어났습니다.");
@@ -140,11 +121,11 @@ public class RackElevationService {
             return result;
         }
 
-        // 유닛 겹침 검증
-        List<Equipment> existingEquipments = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
-        for (Equipment eq : existingEquipments) {
+        List<Equipment> existing = equipmentRepository.findByRackIdAndDelYn(rackId, DelYN.N);
+        for (Equipment eq : existing) {
             int eqEnd = eq.getStartUnit() + eq.getUnitSize() - 1;
-            if (!(endUnit < eq.getStartUnit() || request.startUnit() > eqEnd)) {
+            boolean overlap = !(endUnit < eq.getStartUnit() || request.startUnit() > eqEnd);
+            if (overlap) {
                 result.put("isValid", false);
                 result.put("message", "해당 유닛에 이미 장비가 배치되어 있습니다.");
                 result.put("conflictingEquipment", eq.getName());
@@ -152,13 +133,11 @@ public class RackElevationService {
             }
         }
 
-        // 전력 용량 검증
         if (rack.getMaxPowerCapacity() != null && request.powerConsumption() != null) {
-            BigDecimal newPowerUsage = rack.getCurrentPowerUsage().add(request.powerConsumption());
-            if (newPowerUsage.compareTo(rack.getMaxPowerCapacity()) > 0) {
+            BigDecimal newPower = rack.getCurrentPowerUsage().add(request.powerConsumption());
+            if (newPower.compareTo(rack.getMaxPowerCapacity()) > 0) {
                 result.put("isValid", false);
-                result.put("message", String.format("랙의 최대 전력 용량을 초과합니다. (현재: %.2fW, 추가: %.2fW, 최대: %.2fW)",
-                        rack.getCurrentPowerUsage(), request.powerConsumption(), rack.getMaxPowerCapacity()));
+                result.put("message", "랙의 최대 전력 용량을 초과합니다.");
                 return result;
             }
         }
@@ -168,9 +147,8 @@ public class RackElevationService {
         return result;
     }
 
+    // 랙 사용률 조회
     public RackUtilizationResponse getRackUtilization(Long id) {
-        log.debug("Fetching rack utilization for id: {}", id);
-
         Rack rack = rackRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("랙", id));
 

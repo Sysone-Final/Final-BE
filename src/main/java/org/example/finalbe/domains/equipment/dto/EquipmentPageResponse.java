@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장비 페이지네이션 응답 DTO
+ */
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
@@ -5,9 +9,6 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-/**
- * 장비 페이지네이션 응답 DTO
- */
 @Builder
 public record EquipmentPageResponse(
         List<EquipmentListResponse> content,

@@ -1,25 +1,23 @@
+// 작성자: 황요한
+// 설명: 랙 정보와 해당 랙에 포함된 장비 목록을 함께 제공하는 응답 DTO
+
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.rack.domain.Rack;
 
-import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * 랙 정보 + 장비 목록 통합 응답 DTO
- */
 @Builder
 public record RackWithEquipmentsResponse(
-        // 랙 정보 (간소화)
         RackInfo rack,
-
-        // 장비 목록
         List<EquipmentListResponse> equipments,
-
-        // 통계 정보
         int totalEquipmentCount
 ) {
+
+    /**
+     * 랙 정보만 간단히 담는 DTO
+     */
     @Builder
     public record RackInfo(
             String rackName,
@@ -28,7 +26,11 @@ public record RackWithEquipmentsResponse(
     ) {
     }
 
+    /**
+     * Rack 엔티티와 장비 목록을 받아 응답 DTO로 변환
+     */
     public static RackWithEquipmentsResponse from(Rack rack, List<EquipmentListResponse> equipments) {
+
         RackInfo rackInfo = RackInfo.builder()
                 .rackName(rack.getRackName())
                 .rackId(rack.getId())

@@ -1,3 +1,6 @@
+// 작성자: 최산하
+// 디스크 사용률 시계열 포인트 DTO
+
 package org.example.finalbe.domains.monitoring.dto;
 
 import lombok.AllArgsConstructor;
@@ -7,20 +10,15 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * 디스크 사용률 포인트 DTO
- * 그래프 4.1: 디스크 사용률 시계열 그래프용
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DiskUsagePointDto {
 
+    // 타임스탬프
     private LocalDateTime timestamp;
 
-    /**
-     * 디스크 전체 사용률 (%)
-     */
+    // 디스크 사용률 (%)
     private Double usagePercent;
 }

@@ -1,3 +1,7 @@
+// 작성자: 황요한
+// 클래스: 회원 권한 변경 요청 DTO
+// role: 변경할 권한(OPERATOR만 가능)
+
 package org.example.finalbe.domains.member.dto;
 
 import jakarta.validation.constraints.NotBlank;
@@ -5,7 +9,6 @@ import jakarta.validation.constraints.Pattern;
 
 /**
  * 회원 권한 변경 요청 DTO
- * OPERATOR가 VIEWER를 OPERATOR로 변경할 때 사용
  */
 public record MemberRoleChangeRequest(
         @NotBlank(message = "권한을 입력해주세요.")

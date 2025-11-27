@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한,최산하,김대호
+ * SSE 기반 실시간 모니터링 전송 서비스
+ */
 package org.example.finalbe.domains.monitoring.service;
 
 import lombok.Data;

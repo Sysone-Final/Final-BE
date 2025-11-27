@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// Prometheus SSE 컨트롤러
+
 package org.example.finalbe.domains.prometheus.controller;
 
 import lombok.RequiredArgsConstructor;
@@ -17,30 +20,17 @@ public class PrometheusMetricController {
 
     private final SseEmitterService sseEmitterService;
 
-    /**
-     * SSE 실시간 메트릭 스트림
-     *
-     * 사용 예시:
-     * const eventSource = new EventSource('/api/prometheus/metrics/stream');
-     *
-     * eventSource.addEventListener('metrics', (event) => {
-     *     const data = JSON.parse(event.data);
-     *     console.log('Metrics received:', data);
-     * });
-     */
+    // 실시간 메트릭 스트림 (SSE)
     @GetMapping(value = "/metrics/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamMetrics() {
-        log.info("📡 SSE 스트림 연결 요청");
+        log.info("SSE 연결 요청");
         return sseEmitterService.createEmitter();
     }
 
-    /**
-     * 현재 활성 SSE 연결 수 조회
-     */
+    // 현재 활성 SSE 연결 수
     @GetMapping("/metrics/stream/connections")
     public ConnectionStatusResponse getConnectionStatus() {
-        int count = sseEmitterService.getActiveConnectionCount();
-        return new ConnectionStatusResponse(count);
+        return new ConnectionStatusResponse(sseEmitterService.getActiveConnectionCount());
     }
 
     public record ConnectionStatusResponse(int activeConnections) {}

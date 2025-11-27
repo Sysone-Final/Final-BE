@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 알림 히스토리 엔티티 (알림 기록 및 읽음 처리 기능 포함)
+ */
 package org.example.finalbe.domains.alert.domain;
 
 import jakarta.persistence.*;
@@ -22,63 +26,53 @@ public class AlertHistory {
     @Column(name = "alert_id")
     private Long id;
 
-    @Column(name = "equipment_id")
     private Long equipmentId;
-
-    @Column(name = "rack_id")
     private Long rackId;
-
-    @Column(name = "server_room_id")
     private Long serverRoomId;
-
-    @Column(name = "data_center_id")
     private Long dataCenterId;
 
-    @Column(name = "target_name", length = 200)
+    @Column(length = 200)
     private String targetName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "target_type", nullable = false, length = 50)
+    @Column(nullable = false, length = 50)
     private TargetType targetType;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "metric_type", nullable = false, length = 50)
+    @Column(nullable = false, length = 50)
     private MetricType metricType;
 
-    @Column(name = "metric_name", nullable = false, length = 100)
+    @Column(nullable = false, length = 100)
     private String metricName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "alert_level", nullable = false, length = 20)
+    @Column(nullable = false, length = 20)
     private AlertLevel level;
 
-    @Column(name = "measured_value", nullable = false)
+    @Column(nullable = false)
     private Double measuredValue;
 
-    @Column(name = "threshold_value", nullable = false)
+    @Column(nullable = false)
     private Double thresholdValue;
 
-    @Column(name = "triggered_at", nullable = false)
+    @Column(nullable = false)
     private LocalDateTime triggeredAt;
 
-    // 읽음 처리 관련 필드
-    @Column(name = "is_read", nullable = false)
+    // 읽음 처리 필드
     @Builder.Default
+    @Column(nullable = false)
     private Boolean isRead = false;
 
-    @Column(name = "read_at")
     private LocalDateTime readAt;
-
-    @Column(name = "read_by")
     private Long readBy;
 
-    @Column(name = "message", length = 500)
+    @Column(length = 500)
     private String message;
 
-    @Column(name = "additional_info", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String additionalInfo;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
@@ -86,12 +80,4 @@ public class AlertHistory {
         this.createdAt = LocalDateTime.now();
     }
 
-    /**
-     * 읽음 처리
-     */
-    public void markAsRead(Long userId) {
-        this.isRead = true;
-        this.readAt = LocalDateTime.now();
-        this.readBy = userId;
-    }
 }

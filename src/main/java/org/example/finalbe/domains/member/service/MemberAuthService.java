@@ -1,6 +1,8 @@
+// 작성자: 황요한
+// 회원 인증 서비스: 회원가입, 로그인, 로그아웃, 토큰 재발급 처리
+
 package org.example.finalbe.domains.member.service;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-/**
- * 회원 인증 서비스
- * JWT 기반 회원가입, 로그인, 로그아웃, 토큰 재발급 처리
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -44,13 +42,9 @@ public class MemberAuthService {
     private static final int REFRESH_TOKEN_COOKIE_AGE = 7 * 24 * 60 * 60;
     private static final long REFRESH_TOKEN_VALIDITY_DAYS = 7;
 
-    /**
-     * 회원가입
-     */
+    /** 회원가입 처리 */
     @Transactional
     public MemberSignupResponse signup(MemberSignupRequest request) {
-        log.info("Signup attempt: {}", request.userName());
-
         validateSignupInput(request);
         checkDuplicates(request);
 
@@ -60,23 +54,16 @@ public class MemberAuthService {
         Member member = request.toEntity(passwordEncoder.encode(request.password()), company);
         memberRepository.save(member);
 
-        log.info("Member created: {}", member.getUserName());
         return MemberSignupResponse.from(member, "회원가입이 완료되었습니다.");
     }
 
-    /**
-     * 로그인
-     */
+    /** 로그인 처리 + 리프레시 토큰 발급 */
     @Transactional
     public MemberLoginResponse login(MemberLoginRequest request, HttpServletResponse response) {
-        log.info("Login attempt: {}", request.userName());
-
         validateLoginInput(request);
 
         Member member = memberRepository.findActiveByUserName(request.userName())
                 .orElseThrow(() -> new EntityNotFoundException("사용자", request.userName()));
-
-        String role = member.getRole().toString();
 
         if (!passwordEncoder.matches(request.password(), member.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
@@ -86,27 +73,19 @@ public class MemberAuthService {
             throw new IllegalStateException("비활성화된 계정입니다.");
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(member.getId(), role);
+        String accessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getRole().name());
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
+        LocalDateTime expiry = LocalDateTime.now().plusDays(REFRESH_TOKEN_VALIDITY_DAYS);
 
-        LocalDateTime refreshTokenExpiryDate = LocalDateTime.now().plusDays(REFRESH_TOKEN_VALIDITY_DAYS);
-
-        // 로그인: 리프레시 토큰 + 로그인 시각 모두 업데이트
-        member.updateRefreshToken(refreshToken, refreshTokenExpiryDate);
-
+        member.updateRefreshToken(refreshToken, expiry);
         setRefreshTokenCookie(response, refreshToken);
 
-        log.info("Login success: {} at {}", member.getUserName(), member.getLastLoginAt());
         return MemberLoginResponse.from(member, accessToken);
     }
 
-    /**
-     * 로그아웃
-     */
+    /** 로그아웃 처리 */
     @Transactional
     public MemberLogoutResponse logout(String accessToken, String refreshToken, HttpServletResponse response) {
-        log.info("Logout attempt");
-
         if (accessToken == null || !accessToken.startsWith("Bearer ")) {
             throw new InvalidTokenException("유효하지 않은 Access Token입니다.");
         }
@@ -123,17 +102,12 @@ public class MemberAuthService {
         member.clearRefreshToken();
         clearRefreshTokenCookie(response);
 
-        log.info("Logout success: {}", member.getUserName());
         return new MemberLogoutResponse(member.getUserName(), "로그아웃되었습니다.");
     }
 
-    /**
-     * 토큰 재발급
-     * 토큰 갱신은 로그인이 아니므로 lastLoginAt을 업데이트하지 않음
-     */
+    /** 토큰 재발급 처리 */
     @Transactional
     public MemberRefreshResponse refresh(String refreshToken, HttpServletResponse response) {
-        log.info("Token refresh attempt");
 
         if (!jwtTokenProvider.validateToken(refreshToken)) {
             throw new InvalidTokenException("유효하지 않은 Refresh Token입니다.");
@@ -142,10 +116,8 @@ public class MemberAuthService {
         String userId = jwtTokenProvider.getUserId(refreshToken);
         Member member = memberRepository.findActiveById(Long.parseLong(userId))
                 .orElseThrow(() -> new EntityNotFoundException("사용자", Long.parseLong(userId)));
-        String role = member.getRole().toString();
 
         if (!member.isRefreshTokenValid(refreshToken)) {
-            log.warn("Refresh token mismatch: {}", userId);
             throw new InvalidTokenException("유효하지 않거나 만료된 Refresh Token입니다.");
         }
 
@@ -153,22 +125,17 @@ public class MemberAuthService {
             throw new IllegalStateException("비활성화된 계정입니다.");
         }
 
-        String newAccessToken = jwtTokenProvider.createAccessToken(member.getId(), role);
+        String newAccessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getRole().name());
         String newRefreshToken = jwtTokenProvider.createRefreshToken(member.getId());
+        LocalDateTime expiry = LocalDateTime.now().plusDays(REFRESH_TOKEN_VALIDITY_DAYS);
 
-        LocalDateTime newExpiryDate = LocalDateTime.now().plusDays(REFRESH_TOKEN_VALIDITY_DAYS);
-
-        // 토큰 갱신: 리프레시 토큰만 업데이트, 로그인 시각은 유지
-        member.updateRefreshTokenOnly(newRefreshToken, newExpiryDate);
-
+        member.updateRefreshTokenOnly(newRefreshToken, expiry);
         setRefreshTokenCookie(response, newRefreshToken);
 
-        log.info("Token refresh success: {}", member.getUserName());
         return new MemberRefreshResponse(newAccessToken, "토큰이 재발급되었습니다.");
     }
 
-    // === Private Helper Methods ===
-
+    /** 회원가입 입력값 검증 */
     private void validateSignupInput(MemberSignupRequest request) {
         if (request.userName() == null || request.userName().trim().isEmpty()) {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
@@ -184,16 +151,18 @@ public class MemberAuthService {
         }
     }
 
+    /** 중복 데이터 검사 */
     private void checkDuplicates(MemberSignupRequest request) {
         if (memberRepository.existsByUserName(request.userName())) {
             throw new DuplicateException("아이디", request.userName());
         }
-        if (request.email() != null && !request.email().trim().isEmpty()
+        if (request.email() != null && !request.email().isEmpty()
                 && memberRepository.existsByEmail(request.email())) {
             throw new DuplicateException("이메일", request.email());
         }
     }
 
+    /** 로그인 입력값 검증 */
     private void validateLoginInput(MemberLoginRequest request) {
         if (request.userName() == null || request.userName().trim().isEmpty()) {
             throw new IllegalArgumentException("아이디를 입력해주세요.");
@@ -203,6 +172,7 @@ public class MemberAuthService {
         }
     }
 
+    /** 리프레시 토큰 쿠키 생성 */
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
@@ -211,10 +181,10 @@ public class MemberAuthService {
                 .maxAge(REFRESH_TOKEN_COOKIE_AGE)
                 .sameSite("None")
                 .build();
-
         response.setHeader("Set-Cookie", cookie.toString());
     }
 
+    /** 리프레시 토큰 쿠키 삭제 */
     private void clearRefreshTokenCookie(HttpServletResponse response) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
                 .httpOnly(true)
@@ -223,7 +193,6 @@ public class MemberAuthService {
                 .maxAge(0)
                 .sameSite("None")
                 .build();
-
         response.setHeader("Set-Cookie", cookie.toString());
     }
 }

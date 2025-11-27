@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 설명: 장비 CRUD 및 조회, 필터링, 상태 변경을 처리하는 컨트롤러
+
 package org.example.finalbe.domains.equipment.controller;
 
 import jakarta.validation.Valid;
@@ -13,14 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.example.finalbe.domains.equipment.dto.RackWithEquipmentsResponse;
 
 import java.util.List;
 import java.util.Map;
 
-/**
- * 장비 관리 컨트롤러
- */
 @RestController
 @RequestMapping("/api/equipments")
 @RequiredArgsConstructor
@@ -29,10 +28,8 @@ public class EquipmentController {
 
     private final EquipmentService equipmentService;
 
-
     /**
-     * 메인 조회: 페이지네이션 + 전체 필터
-     * GET /api/equipments?page=0&size=10&keyword=&type=&status=&serverRoomId=&onlyUnassigned=
+     * 장비 목록 조회 (페이지 + 필터)
      */
     @GetMapping
     public ResponseEntity<CommonResDto> getEquipments(
@@ -52,12 +49,11 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 상세 조회
-     * GET /api/equipments/{id}
+     * 장비 단건 상세 조회
      */
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getEquipmentById(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 장비 ID입니다.") Long id) {
+            @PathVariable @Min(1) Long id) {
 
         EquipmentDetailResponse equipment = equipmentService.getEquipmentById(id);
         return ResponseEntity.ok(
@@ -65,15 +61,14 @@ public class EquipmentController {
     }
 
     /**
-     * 랙별 장비 목록 조회
-     * GET /api/equipments/rack/{rackId}
+     * 랙별 장비 조회
      */
     @GetMapping("/rack/{rackId}")
     public ResponseEntity<CommonResDto> getEquipmentsByRack(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long rackId,
+            @PathVariable @Min(1) Long rackId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type,
-            @RequestParam(required = false, defaultValue = "name") String sortBy) {
+            @RequestParam(defaultValue = "name") String sortBy) {
 
         RackWithEquipmentsResponse response = equipmentService.getEquipmentsByRack(
                 rackId, status, type, sortBy);
@@ -83,12 +78,11 @@ public class EquipmentController {
     }
 
     /**
-     * 서버실별 장비 목록 조회
-     * GET /api/equipments/serverroom/{serverRoomId}
+     * 서버실별 장비 조회
      */
     @GetMapping("/serverroom/{serverRoomId}")
     public ResponseEntity<CommonResDto> getEquipmentByServerRoom(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId,
+            @PathVariable @Min(1) Long serverRoomId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type) {
 
@@ -100,7 +94,6 @@ public class EquipmentController {
 
     /**
      * 장비 검색
-     * GET /api/equipments/search
      */
     @GetMapping("/search")
     public ResponseEntity<CommonResDto> getEquipmentsBySearch(
@@ -115,7 +108,7 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 생성 - @RequestBody로 변경
+     * 장비 생성
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
@@ -127,14 +120,13 @@ public class EquipmentController {
                 .body(new CommonResDto(HttpStatus.CREATED, "장비 생성 완료", equipment));
     }
 
-
     /**
-     * 장비 수정 - @RequestBody로 변경
+     * 장비 수정
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> updateEquipment(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 장비 ID입니다.") Long id,
+            @PathVariable @Min(1) Long id,
             @RequestBody @Valid EquipmentUpdateRequest request) {
 
         EquipmentDetailResponse equipment = equipmentService.updateEquipment(id, request);
@@ -143,13 +135,12 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 삭제 (단건)
-     * DELETE /api/equipments/{id}
+     * 장비 단건 삭제
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CommonResDto> deleteEquipment(
-            @PathVariable @Min(value = 1, message = "유효하지 않은 장비 ID입니다.") Long id) {
+            @PathVariable @Min(1) Long id) {
 
         equipmentService.deleteEquipment(id);
         return ResponseEntity.ok(
@@ -158,8 +149,6 @@ public class EquipmentController {
 
     /**
      * 장비 대량 삭제
-     * DELETE /api/equipments
-     * Body: {"ids": [1, 2, 3]}
      */
     @DeleteMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -177,9 +166,7 @@ public class EquipmentController {
     }
 
     /**
-     * 장비 대량 상태 변경
-     * PUT /api/equipments/status
-     * Body: {"ids": [1, 2, 3], "status": "MAINTENANCE"}
+     * 장비 상태 대량 변경
      */
     @PutMapping("/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")

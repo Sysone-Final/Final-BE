@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 히스토리 응답 DTO
+ */
 package org.example.finalbe.domains.history.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,9 +15,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 히스토리 응답 DTO
- */
 @Builder
 public record HistoryResponse(
         Long id,

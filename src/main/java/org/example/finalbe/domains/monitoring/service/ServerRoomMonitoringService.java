@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 서버실 내 장비/랙 메트릭 기반 통계 집계 서비스
+ */
 package org.example.finalbe.domains.monitoring.service;
 
 import lombok.RequiredArgsConstructor;
@@ -20,10 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 서버실 레벨 모니터링 집계 서비스
- * 서버실 내 모든 장비/랙의 메트릭을 집계하여 통계 생성
- */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor

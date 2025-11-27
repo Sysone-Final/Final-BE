@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * JWT 토큰 생성 및 검증 담당 클래스
+ */
 package org.example.finalbe.domains.common.config;
 
 import io.jsonwebtoken.*;
@@ -10,9 +14,6 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-/**
- * JWT 토큰 생성 및 검증 담당 클래스
- */
 @Slf4j
 @Component
 public class JwtTokenProvider {

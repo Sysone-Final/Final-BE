@@ -1,5 +1,7 @@
-// src/main/java/org/example/finalbe/domains/serverroom/dto/ServerRoomDetailResponse.java
-
+/**
+ * 작성자: 황요한
+ * 서버실 상세 조회 응답 DTO
+ */
 package org.example.finalbe.domains.serverroom.dto;
 
 import lombok.Builder;
@@ -9,61 +11,52 @@ import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * 서버실 상세 조회 응답 DTO (DataCenter 정보 포함)
- */
 @Builder
 public record ServerRoomDetailResponse(
-        Long id,
-        String name,
-        String code,
-        String location,
-        Integer floor,
-        Integer rows,
-        Integer columns,
-        ServerRoomStatus status,
-        String description,
-        BigDecimal totalArea,
-        BigDecimal totalPowerCapacity,
-        BigDecimal totalCoolingCapacity,
-        BigDecimal temperatureMin,
-        BigDecimal temperatureMax,
-        BigDecimal humidityMin,
-        BigDecimal humidityMax,
-        Long dataCenterId,
-        String dataCenterName,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Long id,                          // ID
+        String name,                      // 이름
+        String code,                      // 코드
+        String location,                  // 위치
+        Integer floor,                    // 층수
+        Integer rows,                     // 행 개수
+        Integer columns,                  // 열 개수
+        ServerRoomStatus status,          // 상태
+        String description,               // 설명
+        BigDecimal totalArea,             // 총 면적
+        BigDecimal totalPowerCapacity,    // 전력 용량
+        BigDecimal totalCoolingCapacity,  // 냉각 용량
+        BigDecimal temperatureMin,        // 온도 최소
+        BigDecimal temperatureMax,        // 온도 최대
+        BigDecimal humidityMin,           // 습도 최소
+        BigDecimal humidityMax,           // 습도 최대
+        Long dataCenterId,                // 데이터센터 ID
+        String dataCenterName,            // 데이터센터 이름
+        LocalDateTime createdAt,          // 생성일
+        LocalDateTime updatedAt           // 수정일
 ) {
-    /**
-     * Entity → DTO 변환
-     */
-    public static ServerRoomDetailResponse from(ServerRoom serverRoom) {
-        if (serverRoom == null) {
-            throw new IllegalArgumentException("ServerRoom 엔티티가 null입니다.");
-        }
-
+    /** Entity → DTO 변환 */
+    public static ServerRoomDetailResponse from(ServerRoom s) {
         return ServerRoomDetailResponse.builder()
-                .id(serverRoom.getId())
-                .name(serverRoom.getName())
-                .code(serverRoom.getCode())
-                .location(serverRoom.getLocation())
-                .floor(serverRoom.getFloor())
-                .rows(serverRoom.getRows())
-                .columns(serverRoom.getColumns())
-                .status(serverRoom.getStatus())
-                .description(serverRoom.getDescription())
-                .totalArea(serverRoom.getTotalArea())
-                .totalPowerCapacity(serverRoom.getTotalPowerCapacity())
-                .totalCoolingCapacity(serverRoom.getTotalCoolingCapacity())
-                .temperatureMin(serverRoom.getTemperatureMin())
-                .temperatureMax(serverRoom.getTemperatureMax())
-                .humidityMin(serverRoom.getHumidityMin())
-                .humidityMax(serverRoom.getHumidityMax())
-                .dataCenterId(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getId() : null)
-                .dataCenterName(serverRoom.getDataCenter() != null ? serverRoom.getDataCenter().getName() : null)
-                .createdAt(serverRoom.getCreatedAt())
-                .updatedAt(serverRoom.getUpdatedAt())
+                .id(s.getId())
+                .name(s.getName())
+                .code(s.getCode())
+                .location(s.getLocation())
+                .floor(s.getFloor())
+                .rows(s.getRows())
+                .columns(s.getColumns())
+                .status(s.getStatus())
+                .description(s.getDescription())
+                .totalArea(s.getTotalArea())
+                .totalPowerCapacity(s.getTotalPowerCapacity())
+                .totalCoolingCapacity(s.getTotalCoolingCapacity())
+                .temperatureMin(s.getTemperatureMin())
+                .temperatureMax(s.getTemperatureMax())
+                .humidityMin(s.getHumidityMin())
+                .humidityMax(s.getHumidityMax())
+                .dataCenterId(s.getDataCenter() != null ? s.getDataCenter().getId() : null)
+                .dataCenterName(s.getDataCenter() != null ? s.getDataCenter().getName() : null)
+                .createdAt(s.getCreatedAt())
+                .updatedAt(s.getUpdatedAt())
                 .build();
     }
 }

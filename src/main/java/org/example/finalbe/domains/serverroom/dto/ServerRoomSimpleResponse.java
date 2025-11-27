@@ -1,11 +1,12 @@
+/**
+ * 작성자: 황요한
+ * 데이터센터 상세 조회 시 포함되는 서버실 간단 정보 DTO
+ */
 package org.example.finalbe.domains.serverroom.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 
-/**
- * 데이터센터 상세 조회 시 포함되는 서버실 간단 정보 DTO
- */
 @Builder
 public record ServerRoomSimpleResponse(
         Long id,

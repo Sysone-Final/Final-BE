@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 데이터센터별 서버실 목록 응답 DTO
+ */
 package org.example.finalbe.domains.serverroom.dto;
 
 import lombok.Builder;
@@ -5,26 +9,22 @@ import org.example.finalbe.domains.common.enumdir.ServerRoomStatus;
 
 import java.util.List;
 
-/**
- * 데이터센터별로 그룹화된 서버실 응답 DTO
- * /api/serverrooms 엔드포인트용
- */
 @Builder
 public record ServerRoomGroupedByDataCenterResponse(
-        Long dataCenterId,
-        String dataCenterName,
-        String dataCenterCode,
-        String dataCenterAddress,
-        List<ServerRoomInfo> serverRooms
+        Long dataCenterId,       // 데이터센터 ID
+        String dataCenterName,   // 데이터센터 이름
+        String dataCenterCode,   // 데이터센터 코드
+        String dataCenterAddress,// 데이터센터 주소
+        List<ServerRoomInfo> serverRooms // 서버실 목록
 ) {
     @Builder
     public record ServerRoomInfo(
-            Long id,
-            String name,
-            String code,
-            String location,
-            Integer floor,
-            ServerRoomStatus status,
-            String description
+            Long id,                 // 서버실 ID
+            String name,             // 서버실 이름
+            String code,             // 서버실 코드
+            String location,         // 위치
+            Integer floor,           // 층수
+            ServerRoomStatus status, // 상태
+            String description       // 설명
     ) {}
 }

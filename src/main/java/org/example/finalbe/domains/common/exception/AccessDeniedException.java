@@ -1,9 +1,9 @@
+/**
+ * 작성자: 황요한
+ * 접근 권한 예외 클래스
+ */
 package org.example.finalbe.domains.common.exception;
 
-/**
- * 접근 권한이 없을 때 발생하는 예외
- * HTTP 상태 코드: 403 Forbidden 또는 401 Unauthorized
- */
 public class AccessDeniedException extends RuntimeException {
 
     /**

@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장비 엔티티
+ */
 package org.example.finalbe.domains.equipment.domain;
 
 import jakarta.persistence.*;
@@ -78,7 +82,6 @@ public class Equipment extends BaseTimeEntity {
     @Column(name = "power_consumption", precision = 10, scale = 2)
     private BigDecimal powerConsumption;
 
-    // ✅ 네트워크 대역폭 추가 (단위: Mbps)
     @Column(name = "network_bandwidth_mbps")
     private Integer networkBandwidthMbps;
 
@@ -185,7 +188,7 @@ public class Equipment extends BaseTimeEntity {
     }
 
     /**
-     * 랙 ID 조회 (Transient 메서드)
+     * 랙 ID 조회
      */
     @Transient
     public Long getRackId() {
@@ -193,8 +196,7 @@ public class Equipment extends BaseTimeEntity {
     }
 
     /**
-     * ✅ 네트워크 대역폭 반환 (Mbps 단위)
-     * null이면 기본값 1000Mbps (1Gbps) 반환
+     * 네트워크 대역폭 반환 (기본값 1000Mbps)
      */
     public Integer getNetworkBandwidthMbpsOrDefault() {
         return networkBandwidthMbps != null ? networkBandwidthMbps : 1000;

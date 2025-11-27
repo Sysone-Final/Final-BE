@@ -1,3 +1,6 @@
+// 작성자: 최산하
+// 메모리 모니터링 API 제공 (섹션/현재 상태/추이/일괄 조회)
+
 package org.example.finalbe.domains.monitoring.controller;
 
 import jakarta.validation.constraints.Min;
@@ -21,33 +24,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 메모리 메트릭 컨트롤러
- * 메모리 대시보드 데이터 API 제공
- */
+
 @Slf4j
 @RestController
-@RequestMapping("/api/monitoring/memory") // 경로 변경
+@RequestMapping("/api/monitoring/memory")
 @RequiredArgsConstructor
 @Validated
 public class MemoryMetricController {
 
-    private final MemoryMetricService memoryMetricService; // 서비스 주입 변경
+    private final MemoryMetricService memoryMetricService;
 
     /**
      * 메모리 섹션 전체 데이터 조회
-     * GET /api/monitoring/memory/section
-     *
-     * 1. 메모리 사용률 추이 (그래프 2.1)
-     * 2. 메모리 구성 요소 (그래프 2.2)
-     * 3. 스왑 사용률 추이 (그래프 2.3)
-     * 4. 현재 상태 (게이지)
-     *
-     * @param equipmentId 장비 ID
-     * @param startTime 시작 시간
-     * @param endTime 종료 시간
-     * @param aggregationLevel 집계 레벨
-     * @return 메모리 섹션 데이터
      */
     @GetMapping("/section")
     public ResponseEntity<CommonResDto> getMemorySection(
@@ -58,7 +46,6 @@ public class MemoryMetricController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(required = false) AggregationLevel aggregationLevel) {
 
-        // 기본값 설정
         if (endTime == null) {
             endTime = LocalDateTime.now();
         }
@@ -66,7 +53,6 @@ public class MemoryMetricController {
             startTime = endTime.minusHours(1);
         }
 
-        // 집계 레벨 자동 선택
         if (aggregationLevel == null) {
             aggregationLevel = memoryMetricService.determineOptimalAggregationLevel(startTime, endTime);
         }
@@ -82,11 +68,7 @@ public class MemoryMetricController {
     }
 
     /**
-     * 현재 메모리 상태만 조회 (게이지용)
-     * GET /api/monitoring/memory/current
-     *
-     * @param equipmentId 장비 ID
-     * @return 현재 메모리 상태
+     * 현재 메모리 상태 조회
      */
     @GetMapping("/current")
     public ResponseEntity<CommonResDto> getCurrentMemoryStats(
@@ -106,8 +88,7 @@ public class MemoryMetricController {
     }
 
     /**
-     * 메모리 사용률 추이만 조회 (그래프 2.1)
-     * GET /api/monitoring/memory/usage-trend
+     * 메모리 사용률 추이 조회
      */
     @GetMapping("/usage-trend")
     public ResponseEntity<CommonResDto> getMemoryUsageTrend(
@@ -139,8 +120,7 @@ public class MemoryMetricController {
     }
 
     /**
-     * 스왑 사용률 추이만 조회 (그래프 2.3)
-     * GET /api/monitoring/memory/swap-usage
+     * 스왑 사용률 추이 조회
      */
     @GetMapping("/swap-usage")
     public ResponseEntity<CommonResDto> getSwapUsageTrend(
@@ -173,10 +153,6 @@ public class MemoryMetricController {
 
     /**
      * 여러 장비의 현재 메모리 상태 일괄 조회
-     * GET /api/monitoring/memory/current/batch
-     *
-     * @param equipmentIds 장비 ID 리스트 (쉼표로 구분, 예: "1,2,3,4,5")
-     * @return 각 장비별 현재 메모리 상태
      */
     @GetMapping("/current/batch")
     public ResponseEntity<CommonResDto> getCurrentMemoryStatsBatch(
@@ -218,7 +194,6 @@ public class MemoryMetricController {
     }
 
     /**
-     * (CPU 컨트롤러에서 복사)
      * equipmentIds 문자열 파싱
      */
     private List<Long> parseEquipmentIds(String equipmentIds) {

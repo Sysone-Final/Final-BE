@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장비 수정 요청 DTO
+ */
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
@@ -5,9 +9,6 @@ import lombok.Builder;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * 장비 수정 요청 DTO
- */
 @Builder
 public record EquipmentUpdateRequest(
         String equipmentName,
@@ -28,7 +29,6 @@ public record EquipmentUpdateRequest(
         String notes,
         Integer startUnit,
 
-        // 모니터링 설정
         Boolean monitoringEnabled,
         Integer cpuThresholdWarning,
         Integer cpuThresholdCritical,

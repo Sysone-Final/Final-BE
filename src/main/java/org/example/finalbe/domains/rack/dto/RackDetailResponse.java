@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 상세 조회 응답 DTO
+ */
 package org.example.finalbe.domains.rack.dto;
 
 import lombok.Builder;
@@ -10,9 +14,6 @@ import org.example.finalbe.domains.rack.domain.Rack;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * 랙 상세 조회 응답 DTO
- */
 @Builder
 public record RackDetailResponse(
         Long id,

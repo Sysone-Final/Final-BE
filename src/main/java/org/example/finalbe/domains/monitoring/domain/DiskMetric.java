@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 디스크 메트릭 엔티티 (용량, I/O, inode 관련 실시간/통계 데이터 저장)
+
 package org.example.finalbe.domains.monitoring.domain;
 
 import jakarta.persistence.*;
@@ -10,7 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "disk_metrics", indexes = {
-        @Index(name = "idx_disk_equipment_time", columnList = "equipment_id, generate_time"), // 이름 변경
+        @Index(name = "idx_disk_equipment_time", columnList = "equipment_id, generate_time"),
         @Index(name = "idx_disk_generate_time", columnList = "generate_time")
 })
 @Data
@@ -26,30 +29,25 @@ public class DiskMetric {
     @Column(nullable = false)
     private Long equipmentId;
 
-
     @Column(nullable = false)
     private LocalDateTime generateTime;
 
-    // ==================== 디스크 용량 (그래프 4.1, 4.5) ====================≥
-    private Long totalBytes;          // 총 디스크 용량
-    private Long usedBytes;           // 사용 중인 디스크
-    private Long freeBytes;           // 여유 디스크 공간
-    private Double usedPercentage;    // 디스크 사용률
+    // 디스크 용량 정보
+    private Long totalBytes;
+    private Long usedBytes;
+    private Long freeBytes;
+    private Double usedPercentage;
 
-    // ==================== 디스크 I/O (그래프 4.2, 4.3, 4.4) ====================
-    private Double ioReadBps;         // 디스크 읽기 속도 (bytes/sec)
-    private Double ioWriteBps;        // 디스크 쓰기 속도 (bytes/sec)
-    private Double ioTimePercentage;  // I/O 사용률 (%)
-    private Long ioReadCount;         // 읽기 작업 횟수
-    private Long ioWriteCount;        // 쓰기 작업 횟수
+    // 디스크 I/O 정보
+    private Double ioReadBps;
+    private Double ioWriteBps;
+    private Double ioTimePercentage;
+    private Long ioReadCount;
+    private Long ioWriteCount;
 
-    // ==================== inode (그래프 4.6) ====================
-    private Long totalInodes;         // 총 inode 수
-    private Long usedInodes;          // 사용 중인 inode
-    private Long freeInodes;          // 여유 inode
-    private Double usedInodePercentage;  // inode 사용률
-
-
-
-
+    // inode 정보
+    private Long totalInodes;
+    private Long usedInodes;
+    private Long freeInodes;
+    private Double usedInodePercentage;
 }

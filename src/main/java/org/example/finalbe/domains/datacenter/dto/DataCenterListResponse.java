@@ -1,11 +1,12 @@
+/**
+ * 작성자: 황요한
+ * 데이터센터 목록 조회 응답 DTO
+ */
 package org.example.finalbe.domains.datacenter.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.datacenter.domain.DataCenter;
 
-/**
- * 데이터센터 목록 조회 응답 DTO
- */
 @Builder
 public record DataCenterListResponse(
         Long id,

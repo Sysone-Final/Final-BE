@@ -1,6 +1,9 @@
+/**
+ * 작성자: 황요한
+ * 랙 CRUD 및 검색을 제공하는 컨트롤러
+ */
 package org.example.finalbe.domains.rack.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -16,10 +19,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * 랙 관리 컨트롤러
- * 랙 CRUD 및 검색 API 제공
- */
 @RestController
 @RequestMapping("/api/racks")
 @RequiredArgsConstructor
@@ -28,15 +27,7 @@ public class RackController {
 
     private final RackService rackService;
 
-    /**
-     * 서버실별 랙 목록 조회
-     * GET /api/racks/serverroom/{serverRoomId}
-     *
-     * @param serverRoomId 서버실 ID
-     * @param status 랙 상태 필터 (선택)
-     * @param sortBy 정렬 기준 (기본값: name)
-     * @return 랙 목록
-     */
+    // 서버실별 랙 목록 조회
     @GetMapping("/serverroom/{serverRoomId}")
     public ResponseEntity<CommonResDto> getRacksByServerRoom(
             @PathVariable Long serverRoomId,
@@ -47,13 +38,7 @@ public class RackController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 목록 조회 완료", racks));
     }
 
-    /**
-     * 랙 상세 조회
-     * GET /api/racks/{id}
-     *
-     * @param id 랙 ID
-     * @return 랙 상세 정보
-     */
+    // 랙 상세 조회
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getRackById(
             @PathVariable @Min(value = 1, message = "유효하지 않은 랙 ID입니다.") Long id) {
@@ -62,14 +47,7 @@ public class RackController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 조회 완료", rack));
     }
 
-    /**
-     * 랙 검색
-     * GET /api/racks/search
-     *
-     * @param keyword 검색 키워드 (랙 이름)
-     * @param serverRoomId 서버실 ID (선택)
-     * @return 검색된 랙 목록
-     */
+    // 랙 검색
     @GetMapping("/search")
     public ResponseEntity<CommonResDto> searchRacks(
             @RequestParam @NotBlank(message = "검색 키워드를 입력해주세요.") String keyword,
@@ -79,13 +57,7 @@ public class RackController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 검색 완료", racks));
     }
 
-    /**
-     * 랙 생성
-     * POST /api/racks
-     *
-     * @param request 랙 생성 요청 DTO
-     * @return 생성된 랙 정보
-     */
+    // 랙 생성
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> createRack(@Valid @RequestBody RackCreateRequest request) {
@@ -94,14 +66,7 @@ public class RackController {
                 .body(new CommonResDto(HttpStatus.CREATED, "랙 생성 완료", rack));
     }
 
-    /**
-     * 랙 수정
-     * PUT /api/racks/{id}
-     *
-     * @param id 랙 ID
-     * @param request 랙 수정 요청 DTO
-     * @return 수정된 랙 정보
-     */
+    // 랙 수정
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> updateRack(
@@ -112,13 +77,7 @@ public class RackController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 수정 완료", rack));
     }
 
-    /**
-     * 랙 삭제 (소프트 삭제)
-     * DELETE /api/racks/{id}
-     *
-     * @param id 랙 ID
-     * @return 삭제 완료 메시지
-     */
+    // 랙 삭제 (소프트 삭제)
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CommonResDto> deleteRack(
@@ -128,14 +87,7 @@ public class RackController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "랙 삭제 완료", null));
     }
 
-    /**
-     * 랙 상태 변경
-     * PUT /api/racks/{id}/status
-     *
-     * @param id 랙 ID
-     * @param request 상태 변경 요청 DTO
-     * @return 변경된 랙 정보
-     */
+    // 랙 상태 변경
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> changeRackStatus(

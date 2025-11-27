@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * SSE 연결을 관리하고 이벤트를 전송하는 서비스
+ */
 package org.example.finalbe.domains.prometheus.service;
 
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +20,7 @@ public class SseEmitterService {
     private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final AtomicLong emitterIdGenerator = new AtomicLong(0);
 
+    // SSE 연결 생성
     public SseEmitter createEmitter() {
         Long emitterId = emitterIdGenerator.incrementAndGet();
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
@@ -51,10 +56,9 @@ public class SseEmitterService {
         return emitter;
     }
 
+    // 모든 클라이언트에게 이벤트 전송
     public void sendToAll(String eventName, Object data) {
-        if (emitters.isEmpty()) {
-            return;
-        }
+        if (emitters.isEmpty()) return;
 
         log.debug("📤 SSE 메시지 전송: event={}, 대상: {} 개 연결", eventName, emitters.size());
 
@@ -70,6 +74,7 @@ public class SseEmitterService {
         });
     }
 
+    // 활성 SSE 연결 수 조회
     public int getActiveConnectionCount() {
         return emitters.size();
     }

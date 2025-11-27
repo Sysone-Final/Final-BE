@@ -1,11 +1,10 @@
+// 작성자: 황요한
+// 로그인 성공 시 사용자 및 토큰 정보를 반환하는 DTO
+
 package org.example.finalbe.domains.member.dto;
 
 import org.example.finalbe.domains.member.domain.Member;
 
-/**
- * 로그인 응답 DTO
- * Access Token은 응답 바디에, Refresh Token은 HTTP-Only Cookie로 전달
- */
 public record MemberLoginResponse(
         String accessToken,
         Long id,

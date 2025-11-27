@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 회원 엔티티
+ */
 package org.example.finalbe.domains.member.domain;
 
 import jakarta.persistence.*;
@@ -12,9 +16,6 @@ import org.example.finalbe.domains.company.domain.Company;
 
 import java.time.LocalDateTime;
 
-/**
- * 회원 엔티티
- */
 @Entity
 @Table(name = "member")
 @NoArgsConstructor
@@ -71,7 +72,6 @@ public class Member extends BaseTimeEntity {
 
     /**
      * 리프레시 토큰 업데이트 (로그인 시)
-     * 로그인 시각도 함께 기록
      */
     public void updateRefreshToken(String refreshToken, LocalDateTime expiryDate) {
         this.refreshToken = refreshToken;
@@ -81,7 +81,6 @@ public class Member extends BaseTimeEntity {
 
     /**
      * 리프레시 토큰만 업데이트 (토큰 갱신 시)
-     * 로그인 시각은 변경하지 않음
      */
     public void updateRefreshTokenOnly(String refreshToken, LocalDateTime expiryDate) {
         this.refreshToken = refreshToken;
@@ -108,7 +107,7 @@ public class Member extends BaseTimeEntity {
     }
 
     /**
-     * 회원 기본 정보 수정 (아이디, 이메일, 전화번호)
+     * 회원 기본 정보 수정
      */
     public void updateInfo(String userName, String email, String phone) {
         if (userName != null && !userName.trim().isEmpty()) {
@@ -134,7 +133,6 @@ public class Member extends BaseTimeEntity {
                         .zipcode(zipcode)
                         .build();
             } else {
-                // 기존 주소가 있으면 부분 수정
                 this.address = Address.builder()
                         .city(city != null ? city : this.address.getCity())
                         .street(street != null ? street : this.address.getStreet())

@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * Prometheus에서 디스크 관련 메트릭을 수집하고 DB에 저장하는 서비스
+ */
 package org.example.finalbe.domains.prometheus.service;
 
 import lombok.RequiredArgsConstructor;
@@ -24,15 +28,14 @@ public class DiskMetricCollectorService {
     private final PrometheusQueryService prometheusQuery;
     private final DiskMetricRepository diskMetricRepository;
 
+    // 디스크 메트릭 전체 수집
     public void collectAndPopulate(Map<Long, MetricRawData> dataMap) {
         collectDiskSpace(dataMap);
         collectDiskInodes(dataMap);
         collectDiskIO(dataMap);
     }
 
-    /**
-     * ✅ 필터 완전 제거 - 모든 파일시스템 수집
-     */
+    // 디스크 용량 정보 수집
     private void collectDiskSpace(Map<Long, MetricRawData> dataMap) {
         String totalQuery = "sum by (instance) (node_filesystem_size_bytes)";
         List<PrometheusResponse.PrometheusResult> totalResults = prometheusQuery.query(totalQuery);
@@ -40,12 +43,9 @@ public class DiskMetricCollectorService {
         for (PrometheusResponse.PrometheusResult result : totalResults) {
             String instance = result.getInstance();
             Double value = result.getValue();
-
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
-                if (data != null) {
-                    data.setTotalDisk(value.longValue());  // ✅ setDiskTotalBytes → setTotalDisk
-                }
+                if (data != null) data.setTotalDisk(value.longValue());
             }
         }
 
@@ -55,19 +55,19 @@ public class DiskMetricCollectorService {
         for (PrometheusResponse.PrometheusResult result : freeResults) {
             String instance = result.getInstance();
             Double value = result.getValue();
-
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
                 if (data != null) {
-                    data.setFreeDisk(value.longValue());  // ✅ setDiskFreeBytes → setFreeDisk
-                    if (data.getTotalDisk() != null) {    // ✅ getDiskTotalBytes → getTotalDisk
-                        data.setUsedDisk(data.getTotalDisk() - value.longValue());  // ✅ setDiskUsedBytes → setUsedDisk
+                    data.setFreeDisk(value.longValue());
+                    if (data.getTotalDisk() != null) {
+                        data.setUsedDisk(data.getTotalDisk() - value.longValue());
                     }
                 }
             }
         }
     }
 
+    // inode 정보 수집
     private void collectDiskInodes(Map<Long, MetricRawData> dataMap) {
         String totalQuery = "sum by (instance) (node_filesystem_files)";
         List<PrometheusResponse.PrometheusResult> totalResults = prometheusQuery.query(totalQuery);
@@ -75,12 +75,9 @@ public class DiskMetricCollectorService {
         for (PrometheusResponse.PrometheusResult result : totalResults) {
             String instance = result.getInstance();
             Double value = result.getValue();
-
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
-                if (data != null) {
-                    data.setTotalInodes(value.longValue());  // ✅ setDiskTotalInodes → setTotalInodes
-                }
+                if (data != null) data.setTotalInodes(value.longValue());
             }
         }
 
@@ -90,16 +87,14 @@ public class DiskMetricCollectorService {
         for (PrometheusResponse.PrometheusResult result : freeResults) {
             String instance = result.getInstance();
             Double value = result.getValue();
-
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
-                if (data != null) {
-                    data.setFreeInodes(value.longValue());  // ✅ setDiskFreeInodes → setFreeInodes
-                }
+                if (data != null) data.setFreeInodes(value.longValue());
             }
         }
     }
 
+    // 디스크 IO 정보 수집
     private void collectDiskIO(Map<Long, MetricRawData> dataMap) {
         String readQuery = "sum by (instance) (rate(node_disk_read_bytes_total[15s]))";
         String writeQuery = "sum by (instance) (rate(node_disk_written_bytes_total[15s]))";
@@ -114,26 +109,24 @@ public class DiskMetricCollectorService {
         collectMetricAndSet(dataMap, writeCountQuery, (d, v) -> d.setDiskWriteCount(v.longValue()));
     }
 
+    // 공통 메트릭 수집 후 setter 호출
     private void collectMetricAndSet(
             Map<Long, MetricRawData> dataMap,
             String query,
             java.util.function.BiConsumer<MetricRawData, Double> setter) {
 
         List<PrometheusResponse.PrometheusResult> results = prometheusQuery.query(query);
-
         for (PrometheusResponse.PrometheusResult result : results) {
             String instance = result.getInstance();
             Double value = result.getValue();
-
             if (instance != null && value != null) {
                 MetricRawData data = findDataByInstance(dataMap, instance);
-                if (data != null) {
-                    setter.accept(data, value);
-                }
+                if (data != null) setter.accept(data, value);
             }
         }
     }
 
+    // instance 값으로 해당 장비 메트릭 찾기
     private MetricRawData findDataByInstance(Map<Long, MetricRawData> dataMap, String instance) {
         return dataMap.values().stream()
                 .filter(d -> instance.equals(d.getInstance()))
@@ -141,29 +134,26 @@ public class DiskMetricCollectorService {
                 .orElse(null);
     }
 
-    /**
-     * ✅ 트랜잭션 분리
-     */
+    // 메트릭을 DB에 저장
     public void saveMetrics(List<MetricRawData> dataList) {
-        int successCount = 0;
-        int failureCount = 0;
+        int success = 0, fail = 0;
 
         for (MetricRawData data : dataList) {
             try {
                 saveMetricWithNewTransaction(data);
-                successCount++;
+                success++;
             } catch (Exception e) {
-                failureCount++;
-                log.error("❌ DiskMetric 저장 실패: equipmentId={} - {}",
-                        data.getEquipmentId(), e.getMessage());
+                fail++;
+                log.error("DiskMetric 저장 실패: equipmentId={} - {}", data.getEquipmentId(), e.getMessage());
             }
         }
 
-        if (failureCount > 0) {
-            log.warn("⚠️ DiskMetric 저장 완료: 성공={}, 실패={}", successCount, failureCount);
+        if (fail > 0) {
+            log.warn("DiskMetric 저장 결과: 성공={}, 실패={}", success, fail);
         }
     }
 
+    // 트랜잭션 분리하여 저장
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveMetricWithNewTransaction(MetricRawData data) {
         DiskMetric metric = convertToEntity(data);
@@ -180,6 +170,7 @@ public class DiskMetricCollectorService {
         }
     }
 
+    // MetricRawData → DiskMetric 변환
     private DiskMetric convertToEntity(MetricRawData data) {
         LocalDateTime generateTime = data.getTimestamp() != null
                 ? LocalDateTime.ofInstant(Instant.ofEpochSecond(data.getTimestamp()), ZoneId.systemDefault())
@@ -200,6 +191,7 @@ public class DiskMetricCollectorService {
                 .build();
     }
 
+    // 기존 엔티티 업데이트
     private void updateExisting(DiskMetric existing, DiskMetric newMetric) {
         if (newMetric.getTotalBytes() != null) existing.setTotalBytes(newMetric.getTotalBytes());
         if (newMetric.getUsedBytes() != null) existing.setUsedBytes(newMetric.getUsedBytes());

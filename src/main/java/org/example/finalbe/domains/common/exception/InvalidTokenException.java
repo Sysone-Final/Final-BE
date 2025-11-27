@@ -1,9 +1,9 @@
+/**
+ * 작성자: 황요한
+ * 유효하지 않은 토큰 예외 클래스
+ */
 package org.example.finalbe.domains.common.exception;
 
-/**
- * JWT 토큰이 유효하지 않을 때 발생하는 예외
- * HTTP 상태 코드: 401 Unauthorized
- */
 public class InvalidTokenException extends RuntimeException {
 
     /**

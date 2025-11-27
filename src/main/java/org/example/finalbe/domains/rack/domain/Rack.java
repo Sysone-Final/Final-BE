@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 정보를 저장하는 엔티티
+ */
 package org.example.finalbe.domains.rack.domain;
 
 import jakarta.persistence.*;
@@ -14,9 +18,6 @@ import org.example.finalbe.domains.serverroom.domain.ServerRoom;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/**
- * 랙 엔티티
- */
 @Entity
 @Table(name = "rack")
 @Getter
@@ -83,32 +84,25 @@ public class Rack extends BaseTimeEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // ✅ 알림 모니터링 활성화 여부
     @Column(name = "monitoring_enabled")
     @Builder.Default
     private Boolean monitoringEnabled = true;
 
-    // ✅ 온도 임계치 (WARNING)
     @Column(name = "temperature_threshold_warning")
     private Integer temperatureThresholdWarning;
 
-    // ✅ 온도 임계치 (CRITICAL)
     @Column(name = "temperature_threshold_critical")
     private Integer temperatureThresholdCritical;
 
-    // ✅ 습도 최소 임계치 (WARNING)
     @Column(name = "humidity_threshold_min_warning")
     private Integer humidityThresholdMinWarning;
 
-    // ✅ 습도 최소 임계치 (CRITICAL)
     @Column(name = "humidity_threshold_min_critical")
     private Integer humidityThresholdMinCritical;
 
-    // ✅ 습도 최대 임계치 (WARNING)
     @Column(name = "humidity_threshold_max_warning")
     private Integer humidityThresholdMaxWarning;
 
-    // ✅ 습도 최대 임계치 (CRITICAL)
     @Column(name = "humidity_threshold_max_critical")
     private Integer humidityThresholdMaxCritical;
 
@@ -116,9 +110,7 @@ public class Rack extends BaseTimeEntity {
     @JoinColumn(name = "serverRoom_id")
     private ServerRoom serverRoom;
 
-    /**
-     * 랙 정보 수정
-     */
+    // 랙 정보 수정
     public void updateInfo(RackUpdateRequest request) {
         this.rackName = request.rackName();
         this.gridX = request.gridX();
@@ -134,16 +126,15 @@ public class Rack extends BaseTimeEntity {
         this.notes = request.notes();
     }
 
-    /**
-     * ✅ 환경 임계치 설정
-     */
+    // 환경 임계치 변경
     public void updateEnvironmentThresholds(
             Integer tempWarning,
             Integer tempCritical,
             Integer humidMinWarning,
             Integer humidMinCritical,
             Integer humidMaxWarning,
-            Integer humidMaxCritical) {
+            Integer humidMaxCritical
+    ) {
         this.temperatureThresholdWarning = tempWarning;
         this.temperatureThresholdCritical = tempCritical;
         this.humidityThresholdMinWarning = humidMinWarning;
@@ -152,94 +143,72 @@ public class Rack extends BaseTimeEntity {
         this.humidityThresholdMaxCritical = humidMaxCritical;
     }
 
-    /**
-     * ✅ 모니터링 활성화/비활성화 토글
-     */
+    // 모니터링 활성/비활성 토글
     public void toggleMonitoring() {
         this.monitoringEnabled = !this.monitoringEnabled;
     }
 
-    /**
-     * 유닛 사용률 계산
-     */
+    // 유닛 사용률 계산
     public BigDecimal getUsageRate() {
-        if (totalUnits == null || totalUnits == 0) {
-            return BigDecimal.ZERO;
-        }
+        if (totalUnits == null || totalUnits == 0) return BigDecimal.ZERO;
+
         return BigDecimal.valueOf(usedUnits)
                 .divide(BigDecimal.valueOf(totalUnits), 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 전력 사용률 계산
-     */
+    // 전력 사용률 계산
     public BigDecimal getPowerUsageRate() {
-        if (maxPowerCapacity == null || maxPowerCapacity.compareTo(BigDecimal.ZERO) == 0) {
+        if (maxPowerCapacity == null || maxPowerCapacity.compareTo(BigDecimal.ZERO) == 0)
             return BigDecimal.ZERO;
-        }
-        if (currentPowerUsage == null) {
+        if (currentPowerUsage == null)
             return BigDecimal.ZERO;
-        }
+
         return currentPowerUsage
                 .divide(maxPowerCapacity, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 유닛 사용
-     */
+    // 유닛 사용
     public void occupyUnits(int units) {
-        if (this.availableUnits < units) {
+        if (this.availableUnits < units)
             throw new IllegalStateException("사용 가능한 유닛이 부족합니다.");
-        }
+
         this.usedUnits += units;
         this.availableUnits -= units;
     }
 
-    /**
-     * 유닛 해제
-     */
+    // 유닛 해제
     public void releaseUnits(int units) {
         this.usedUnits -= units;
         this.availableUnits += units;
     }
 
-    /**
-     * 전력 사용량 추가
-     */
+    // 전력 사용량 증가
     public void addPowerUsage(BigDecimal power) {
-        if (power == null) {
-            return;
-        }
-        if (this.currentPowerUsage == null) {
-            this.currentPowerUsage = BigDecimal.ZERO;
-        }
+        if (power == null) return;
+        if (this.currentPowerUsage == null) this.currentPowerUsage = BigDecimal.ZERO;
+
         this.currentPowerUsage = this.currentPowerUsage.add(power);
     }
 
-    /**
-     * 전력 사용량 차감
-     */
+    // 전력 사용량 감소
     public void subtractPowerUsage(BigDecimal power) {
-        if (power == null) {
-            return;
-        }
+        if (power == null) return;
         if (this.currentPowerUsage == null) {
             this.currentPowerUsage = BigDecimal.ZERO;
             return;
         }
+
         this.currentPowerUsage = this.currentPowerUsage.subtract(power);
         if (this.currentPowerUsage.compareTo(BigDecimal.ZERO) < 0) {
             this.currentPowerUsage = BigDecimal.ZERO;
         }
     }
 
-    /**
-     * 장비 배치
-     */
+    // 장비 배치
     public void placeEquipment(Equipment equipment, Integer startUnit, Integer unitSize) {
         this.occupyUnits(unitSize);
         equipment.setRack(this);
@@ -247,38 +216,27 @@ public class Rack extends BaseTimeEntity {
         equipment.setUnitSize(unitSize);
     }
 
-
-    /**
-     * 장비 이동
-     */
+    // 장비 이동
     public void moveEquipment(Equipment equipment, Integer fromUnit, Integer toUnit) {
         equipment.setStartUnit(toUnit);
     }
 
-    /**
-     * 서버룸 조회
-     */
+    // 서버룸 조회
     public ServerRoom getServerRoom() {
         return this.serverRoom;
     }
 
-    /**
-     * 서버룸 ID 조회
-     */
+    // 서버룸 ID 조회
     public Long getServerRoomId() {
         return this.serverRoom != null ? this.serverRoom.getId() : null;
     }
 
-    /**
-     * 서버룸 이름 조회
-     */
+    // 서버룸 이름 조회
     public String getServerRoomName() {
         return this.serverRoom != null ? this.serverRoom.getName() : null;
     }
 
-    /**
-     * 서버룸 변경
-     */
+    // 서버룸 변경
     public void changeServerRoom(ServerRoom newServerRoom) {
         if (newServerRoom == null) {
             throw new IllegalArgumentException("서버룸은 필수입니다.");

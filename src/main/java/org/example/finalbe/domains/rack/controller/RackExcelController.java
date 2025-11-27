@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 Excel 내보내기 및 일괄 업로드 기능을 제공하는 컨트롤러
+ */
 package org.example.finalbe.domains.rack.controller;
 
 import jakarta.validation.constraints.Min;
@@ -14,10 +18,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * 랙 Excel 관리 컨트롤러
- * Excel 내보내기 및 일괄 등록 API 제공
- */
 @RestController
 @RequestMapping("/api/racks")
 @RequiredArgsConstructor
@@ -26,13 +26,7 @@ public class RackExcelController {
 
     private final RackExcelService rackExcelService;
 
-    /**
-     * 랙 목록 Excel 내보내기
-     * GET /api/racks/serverroom/{serverRoomId}/export
-     *
-     * @param serverRoomId 서버실 ID
-     * @return Excel 파일 (바이너리)
-     */
+    // 랙 목록 Excel 내보내기
     @GetMapping("/serverroom/{serverRoomId}/export")
     public ResponseEntity<byte[]> exportRacksToExcel(
             @PathVariable @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.") Long serverRoomId) {
@@ -46,12 +40,7 @@ public class RackExcelController {
                 .body(excelData);
     }
 
-    /**
-     * 일괄 업로드 템플릿 다운로드
-     * GET /api/racks/template
-     *
-     * @return Excel 템플릿 파일 (바이너리)
-     */
+    // 일괄 업로드 템플릿 다운로드
     @GetMapping("/template")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<byte[]> downloadBulkUploadTemplate() {
@@ -63,14 +52,7 @@ public class RackExcelController {
                 .body(templateData);
     }
 
-    /**
-     * 일괄 업로드 미리보기
-     * POST /api/racks/bulk-upload/preview
-     *
-     * @param file 업로드할 Excel 파일
-     * @param serverRoomId 서버실 ID
-     * @return 업로드 전 검증 결과 (유효/무효 데이터, 오류 목록)
-     */
+    // 일괄 업로드 미리보기
     @PostMapping("/bulk-upload/preview")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> previewBulkUpload(
@@ -81,14 +63,7 @@ public class RackExcelController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "일괄 등록 미리보기 완료", preview));
     }
 
-    /**
-     * 일괄 업로드 실행
-     * POST /api/racks/bulk-upload/execute
-     *
-     * @param file 업로드할 Excel 파일
-     * @param serverRoomId 서버실 ID
-     * @return 업로드 결과 (성공/실패 개수, 상세 결과)
-     */
+    // 일괄 업로드 실행
     @PostMapping("/bulk-upload/execute")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<CommonResDto> executeBulkUpload(

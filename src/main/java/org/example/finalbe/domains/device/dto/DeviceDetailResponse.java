@@ -34,13 +34,30 @@ public record DeviceDetailResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
+
+    /**
+     * Device 엔티티 → DeviceDetailResponse DTO 변환
+     * 모든 연관 엔티티에 대해 NPE 안전 처리 적용
+     */
     public static DeviceDetailResponse from(Device device) {
+        if (device == null) {
+            throw new IllegalArgumentException("Device 엔티티가 null입니다.");
+        }
+
         return DeviceDetailResponse.builder()
                 .id(device.getId())
                 .deviceName(device.getDeviceName())
                 .deviceCode(device.getDeviceCode())
-                .deviceType(device.getDeviceType().getTypeName())
-                .deviceTypeId(device.getDeviceType().getId())
+                .deviceType(
+                        device.getDeviceType() != null
+                                ? device.getDeviceType().getTypeName()
+                                : null
+                )
+                .deviceTypeId(
+                        device.getDeviceType() != null
+                                ? device.getDeviceType().getId()
+                                : null
+                )
                 .gridY(device.getGridY())
                 .gridX(device.getGridX())
                 .gridZ(device.getGridZ())
@@ -52,10 +69,26 @@ public record DeviceDetailResponse(
                 .purchaseDate(device.getPurchaseDate())
                 .warrantyEndDate(device.getWarrantyEndDate())
                 .notes(device.getNotes())
-                .serverRoomName(device.getServerRoom().getName())
-                .serverRoomId(device.getServerRoom().getId())
-                .rackName(device.getRack() != null ? device.getRack().getRackName() : null)
-                .rackId(device.getRack() != null ? device.getRack().getId() : null)
+                .serverRoomName(
+                        device.getServerRoom() != null
+                                ? device.getServerRoom().getName()
+                                : null
+                )
+                .serverRoomId(
+                        device.getServerRoom() != null
+                                ? device.getServerRoom().getId()
+                                : null
+                )
+                .rackName(
+                        device.getRack() != null
+                                ? device.getRack().getRackName()
+                                : null
+                )
+                .rackId(
+                        device.getRack() != null
+                                ? device.getRack().getId()
+                                : null
+                )
                 .createdAt(device.getCreatedAt())
                 .updatedAt(device.getUpdatedAt())
                 .build();

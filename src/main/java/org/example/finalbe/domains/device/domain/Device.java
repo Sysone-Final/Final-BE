@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 장치 엔티티
+ */
 package org.example.finalbe.domains.device.domain;
 
 import jakarta.persistence.*;
@@ -9,9 +13,6 @@ import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.time.LocalDate;
 
-/**
- * 장치 엔티티
- */
 @Entity
 @Table(name = "device",
         uniqueConstraints = {

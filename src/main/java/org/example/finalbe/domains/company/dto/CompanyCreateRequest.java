@@ -1,12 +1,13 @@
+/**
+ * 작성자: 황요한
+ * 회사 생성 요청 DTO
+ */
 package org.example.finalbe.domains.company.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Builder;
 import org.example.finalbe.domains.company.domain.Company;
 
-/**
- * 회사 생성 요청 DTO
- */
 @Builder
 public record CompanyCreateRequest(
         @NotBlank(message = "회사 코드를 입력해주세요.")

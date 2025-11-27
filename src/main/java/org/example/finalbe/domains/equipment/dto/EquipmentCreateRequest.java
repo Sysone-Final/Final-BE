@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 설명: 장비 생성 요청을 전달하는 DTO
+
 package org.example.finalbe.domains.equipment.dto;
 
 import jakarta.validation.constraints.*;
@@ -11,9 +14,6 @@ import org.example.finalbe.domains.rack.domain.Rack;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * 장비 생성 요청 DTO
- */
 @Builder
 public record EquipmentCreateRequest(
         @NotBlank(message = "장비명을 입력해주세요.")
@@ -22,10 +22,10 @@ public record EquipmentCreateRequest(
         String equipmentCode,
         String equipmentType,
 
-        @Min(value = 1, message = "시작 유닛은 1 이상이어야 합니다.")
+        @Min(1)
         Integer startUnit,
 
-        @Min(value = 1, message = "유닛 크기는 1 이상이어야 합니다.")
+        @Min(1)
         Integer unitSize,
 
         String positionType,
@@ -39,9 +39,8 @@ public record EquipmentCreateRequest(
         String memorySpec,
         String diskSpec,
 
-        @DecimalMin(value = "0.0", message = "전력 소비량은 0 이상이어야 합니다.")
+        @DecimalMin(value = "0.0")
         BigDecimal powerConsumption,
-
 
         String status,
         LocalDate installationDate,
@@ -49,7 +48,6 @@ public record EquipmentCreateRequest(
 
         Long rackId,
 
-        // 모니터링 설정
         Boolean monitoringEnabled,
         Integer cpuThresholdWarning,
         Integer cpuThresholdCritical,
@@ -58,6 +56,10 @@ public record EquipmentCreateRequest(
         Integer diskThresholdWarning,
         Integer diskThresholdCritical
 ) {
+
+    /**
+     * 요청 데이터를 기반으로 Equipment 엔티티 생성
+     */
     public Equipment toEntity(Rack rack) {
         return Equipment.builder()
                 .name(equipmentName)
@@ -65,7 +67,9 @@ public record EquipmentCreateRequest(
                 .type(equipmentType != null ? EquipmentType.valueOf(equipmentType) : null)
                 .startUnit(startUnit)
                 .unitSize(unitSize)
-                .positionType(positionType != null ? EquipmentPositionType.valueOf(positionType) : EquipmentPositionType.FRONT)
+                .positionType(positionType != null
+                        ? EquipmentPositionType.valueOf(positionType)
+                        : EquipmentPositionType.FRONT)
                 .modelName(modelName)
                 .manufacturer(manufacturer)
                 .serialNumber(serialNumber)

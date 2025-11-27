@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 설명: 장비 목록 조회 시 필요한 정보를 담는 DTO
+
 package org.example.finalbe.domains.equipment.dto;
 
 import lombok.Builder;
@@ -5,9 +8,6 @@ import org.example.finalbe.domains.equipment.domain.Equipment;
 
 import java.math.BigDecimal;
 
-/**
- * 장비 목록 조회 응답 DTO
- */
 @Builder
 public record EquipmentListResponse(
         Long id,
@@ -26,7 +26,6 @@ public record EquipmentListResponse(
         Long rackId,
         String rackName,
 
-        // ===== 임계치 필드 =====
         Boolean monitoringEnabled,
         Integer cpuThresholdWarning,
         Integer cpuThresholdCritical,
@@ -35,6 +34,10 @@ public record EquipmentListResponse(
         Integer diskThresholdWarning,
         Integer diskThresholdCritical
 ) {
+
+    /**
+     * Equipment 엔티티를 DTO로 변환
+     */
     public static EquipmentListResponse from(Equipment equipment) {
         return EquipmentListResponse.builder()
                 .id(equipment.getId())
@@ -52,8 +55,6 @@ public record EquipmentListResponse(
                 .powerConsumption(equipment.getPowerConsumption())
                 .rackId(equipment.getRack() != null ? equipment.getRack().getId() : null)
                 .rackName(equipment.getRack() != null ? equipment.getRack().getRackName() : null)
-
-                // ===== 임계치 값 매핑 =====
                 .monitoringEnabled(equipment.getMonitoringEnabled())
                 .cpuThresholdWarning(equipment.getCpuThresholdWarning())
                 .cpuThresholdCritical(equipment.getCpuThresholdCritical())
@@ -61,7 +62,6 @@ public record EquipmentListResponse(
                 .memoryThresholdCritical(equipment.getMemoryThresholdCritical())
                 .diskThresholdWarning(equipment.getDiskThresholdWarning())
                 .diskThresholdCritical(equipment.getDiskThresholdCritical())
-
                 .build();
     }
 }

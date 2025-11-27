@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// Device 관련 히스토리를 기록하는 전담 서비스
+
 package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
@@ -14,9 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Device 히스토리 기록 전담 클래스 (개선 버전)
- */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -24,9 +24,7 @@ public class DeviceHistoryRecorder {
 
     private final HistoryService historyService;
 
-    /**
-     * Device 생성 히스토리
-     */
+    // 장치 생성 이력을 기록
     public void recordCreate(Device device, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(device.getServerRoom().getId())
@@ -46,9 +44,7 @@ public class DeviceHistoryRecorder {
         historyService.recordHistory(request);
     }
 
-    /**
-     * Device 수정 히스토리 (상세 변경 내역 포함)
-     */
+    // 장치 수정 이력을 기록 (변경된 필드 자동 감지)
     public void recordUpdate(Device oldDevice, Device newDevice, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldDevice);
         Map<String, Object> newSnapshot = buildSnapshot(newDevice);
@@ -59,7 +55,6 @@ public class DeviceHistoryRecorder {
             return;
         }
 
-        // 변경 내역 상세 정보 구성
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
         HistoryCreateRequest request = HistoryCreateRequest.builder()
@@ -80,12 +75,9 @@ public class DeviceHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Device update history recorded: {} fields changed", changedFields.size());
     }
 
-    /**
-     * Device 위치 변경 히스토리
-     */
+    // 장치 위치 변경 이력을 기록
     public void recordMove(Device device, String oldPosition, String newPosition, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(device.getServerRoom().getId())
@@ -102,19 +94,16 @@ public class DeviceHistoryRecorder {
                 .beforeValue(Map.of("position", oldPosition))
                 .afterValue(Map.of("position", newPosition))
                 .metadata(Map.of(
-                        "positionChange", String.format("%s → %s", oldPosition, newPosition),
+                        "positionChange", oldPosition + " → " + newPosition,
                         "oldPosition", oldPosition,
                         "newPosition", newPosition
                 ))
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Device move history recorded: {} -> {}", oldPosition, newPosition);
     }
 
-    /**
-     * Device 상태 변경 히스토리
-     */
+    // 장치 상태 변경 이력을 기록
     public void recordStatusChange(Device device, String oldStatus, String newStatus, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(device.getServerRoom().getId())
@@ -133,12 +122,9 @@ public class DeviceHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Device status change history recorded: {} -> {}", oldStatus, newStatus);
     }
 
-    /**
-     * Device 삭제 히스토리
-     */
+    // 장치 삭제 이력을 기록
     public void recordDelete(Device device, Member member) {
         HistoryCreateRequest request = HistoryCreateRequest.builder()
                 .serverRoomId(device.getServerRoom().getId())
@@ -158,9 +144,7 @@ public class DeviceHistoryRecorder {
         historyService.recordHistory(request);
     }
 
-    /**
-     * Device 상태 스냅샷 생성
-     */
+    // 장치의 현재 상태를 Map 형태로 스냅샷 생성
     private Map<String, Object> buildSnapshot(Device device) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("deviceName", device.getDeviceName());
@@ -179,52 +163,45 @@ public class DeviceHistoryRecorder {
         return snapshot;
     }
 
+    // 변경된 필드를 자동으로 비교/탐지
     private List<String> detectChangedFields(Map<String, Object> oldSnapshot, Map<String, Object> newSnapshot) {
         List<String> changedFields = new ArrayList<>();
-
         for (String key : newSnapshot.keySet()) {
             Object oldValue = oldSnapshot.get(key);
             Object newValue = newSnapshot.get(key);
-
-            if (oldValue == null && newValue != null) {
-                changedFields.add(key);
-            } else if (oldValue != null && !oldValue.equals(newValue)) {
+            if (oldValue == null && newValue != null || oldValue != null && !oldValue.equals(newValue)) {
                 changedFields.add(key);
             }
         }
-
         return changedFields;
     }
 
-    /**
-     * 변경 내역 상세 정보 구성
-     */
+    // 변경 상세 정보를 구성
     private Map<String, Object> buildChangeDetails(
             Map<String, Object> oldSnapshot,
             Map<String, Object> newSnapshot,
-            List<String> changedFields) {
-
+            List<String> changedFields
+    ) {
         Map<String, Object> changeDetails = new HashMap<>();
 
         for (String field : changedFields) {
+            String fieldLabel = getFieldLabel(field);
             Object oldValue = oldSnapshot.get(field);
             Object newValue = newSnapshot.get(field);
 
-            String fieldLabel = getFieldLabel(field);
-            String oldValueStr = formatValue(field, oldValue);
-            String newValueStr = formatValue(field, newValue);
-
             changeDetails.put(field, Map.of(
                     "fieldLabel", fieldLabel,
-                    "oldValue", oldValueStr,
-                    "newValue", newValueStr,
-                    "changeDescription", String.format("%s: %s → %s", fieldLabel, oldValueStr, newValueStr)
+                    "oldValue", formatValue(field, oldValue),
+                    "newValue", formatValue(field, newValue),
+                    "changeDescription", fieldLabel + ": " +
+                            formatValue(field, oldValue) + " → " +
+                            formatValue(field, newValue)
             ));
         }
-
         return changeDetails;
     }
 
+    // 필드명을 사람이 이해하기 쉬운 Label로 변환
     private String getFieldLabel(String field) {
         return switch (field) {
             case "deviceName" -> "장치명";
@@ -243,11 +220,9 @@ public class DeviceHistoryRecorder {
         };
     }
 
+    // 필드 값 표시 형식을 조정
     private String formatValue(String field, Object value) {
-        if (value == null) {
-            return "(없음)";
-        }
-
+        if (value == null) return "(없음)";
         return switch (field) {
             case "rotation" -> value + "°";
             case "status" -> translateStatus(value.toString());
@@ -255,6 +230,7 @@ public class DeviceHistoryRecorder {
         };
     }
 
+    // 상태값을 한글로 변환
     private String translateStatus(String status) {
         return switch (status) {
             case "ACTIVE" -> "활성";

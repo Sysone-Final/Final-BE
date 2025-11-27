@@ -1,3 +1,7 @@
+/**
+ * 작성자: 최산하
+ * 온도 시계열 그래프 DTO
+ */
 package org.example.finalbe.domains.monitoring.dto;
 
 import lombok.AllArgsConstructor;
@@ -7,10 +11,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * 온도 포인트 DTO
- * 온도 시계열 그래프용
- */
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,9 +18,5 @@ import java.time.LocalDateTime;
 public class TemperaturePointDto {
 
     private LocalDateTime timestamp;
-
-    /**
-     * 온도 (°C)
-     */
     private Double temperature;
 }

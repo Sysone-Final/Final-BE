@@ -1,4 +1,7 @@
-// src/main/java/org/example/finalbe/domains/alert/controller/AlertController.java
+/**
+ * 작성자: 황요한
+ * 알림(SSE 구독, 조회, 통계, 읽음 처리, 삭제) 관련 API 컨트롤러
+ */
 package org.example.finalbe.domains.alert.controller;
 
 import jakarta.validation.Valid;
@@ -46,8 +49,7 @@ public class AlertController {
     private final CompanyServerRoomRepository companyServerRoomRepository;
     private final MemberRepository memberRepository;
 
-    // ========== SSE 구독 API ==========
-
+    // SSE 전체/장비/랙/서버실/데이터센터 알림 구독
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribeAlerts() {
         return alertNotificationService.subscribeAll();
@@ -73,8 +75,7 @@ public class AlertController {
         return alertNotificationService.subscribeDataCenter(id);
     }
 
-    // ========== 알림 조회 API ==========
-
+    // 회사의 모든 서버실 기준 알림 조회
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAlerts(
             @RequestParam(defaultValue = "0") int page,
@@ -83,8 +84,6 @@ public class AlertController {
             @RequestParam(defaultValue = "0") int days) {
 
         Long userId = extractUserId();
-
-        // ✅ Fetch Join으로 Company를 함께 조회
         Member currentMember = memberRepository.findByIdWithCompany(userId)
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
@@ -97,9 +96,6 @@ public class AlertController {
                 .collect(Collectors.toList());
 
         if (serverRoomIds.isEmpty()) {
-            log.info("사용자 {}({})의 회사 {}({})에 매핑된 서버실이 없습니다.",
-                    userId, currentMember.getName(), companyId, currentMember.getCompany().getName());
-
             Map<String, Object> emptyResponse = new HashMap<>();
             emptyResponse.put("content", List.of());
             emptyResponse.put("totalElements", 0);
@@ -107,7 +103,6 @@ public class AlertController {
             emptyResponse.put("currentPage", page);
             emptyResponse.put("pageSize", size);
             emptyResponse.put("message", "매핑된 서버실이 없습니다.");
-
             return ResponseEntity.ok(emptyResponse);
         }
 
@@ -117,26 +112,11 @@ public class AlertController {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("triggeredAt").descending());
 
-        Page<AlertHistory> alertPage;
-
-        if (level != null) {
-            alertPage = alertHistoryRepository
-                    .findByServerRoomIdInAndLevelAndTriggeredAtAfterAndTargetTypeNot(
-                            serverRoomIds,
-                            level,
-                            startTime,
-                            TargetType.DATA_CENTER,
-                            pageable
-                    );
-        } else {
-            alertPage = alertHistoryRepository
-                    .findByServerRoomIdInAndTriggeredAtAfterAndTargetTypeNot(
-                            serverRoomIds,
-                            startTime,
-                            TargetType.DATA_CENTER,
-                            pageable
-                    );
-        }
+        Page<AlertHistory> alertPage = (level != null)
+                ? alertHistoryRepository.findByServerRoomIdInAndLevelAndTriggeredAtAfterAndTargetTypeNot(
+                serverRoomIds, level, startTime, TargetType.DATA_CENTER, pageable)
+                : alertHistoryRepository.findByServerRoomIdInAndTriggeredAtAfterAndTargetTypeNot(
+                serverRoomIds, startTime, TargetType.DATA_CENTER, pageable);
 
         List<AlertHistoryDto> dtos = alertPage.getContent().stream()
                 .map(AlertHistoryDto::from)
@@ -151,63 +131,42 @@ public class AlertController {
         response.put("hasNext", alertPage.hasNext());
         response.put("hasPrevious", alertPage.hasPrevious());
 
-        log.info("사용자 {}({}, {})의 알림 조회: 페이지 {}/{}, 총 {}개 (필터: {}일, 레벨: {})",
-                userId, currentMember.getName(), currentMember.getRole(),
-                page + 1, alertPage.getTotalPages(), alertPage.getTotalElements(),
-                days > 0 ? days : "전체", level != null ? level : "전체");
-
         return ResponseEntity.ok(response);
     }
 
+    // 장비 알림 조회
     @GetMapping("/equipment/{id}")
     public ResponseEntity<List<AlertHistoryDto>> getEquipmentAlerts(@PathVariable Long id) {
-        List<AlertHistory> alerts = alertHistoryRepository
-                .findByEquipmentIdOrderByTriggeredAtDesc(id);
-
-        List<AlertHistoryDto> dtos = alerts.stream()
-                .map(AlertHistoryDto::from)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(dtos);
+        List<AlertHistory> alerts = alertHistoryRepository.findByEquipmentIdOrderByTriggeredAtDesc(id);
+        return ResponseEntity.ok(alerts.stream().map(AlertHistoryDto::from).toList());
     }
 
+    // 랙 알림 조회
     @GetMapping("/rack/{id}")
     public ResponseEntity<List<AlertHistoryDto>> getRackAlerts(@PathVariable Long id) {
-        List<AlertHistory> alerts = alertHistoryRepository
-                .findByRackIdOrderByTriggeredAtDesc(id);
-
-        List<AlertHistoryDto> dtos = alerts.stream()
-                .map(AlertHistoryDto::from)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(dtos);
+        List<AlertHistory> alerts = alertHistoryRepository.findByRackIdOrderByTriggeredAtDesc(id);
+        return ResponseEntity.ok(alerts.stream().map(AlertHistoryDto::from).toList());
     }
 
+    // 서버실 알림 조회
     @GetMapping("/serverroom/{id}")
     public ResponseEntity<List<AlertHistoryDto>> getServerRoomAlerts(@PathVariable Long id) {
-        List<AlertHistory> alerts = alertHistoryRepository
-                .findByServerRoomIdOrderByTriggeredAtDesc(id);
-
-        List<AlertHistoryDto> dtos = alerts.stream()
-                .map(AlertHistoryDto::from)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(dtos);
+        List<AlertHistory> alerts = alertHistoryRepository.findByServerRoomIdOrderByTriggeredAtDesc(id);
+        return ResponseEntity.ok(alerts.stream().map(AlertHistoryDto::from).toList());
     }
 
+    // 알림 상세 조회
     @GetMapping("/{id}")
     public ResponseEntity<AlertHistoryDto> getAlertDetail(@PathVariable Long id) {
         AlertHistory alert = alertHistoryRepository.findById(id)
                 .orElseThrow(() -> new AlertNotFoundException(id));
-
         return ResponseEntity.ok(AlertHistoryDto.from(alert));
     }
 
+    // 알림 통계 조회
     @GetMapping("/statistics")
     public ResponseEntity<AlertStatisticsDto> getStatistics() {
         Long userId = extractUserId();
-
-        // ✅ Fetch Join으로 Company를 함께 조회
         Member currentMember = memberRepository.findByIdWithCompany(userId)
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
@@ -219,267 +178,141 @@ public class AlertController {
                 .map(mapping -> mapping.getServerRoom().getId())
                 .collect(Collectors.toList());
 
-        if (serverRoomIds.isEmpty()) {
-            return ResponseEntity.ok(AlertStatisticsDto.empty());
-        }
-
-        long totalAlerts = alertHistoryRepository.countByServerRoomIdIn(serverRoomIds);
-        long criticalAlerts = alertHistoryRepository.countByServerRoomIdInAndLevel(
-                serverRoomIds, AlertLevel.CRITICAL);
-        long warningAlerts = alertHistoryRepository.countByServerRoomIdInAndLevel(
-                serverRoomIds, AlertLevel.WARNING);
-        long equipmentAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(
-                serverRoomIds, TargetType.EQUIPMENT);
-        long rackAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(
-                serverRoomIds, TargetType.RACK);
-        long serverRoomAlerts = alertHistoryRepository.countByServerRoomIdInAndTargetType(
-                serverRoomIds, TargetType.SERVER_ROOM);
+        if (serverRoomIds.isEmpty()) return ResponseEntity.ok(AlertStatisticsDto.empty());
 
         AlertStatisticsDto stats = new AlertStatisticsDto(
-                totalAlerts,
-                totalAlerts,
-                criticalAlerts,
-                warningAlerts,
-                equipmentAlerts,
-                rackAlerts,
-                serverRoomAlerts
+                alertHistoryRepository.countByServerRoomIdIn(serverRoomIds),
+                alertHistoryRepository.countByServerRoomIdIn(serverRoomIds),
+                alertHistoryRepository.countByServerRoomIdInAndLevel(serverRoomIds, AlertLevel.CRITICAL),
+                alertHistoryRepository.countByServerRoomIdInAndLevel(serverRoomIds, AlertLevel.WARNING),
+                alertHistoryRepository.countByServerRoomIdInAndTargetType(serverRoomIds, TargetType.EQUIPMENT),
+                alertHistoryRepository.countByServerRoomIdInAndTargetType(serverRoomIds, TargetType.RACK),
+                alertHistoryRepository.countByServerRoomIdInAndTargetType(serverRoomIds, TargetType.SERVER_ROOM)
         );
 
         return ResponseEntity.ok(stats);
     }
 
-    // ========== 읽음 처리 API ==========
-
-    /**
-     * 전체 알림 읽음 처리
-     */
+    // 전체 알림 읽음 처리
     @PostMapping("/mark-all-as-read")
     @Transactional
     public ResponseEntity<Map<String, Object>> markAllAlertsAsRead() {
         Long userId = extractUserId();
-
-        // ✅ Fetch Join으로 Company를 함께 조회
         Member currentMember = memberRepository.findByIdWithCompany(userId)
-                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+                .orElseThrow();
 
         Long companyId = currentMember.getCompany().getId();
 
-        List<Long> serverRoomIds = companyServerRoomRepository
-                .findByCompanyId(companyId)
-                .stream()
-                .map(mapping -> mapping.getServerRoom().getId())
-                .collect(Collectors.toList());
+        List<Long> serverRoomIds = companyServerRoomRepository.findByCompanyId(companyId)
+                .stream().map(m -> m.getServerRoom().getId()).toList();
 
         if (serverRoomIds.isEmpty()) {
-            return ResponseEntity.ok(Map.of(
-                    "success", false,
-                    "message", "매핑된 서버실이 없습니다.",
-                    "updatedCount", 0
-            ));
+            return ResponseEntity.ok(Map.of("success", false, "message", "매핑된 서버실이 없습니다.", "updatedCount", 0));
         }
 
-        int updatedCount = alertHistoryRepository.markAllAsReadByServerRoomIds(
-                serverRoomIds,
-                LocalDateTime.now(),
-                userId
-        );
+        int updatedCount = alertHistoryRepository.markAllAsReadByServerRoomIds(serverRoomIds, LocalDateTime.now(), userId);
 
-        log.info("전체 알림 읽음 처리 완료: userId={}, count={}", userId, updatedCount);
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "전체 알림을 읽음 처리했습니다.",
-                "updatedCount", updatedCount
-        ));
+        return ResponseEntity.ok(Map.of("success", true, "message", "전체 알림을 읽음 처리했습니다.", "updatedCount", updatedCount));
     }
 
-    /**
-     * 선택한 알림 읽음 처리
-     */
+    // 선택 알림 읽음 처리
     @PostMapping("/mark-as-read")
     @Transactional
-    public ResponseEntity<Map<String, Object>> markAlertsAsRead(
-            @Valid @RequestBody MarkAsReadRequest request) {
-
+    public ResponseEntity<Map<String, Object>> markAlertsAsRead(@Valid @RequestBody MarkAsReadRequest request) {
         Long userId = extractUserId();
+        Member member = memberRepository.findByIdWithCompany(userId).orElseThrow();
 
-        // ✅ Fetch Join으로 Company를 함께 조회
-        Member currentMember = memberRepository.findByIdWithCompany(userId)
-                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+        Long companyId = member.getCompany().getId();
 
-        Long companyId = currentMember.getCompany().getId();
-
-        List<Long> serverRoomIds = companyServerRoomRepository
-                .findByCompanyId(companyId)
-                .stream()
-                .map(mapping -> mapping.getServerRoom().getId())
-                .collect(Collectors.toList());
+        List<Long> serverRoomIds = companyServerRoomRepository.findByCompanyId(companyId)
+                .stream().map(m -> m.getServerRoom().getId()).toList();
 
         if (serverRoomIds.isEmpty()) {
-            return ResponseEntity.ok(Map.of(
-                    "success", false,
-                    "message", "매핑된 서버실이 없습니다.",
-                    "updatedCount", 0
-            ));
+            return ResponseEntity.ok(Map.of("success", false, "message", "매핑된 서버실이 없습니다.", "updatedCount", 0));
         }
 
-        // 권한 확인: 해당 알림들이 사용자의 회사 서버실에 속하는지 확인
         List<AlertHistory> alerts = alertHistoryRepository.findAllById(request.alertIds());
 
-        boolean hasUnauthorizedAlert = alerts.stream()
+        boolean unauthorized = alerts.stream()
                 .anyMatch(alert -> !serverRoomIds.contains(alert.getServerRoomId()));
 
-        if (hasUnauthorizedAlert) {
-            return ResponseEntity.status(403).body(Map.of(
-                    "success", false,
-                    "message", "접근 권한이 없는 알림이 포함되어 있습니다.",
-                    "updatedCount", 0
-            ));
+        if (unauthorized) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "권한 없는 알림 포함", "updatedCount", 0));
         }
 
-        int updatedCount = alertHistoryRepository.markAsReadByIds(
-                request.alertIds(),
-                LocalDateTime.now(),
-                userId
-        );
+        int updatedCount = alertHistoryRepository.markAsReadByIds(request.alertIds(), LocalDateTime.now(), userId);
 
-        log.info("선택 알림 읽음 처리 완료: userId={}, count={}", userId, updatedCount);
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "선택한 알림을 읽음 처리했습니다.",
-                "updatedCount", updatedCount
-        ));
+        return ResponseEntity.ok(Map.of("success", true, "message", "선택한 알림을 읽음 처리했습니다.", "updatedCount", updatedCount));
     }
 
-    // ========== 삭제 API ==========
-
-    /**
-     * 전체 알림 삭제
-     */
+    // 전체 알림 삭제
     @DeleteMapping("/delete-all")
     @Transactional
     public ResponseEntity<Map<String, Object>> deleteAllAlerts() {
         Long userId = extractUserId();
+        Member member = memberRepository.findByIdWithCompany(userId).orElseThrow();
 
-        // ✅ Fetch Join으로 Company를 함께 조회
-        Member currentMember = memberRepository.findByIdWithCompany(userId)
-                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+        Long companyId = member.getCompany().getId();
 
-        Long companyId = currentMember.getCompany().getId();
-
-        List<Long> serverRoomIds = companyServerRoomRepository
-                .findByCompanyId(companyId)
-                .stream()
-                .map(mapping -> mapping.getServerRoom().getId())
-                .collect(Collectors.toList());
+        List<Long> serverRoomIds = companyServerRoomRepository.findByCompanyId(companyId)
+                .stream().map(m -> m.getServerRoom().getId()).toList();
 
         if (serverRoomIds.isEmpty()) {
-            return ResponseEntity.ok(Map.of(
-                    "success", false,
-                    "message", "매핑된 서버실이 없습니다.",
-                    "deletedCount", 0
-            ));
+            return ResponseEntity.ok(Map.of("success", false, "message", "매핑된 서버실이 없습니다.", "deletedCount", 0));
         }
 
         int deletedCount = alertHistoryRepository.deleteAllByServerRoomIds(serverRoomIds);
 
-        log.info("전체 알림 삭제 완료: userId={}, count={}", userId, deletedCount);
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "전체 알림을 삭제했습니다.",
-                "deletedCount", deletedCount
-        ));
+        return ResponseEntity.ok(Map.of("success", true, "message", "전체 알림을 삭제했습니다.", "deletedCount", deletedCount));
     }
 
-    /**
-     * 선택한 알림 삭제
-     */
+    // 선택 알림 삭제
     @DeleteMapping("/delete")
     @Transactional
-    public ResponseEntity<Map<String, Object>> deleteAlerts(
-            @Valid @RequestBody DeleteAlertsRequest request) {
-
+    public ResponseEntity<Map<String, Object>> deleteAlerts(@Valid @RequestBody DeleteAlertsRequest request) {
         Long userId = extractUserId();
+        Member member = memberRepository.findByIdWithCompany(userId).orElseThrow();
 
-        // ✅ Fetch Join으로 Company를 함께 조회
-        Member currentMember = memberRepository.findByIdWithCompany(userId)
-                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+        Long companyId = member.getCompany().getId();
 
-        Long companyId = currentMember.getCompany().getId();
-
-        List<Long> serverRoomIds = companyServerRoomRepository
-                .findByCompanyId(companyId)
-                .stream()
-                .map(mapping -> mapping.getServerRoom().getId())
-                .collect(Collectors.toList());
+        List<Long> serverRoomIds = companyServerRoomRepository.findByCompanyId(companyId)
+                .stream().map(m -> m.getServerRoom().getId()).toList();
 
         if (serverRoomIds.isEmpty()) {
-            return ResponseEntity.ok(Map.of(
-                    "success", false,
-                    "message", "매핑된 서버실이 없습니다.",
-                    "deletedCount", 0
-            ));
+            return ResponseEntity.ok(Map.of("success", false, "message", "매핑된 서버실이 없습니다.", "deletedCount", 0));
         }
 
-        int deletedCount = alertHistoryRepository.deleteByIdsAndServerRoomIds(
-                request.alertIds(),
-                serverRoomIds
-        );
+        int deletedCount = alertHistoryRepository.deleteByIdsAndServerRoomIds(request.alertIds(), serverRoomIds);
 
-        log.info("선택 알림 삭제 완료: userId={}, count={}", userId, deletedCount);
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "선택한 알림을 삭제했습니다.",
-                "deletedCount", deletedCount
-        ));
+        return ResponseEntity.ok(Map.of("success", true, "message", "선택한 알림을 삭제했습니다.", "deletedCount", deletedCount));
     }
 
-    /**
-     * 읽지 않은 알림 개수 조회
-     */
+    // 읽지 않은 알림 개수 조회
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Object>> getUnreadCount() {
         Long userId = extractUserId();
+        Member member = memberRepository.findByIdWithCompany(userId).orElseThrow();
 
-        // ✅ Fetch Join으로 Company를 함께 조회
-        Member currentMember = memberRepository.findByIdWithCompany(userId)
-                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+        Long companyId = member.getCompany().getId();
 
-        Long companyId = currentMember.getCompany().getId();
+        List<Long> serverRoomIds = companyServerRoomRepository.findByCompanyId(companyId)
+                .stream().map(m -> m.getServerRoom().getId()).toList();
 
-        List<Long> serverRoomIds = companyServerRoomRepository
-                .findByCompanyId(companyId)
-                .stream()
-                .map(mapping -> mapping.getServerRoom().getId())
-                .collect(Collectors.toList());
+        long unreadCount = serverRoomIds.isEmpty()
+                ? 0
+                : alertHistoryRepository.countUnreadByServerRoomIds(serverRoomIds);
 
-        if (serverRoomIds.isEmpty()) {
-            return ResponseEntity.ok(Map.of(
-                    "unreadCount", 0L
-            ));
-        }
-
-        long unreadCount = alertHistoryRepository.countUnreadByServerRoomIds(serverRoomIds);
-
-        return ResponseEntity.ok(Map.of(
-                "unreadCount", unreadCount
-        ));
+        return ResponseEntity.ok(Map.of("unreadCount", unreadCount));
     }
 
-    // ========== Private Methods ==========
-
+    // 인증된 사용자 ID 추출
     private Long extractUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }
 
         String userId = authentication.getName();
-
         if (userId == null || userId.equals("anonymousUser")) {
             throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }

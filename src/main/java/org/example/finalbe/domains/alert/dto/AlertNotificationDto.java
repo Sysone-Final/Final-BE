@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 실시간 알림(SSE) 전송용 DTO
+ */
 package org.example.finalbe.domains.alert.dto;
 
 import org.example.finalbe.domains.alert.domain.AlertHistory;
@@ -10,7 +14,6 @@ import java.time.LocalDateTime;
 public record AlertNotificationDto(
         Long alertId,
 
-        // 대상 정보
         Long equipmentId,
         Long rackId,
         Long serverRoomId,
@@ -18,23 +21,18 @@ public record AlertNotificationDto(
         String targetName,
         TargetType targetType,
 
-        // 메트릭 정보
         MetricType metricType,
         String metricName,
 
-        // 알림 정보
         AlertLevel level,
         Double measuredValue,
         Double thresholdValue,
 
-        // 시간 정보
         LocalDateTime triggeredAt,
 
-        // 읽음 정보
         Boolean isRead,
         LocalDateTime readAt,
 
-        // 메시지
         String message
 ) {
     public static AlertNotificationDto from(AlertHistory alert) {

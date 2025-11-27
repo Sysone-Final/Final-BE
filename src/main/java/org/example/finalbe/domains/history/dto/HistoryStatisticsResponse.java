@@ -1,17 +1,17 @@
+/**
+ * 작성자: 황요한
+ * 히스토리 통계 응답 DTO
+ */
 package org.example.finalbe.domains.history.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.common.enumdir.EntityType;
 import org.example.finalbe.domains.common.enumdir.HistoryAction;
 
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 히스토리 통계 응답 DTO
- */
 @Builder
 public record HistoryStatisticsResponse(
         Long serverRoomId,

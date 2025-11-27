@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 카드 뷰 응답 DTO
+ */
 package org.example.finalbe.domains.rack.dto;
 
 import lombok.Builder;
@@ -6,9 +10,6 @@ import org.example.finalbe.domains.rack.domain.Rack;
 
 import java.math.BigDecimal;
 
-/**
- * 랙 카드 뷰 응답 DTO
- */
 @Builder
 public record RackCardResponse(
         Long id,

@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 장비(Equipment)의 변경 이력을 기록하는 서비스 클래스
+
 package org.example.finalbe.domains.history.service;
 
 import lombok.RequiredArgsConstructor;
@@ -14,11 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Equipment 히스토리 기록 전담 클래스 (개선 버전)
- * 변경 내역을 상세하게 기록하여 "무엇이 어떻게 변경되었는지" 추적 가능
- * 랙이 없는 장비도 히스토리 기록 가능
- */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -26,22 +24,16 @@ public class EquipmentHistoryRecorder {
 
     private final HistoryService historyService;
 
-    /**
-     * Equipment 생성 히스토리
-     * 랙이 없어도 히스토리 기록 가능
-     */
+    // 장비 생성 이력을 기록
     public void recordCreate(Equipment equipment, Member member) {
-        // 랙이 없는 경우를 위한 기본값 설정
         Long serverRoomId = null;
         String serverRoomName = "미배정";
         Map<String, Object> metadata = new HashMap<>();
 
-        // 랙이 있는 경우 정보 추출
         if (equipment.getRack() != null) {
             metadata.put("rackName", equipment.getRack().getRackName());
             metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
 
-            // 서버룸 정보가 있는 경우
             if (equipment.getRack().getServerRoom() != null) {
                 serverRoomId = equipment.getRack().getServerRoom().getId();
                 serverRoomName = equipment.getRack().getServerRoom().getName();
@@ -65,38 +57,29 @@ public class EquipmentHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Equipment create history recorded: {}", equipment.getName());
     }
 
-    /**
-     * Equipment 수정 히스토리 (상세 변경 내역 포함)
-     * 랙이 없어도 히스토리 기록 가능
-     */
+    // 장비 수정 이력을 기록
     public void recordUpdate(Equipment oldEquipment, Equipment newEquipment, Member member) {
         Map<String, Object> oldSnapshot = buildSnapshot(oldEquipment);
         Map<String, Object> newSnapshot = buildSnapshot(newEquipment);
         List<String> changedFields = detectChangedFields(oldSnapshot, newSnapshot);
 
         if (changedFields.isEmpty()) {
-            log.info("No changes detected for equipment id: {}", newEquipment.getId());
             return;
         }
 
-        // 변경 내역 상세 정보 구성
         Map<String, Object> changeDetails = buildChangeDetails(oldSnapshot, newSnapshot, changedFields);
 
-        // 랙이 없는 경우를 위한 기본값 설정
         Long serverRoomId = null;
         String serverRoomName = "미배정";
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("changeDetails", changeDetails);
 
-        // 랙이 있는 경우 정보 추출
         if (newEquipment.getRack() != null) {
             metadata.put("rackName", newEquipment.getRack().getRackName());
             metadata.put("rackId", String.valueOf(newEquipment.getRack().getId()));
 
-            // 서버룸 정보가 있는 경우
             if (newEquipment.getRack().getServerRoom() != null) {
                 serverRoomId = newEquipment.getRack().getServerRoom().getId();
                 serverRoomName = newEquipment.getRack().getServerRoom().getName();
@@ -121,27 +104,20 @@ public class EquipmentHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Equipment update history recorded: {} fields changed", changedFields.size());
     }
 
-    /**
-     * Equipment 이동 히스토리
-     * 랙이 없어도 히스토리 기록 가능
-     */
+    // 장비 위치 이동 이력을 기록
     public void recordMove(Equipment equipment, String oldLocation, String newLocation, Member member) {
-        // 랙이 없는 경우를 위한 기본값 설정
         Long serverRoomId = null;
         String serverRoomName = "미배정";
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("oldLocation", oldLocation);
         metadata.put("newLocation", newLocation);
 
-        // 랙이 있는 경우 정보 추출
         if (equipment.getRack() != null) {
             metadata.put("rackName", equipment.getRack().getRackName());
             metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
 
-            // 서버룸 정보가 있는 경우
             if (equipment.getRack().getServerRoom() != null) {
                 serverRoomId = equipment.getRack().getServerRoom().getId();
                 serverRoomName = equipment.getRack().getServerRoom().getName();
@@ -166,25 +142,18 @@ public class EquipmentHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Equipment move history recorded: {} -> {}", oldLocation, newLocation);
     }
 
-    /**
-     * Equipment 상태 변경 히스토리
-     * 랙이 없어도 히스토리 기록 가능
-     */
+    // 장비 상태 변경 이력을 기록
     public void recordStatusChange(Equipment equipment, String oldStatus, String newStatus, Member member) {
-        // 랙이 없는 경우를 위한 기본값 설정
         Long serverRoomId = null;
         String serverRoomName = "미배정";
         Map<String, Object> metadata = new HashMap<>();
 
-        // 랙이 있는 경우 정보 추출
         if (equipment.getRack() != null) {
             metadata.put("rackName", equipment.getRack().getRackName());
             metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
 
-            // 서버룸 정보가 있는 경우
             if (equipment.getRack().getServerRoom() != null) {
                 serverRoomId = equipment.getRack().getServerRoom().getId();
                 serverRoomName = equipment.getRack().getServerRoom().getName();
@@ -209,25 +178,18 @@ public class EquipmentHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Equipment status change history recorded: {} -> {}", oldStatus, newStatus);
     }
 
-    /**
-     * Equipment 삭제 히스토리
-     * 랙이 없어도 히스토리 기록 가능
-     */
+    // 장비 삭제 이력을 기록
     public void recordDelete(Equipment equipment, Member member) {
-        // 랙이 없는 경우를 위한 기본값 설정
         Long serverRoomId = null;
         String serverRoomName = "미배정";
         Map<String, Object> metadata = new HashMap<>();
 
-        // 랙이 있는 경우 정보 추출
         if (equipment.getRack() != null) {
             metadata.put("rackName", equipment.getRack().getRackName());
             metadata.put("rackId", String.valueOf(equipment.getRack().getId()));
 
-            // 서버룸 정보가 있는 경우
             if (equipment.getRack().getServerRoom() != null) {
                 serverRoomId = equipment.getRack().getServerRoom().getId();
                 serverRoomName = equipment.getRack().getServerRoom().getName();
@@ -251,20 +213,15 @@ public class EquipmentHistoryRecorder {
                 .build();
 
         historyService.recordHistory(request);
-        log.info("Equipment delete history recorded: {}", equipment.getName());
     }
 
-    /**
-     * Equipment 상태 스냅샷 생성
-     * 랙이 없는 경우도 안전하게 처리
-     */
+    // 장비 상태 스냅샷을 생성
     private Map<String, Object> buildSnapshot(Equipment equipment) {
         Map<String, Object> snapshot = new HashMap<>();
         snapshot.put("name", equipment.getName());
         snapshot.put("code", equipment.getCode());
         snapshot.put("type", equipment.getType() != null ? equipment.getType().name() : null);
 
-        // 랙 정보 안전하게 처리
         if (equipment.getRack() != null) {
             snapshot.put("rackName", equipment.getRack().getRackName());
             snapshot.put("rackId", equipment.getRack().getId());
@@ -283,26 +240,20 @@ public class EquipmentHistoryRecorder {
         return snapshot;
     }
 
+    // 변경된 필드를 추출
     private List<String> detectChangedFields(Map<String, Object> oldSnapshot, Map<String, Object> newSnapshot) {
         List<String> changedFields = new ArrayList<>();
-
         for (String key : newSnapshot.keySet()) {
             Object oldValue = oldSnapshot.get(key);
             Object newValue = newSnapshot.get(key);
-
-            if (oldValue == null && newValue != null) {
-                changedFields.add(key);
-            } else if (oldValue != null && !oldValue.equals(newValue)) {
+            if (oldValue == null && newValue != null || oldValue != null && !oldValue.equals(newValue)) {
                 changedFields.add(key);
             }
         }
-
         return changedFields;
     }
 
-    /**
-     * 변경 내역 상세 정보 구성
-     */
+    // 변경 상세 정보를 구성
     private Map<String, Object> buildChangeDetails(
             Map<String, Object> oldSnapshot,
             Map<String, Object> newSnapshot,
@@ -311,30 +262,22 @@ public class EquipmentHistoryRecorder {
         Map<String, Object> changeDetails = new HashMap<>();
 
         for (String field : changedFields) {
-            Object oldValue = oldSnapshot.get(field);
-            Object newValue = newSnapshot.get(field);
-
-            // 필드별 한글 레이블 매핑
             String fieldLabel = getFieldLabel(field);
-
-            // 변경 전/후 값을 사용자 친화적 형태로 변환
-            String oldValueStr = formatValue(field, oldValue);
-            String newValueStr = formatValue(field, newValue);
+            String oldValueStr = formatValue(field, oldSnapshot.get(field));
+            String newValueStr = formatValue(field, newSnapshot.get(field));
 
             changeDetails.put(field, Map.of(
                     "fieldLabel", fieldLabel,
                     "oldValue", oldValueStr,
                     "newValue", newValueStr,
-                    "changeDescription", String.format("%s: %s → %s", fieldLabel, oldValueStr, newValueStr)
+                    "changeDescription", fieldLabel + ": " + oldValueStr + " → " + newValueStr
             ));
         }
 
         return changeDetails;
     }
 
-    /**
-     * 필드명을 한글 레이블로 변환
-     */
+    // 필드명 → 한글 레이블 변환
     private String getFieldLabel(String field) {
         return switch (field) {
             case "name" -> "장비명";
@@ -348,17 +291,13 @@ public class EquipmentHistoryRecorder {
             case "manufacturer" -> "제조사";
             case "serialNumber" -> "시리얼 번호";
             case "ipAddress" -> "IP 주소";
-            case "macAddress" -> "MAC 주소";
-            case "powerConsumption" -> "전력 소비량";
             default -> field;
         };
     }
 
+    // 필드값 표시 형식 변환
     private String formatValue(String field, Object value) {
-        if (value == null) {
-            return "(없음)";
-        }
-
+        if (value == null) return "(없음)";
         return switch (field) {
             case "startUnit", "unitSize" -> value + " U";
             case "powerConsumption" -> value + " W";
@@ -367,6 +306,7 @@ public class EquipmentHistoryRecorder {
         };
     }
 
+    // 상태값 → 한글 변환
     private String translateStatus(String status) {
         return switch (status) {
             case "NORMAL" -> "정상";

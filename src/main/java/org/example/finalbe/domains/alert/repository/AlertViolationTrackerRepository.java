@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 연속 임계치 위반 상태(AlertViolationTracker)를 조회하는 Repository
+ */
 package org.example.finalbe.domains.alert.repository;
 
 import org.example.finalbe.domains.alert.domain.AlertViolationTracker;
@@ -10,35 +14,55 @@ import java.util.Optional;
 
 public interface AlertViolationTrackerRepository extends JpaRepository<AlertViolationTracker, Long> {
 
-    @Query("SELECT t FROM AlertViolationTracker t WHERE t.targetType = 'EQUIPMENT' " +
-            "AND t.equipmentId = :equipmentId AND t.metricType = :metricType " +
-            "AND t.metricName = :metricName")
+    @Query("""
+            SELECT t FROM AlertViolationTracker t
+             WHERE t.targetType = 'EQUIPMENT'
+               AND t.equipmentId = :equipmentId
+               AND t.metricType = :metricType
+               AND t.metricName = :metricName
+            """)
     Optional<AlertViolationTracker> findByEquipmentIdAndMetric(
             @Param("equipmentId") Long equipmentId,
             @Param("metricType") MetricType metricType,
-            @Param("metricName") String metricName);
+            @Param("metricName") String metricName
+    );
 
-    @Query("SELECT t FROM AlertViolationTracker t WHERE t.targetType = 'RACK' " +
-            "AND t.rackId = :rackId AND t.metricType = :metricType " +
-            "AND t.metricName = :metricName")
+    @Query("""
+            SELECT t FROM AlertViolationTracker t
+             WHERE t.targetType = 'RACK'
+               AND t.rackId = :rackId
+               AND t.metricType = :metricType
+               AND t.metricName = :metricName
+            """)
     Optional<AlertViolationTracker> findByRackIdAndMetric(
             @Param("rackId") Long rackId,
             @Param("metricType") MetricType metricType,
-            @Param("metricName") String metricName);
+            @Param("metricName") String metricName
+    );
 
-    @Query("SELECT t FROM AlertViolationTracker t WHERE t.targetType = 'SERVER_ROOM' " +
-            "AND t.serverRoomId = :serverRoomId AND t.metricType = :metricType " +
-            "AND t.metricName = :metricName")
+    @Query("""
+            SELECT t FROM AlertViolationTracker t
+             WHERE t.targetType = 'SERVER_ROOM'
+               AND t.serverRoomId = :serverRoomId
+               AND t.metricType = :metricType
+               AND t.metricName = :metricName
+            """)
     Optional<AlertViolationTracker> findByServerRoomIdAndMetric(
             @Param("serverRoomId") Long serverRoomId,
             @Param("metricType") MetricType metricType,
-            @Param("metricName") String metricName);
+            @Param("metricName") String metricName
+    );
 
-    @Query("SELECT t FROM AlertViolationTracker t WHERE t.targetType = 'DATA_CENTER' " +
-            "AND t.dataCenterId = :dataCenterId AND t.metricType = :metricType " +
-            "AND t.metricName = :metricName")
+    @Query("""
+            SELECT t FROM AlertViolationTracker t
+             WHERE t.targetType = 'DATA_CENTER'
+               AND t.dataCenterId = :dataCenterId
+               AND t.metricType = :metricType
+               AND t.metricName = :metricName
+            """)
     Optional<AlertViolationTracker> findByDataCenterIdAndMetric(
             @Param("dataCenterId") Long dataCenterId,
             @Param("metricType") MetricType metricType,
-            @Param("metricName") String metricName);
+            @Param("metricName") String metricName
+    );
 }

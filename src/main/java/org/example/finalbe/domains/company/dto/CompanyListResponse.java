@@ -1,11 +1,12 @@
+/**
+ * 작성자: 황요한
+ * 회사 목록 조회 응답 DTO
+ */
 package org.example.finalbe.domains.company.dto;
 
 import lombok.Builder;
 import org.example.finalbe.domains.company.domain.Company;
 
-/**
- * 회사 목록 조회 응답 DTO
- */
 @Builder
 public record CompanyListResponse(
         Long id,

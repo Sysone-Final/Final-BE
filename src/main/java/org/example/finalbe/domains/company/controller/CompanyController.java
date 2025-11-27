@@ -1,3 +1,13 @@
+/**
+ * 작성자: 황요한
+ * 회사(Company) 관리 컨트롤러
+ * 주요 기능:
+ *  - 회사 목록 조회
+ *  - 회사 상세 조회
+ *  - 회사 생성/수정/삭제 (ADMIN 권한 필요)
+ *  - 회사명 검색
+ *  - 회사에 속한 서버실 목록 조회
+ */
 package org.example.finalbe.domains.company.controller;
 
 import jakarta.validation.Valid;
@@ -15,9 +25,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * 회사 관리 컨트롤러
- */
 @RestController
 @RequestMapping("/api/companies")
 @RequiredArgsConstructor
@@ -29,24 +36,18 @@ public class CompanyController {
     /**
      * 회사 목록 조회
      * GET /api/companies
-     *
-     * @return 회사 목록
-     *
-     *
      */
     @GetMapping
     public ResponseEntity<CommonResDto> getAllCompanies() {
         List<CompanyListResponse> companies = companyService.getAllCompanies();
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "회사 목록 조회 완료", companies));
+                new CommonResDto(HttpStatus.OK, "회사 목록 조회 완료", companies)
+        );
     }
 
     /**
      * 회사 상세 조회
      * GET /api/companies/{id}
-     *
-     * @param id 회사 ID
-     * @return 회사 상세 정보
      */
     @GetMapping("/{id}")
     public ResponseEntity<CommonResDto> getCompanyById(
@@ -56,15 +57,14 @@ public class CompanyController {
     ) {
         CompanyDetailResponse company = companyService.getCompanyById(id);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "회사 조회 완료", company));
+                new CommonResDto(HttpStatus.OK, "회사 조회 완료", company)
+        );
     }
 
     /**
      * 회사 생성
      * POST /api/companies
-     *
-     * @param request 회사 생성 요청 DTO
-     * @return 생성된 회사 정보
+     * ADMIN 전용
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -79,10 +79,7 @@ public class CompanyController {
     /**
      * 회사 정보 수정
      * PUT /api/companies/{id}
-     *
-     * @param id 회사 ID
-     * @param request 회사 수정 요청 DTO
-     * @return 수정된 회사 정보
+     * ADMIN 전용
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -94,15 +91,14 @@ public class CompanyController {
     ) {
         CompanyDetailResponse company = companyService.updateCompany(id, request);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "회사 수정 완료", company));
+                new CommonResDto(HttpStatus.OK, "회사 수정 완료", company)
+        );
     }
 
     /**
      * 회사 삭제
      * DELETE /api/companies/{id}
-     *
-     * @param id 회사 ID
-     * @return 삭제 완료 메시지
+     * ADMIN 전용
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -113,15 +109,13 @@ public class CompanyController {
     ) {
         companyService.deleteCompany(id);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "회사 삭제 완료", null));
+                new CommonResDto(HttpStatus.OK, "회사 삭제 완료", null)
+        );
     }
 
     /**
-     * 회사명으로 검색
-     * GET /api/companies/search?name={name}
-     *
-     * @param name 검색 키워드
-     * @return 검색된 회사 목록
+     * 회사명 검색
+     * GET /api/companies/search?name=xxx
      */
     @GetMapping("/search")
     public ResponseEntity<CommonResDto> searchCompanies(
@@ -131,15 +125,13 @@ public class CompanyController {
     ) {
         List<CompanyListResponse> companies = companyService.searchCompaniesByName(name);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "회사 검색 완료", companies));
+                new CommonResDto(HttpStatus.OK, "회사 검색 완료", companies)
+        );
     }
 
     /**
-     * 회사의 서버실 목록 조회
+     * 특정 회사의 서버실 목록 조회
      * GET /api/companies/{id}/serverrooms
-     *
-     * @param id 회사 ID
-     * @return 서버실 목록
      */
     @GetMapping("/{id}/serverrooms")
     public ResponseEntity<CommonResDto> getCompanyServerRooms(
@@ -149,6 +141,7 @@ public class CompanyController {
     ) {
         List<CompanyServerRoomListResponse> serverRooms = companyService.getCompanyServerRooms(id);
         return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "회사 서버실 목록 조회 완료", serverRooms));
+                new CommonResDto(HttpStatus.OK, "회사 서버실 목록 조회 완료", serverRooms)
+        );
     }
 }

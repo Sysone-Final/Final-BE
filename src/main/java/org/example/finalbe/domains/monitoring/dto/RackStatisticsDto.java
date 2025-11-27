@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 랙 실시간 통계 DTO
+ */
 package org.example.finalbe.domains.monitoring.dto;
 
 import lombok.AllArgsConstructor;

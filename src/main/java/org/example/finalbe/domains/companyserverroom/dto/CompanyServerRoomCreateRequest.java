@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 회사-서버실 매핑 생성 요청 DTO
+ */
 package org.example.finalbe.domains.companyserverroom.dto;
 
 import jakarta.validation.constraints.Min;
@@ -8,9 +12,6 @@ import lombok.Builder;
 
 import java.util.List;
 
-/**
- * 회사-서버실 매핑 생성 요청 DTO
- */
 @Builder
 public record CompanyServerRoomCreateRequest(
 
@@ -19,9 +20,11 @@ public record CompanyServerRoomCreateRequest(
         Long companyId,
 
         @NotEmpty(message = "서버실을 하나 이상 선택해주세요.")
-        List<@NotNull(message = "서버실 ID는 null일 수 없습니다.")
-        @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.")
-                Long> serverRoomIds,
+        List<
+                @NotNull(message = "서버실 ID는 null일 수 없습니다.")
+                @Min(value = 1, message = "유효하지 않은 서버실 ID입니다.")
+                        Long
+                > serverRoomIds,
 
         @Size(max = 500, message = "설명은 500자를 초과할 수 없습니다.")
         String description

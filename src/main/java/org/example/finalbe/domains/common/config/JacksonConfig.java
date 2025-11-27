@@ -1,3 +1,8 @@
+
+/**
+ * 작성자: 황요한
+ * Jackson 라이브러리 설정 클래스
+ */
 package org.example.finalbe.domains.common.config;
 
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -29,7 +34,6 @@ public class JacksonConfig {
     @Bean
     @Primary
     public ObjectMapper objectMapper() {
-        // 커스텀 Instant Serializer
         SimpleModule instantModule = new SimpleModule();
         instantModule.addSerializer(Instant.class, new JsonSerializer<Instant>() {
             @Override

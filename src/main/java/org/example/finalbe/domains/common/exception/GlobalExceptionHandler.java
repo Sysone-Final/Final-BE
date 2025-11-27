@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * 전역 예외 처리 핸들러
+ */
 package org.example.finalbe.domains.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,17 +27,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 전역 예외 처리 핸들러
- * 애플리케이션에서 발생하는 모든 예외를 일관된 형식으로 처리
- */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     /**
      * EntityNotFoundException 처리
-     * 404 Not Found
      */
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<CommonErrorDto> handleEntityNotFoundException(EntityNotFoundException e) {
@@ -44,7 +43,6 @@ public class GlobalExceptionHandler {
 
     /**
      * DuplicateException 처리
-     * 409 Conflict
      */
     @ExceptionHandler(DuplicateException.class)
     public ResponseEntity<CommonErrorDto> handleDuplicateException(DuplicateException e) {
@@ -55,7 +53,6 @@ public class GlobalExceptionHandler {
 
     /**
      * 커스텀 AccessDeniedException 처리
-     * 401 Unauthorized 또는 403 Forbidden
      */
     @ExceptionHandler(org.example.finalbe.domains.common.exception.AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleCustomAccessDeniedException(
@@ -68,7 +65,6 @@ public class GlobalExceptionHandler {
 
     /**
      * Spring Security AccessDeniedException 처리
-     * 403 Forbidden
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<CommonErrorDto> handleSpringAccessDeniedException(AccessDeniedException e) {
@@ -79,7 +75,6 @@ public class GlobalExceptionHandler {
 
     /**
      * InvalidTokenException 처리
-     * 401 Unauthorized
      */
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<CommonErrorDto> handleInvalidTokenException(InvalidTokenException e) {
@@ -90,7 +85,6 @@ public class GlobalExceptionHandler {
 
     /**
      * AuthenticationException 처리
-     * 401 Unauthorized
      */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<CommonErrorDto> handleAuthenticationException(AuthenticationException e) {
@@ -101,7 +95,6 @@ public class GlobalExceptionHandler {
 
     /**
      * BusinessException 처리
-     * 400 Bad Request
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<CommonErrorDto> handleBusinessException(BusinessException e) {
@@ -112,7 +105,6 @@ public class GlobalExceptionHandler {
 
     /**
      * IllegalArgumentException 처리
-     * 400 Bad Request
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<CommonErrorDto> handleIllegalArgumentException(IllegalArgumentException e) {
@@ -123,7 +115,6 @@ public class GlobalExceptionHandler {
 
     /**
      * IllegalStateException 처리
-     * 400 Bad Request
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<CommonErrorDto> handleIllegalStateException(IllegalStateException e) {
@@ -134,7 +125,6 @@ public class GlobalExceptionHandler {
 
     /**
      * MethodArgumentNotValidException 처리
-     * @Valid 검증 실패 (400 Bad Request)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonErrorDto> handleMethodArgumentNotValidException(
@@ -158,7 +148,6 @@ public class GlobalExceptionHandler {
 
     /**
      * ConstraintViolationException 처리
-     * @Validated 검증 실패 (400 Bad Request)
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<CommonErrorDto> handleConstraintViolationException(
@@ -175,7 +164,6 @@ public class GlobalExceptionHandler {
 
     /**
      * HttpMessageNotReadableException 처리
-     * JSON 파싱 오류 (400 Bad Request)
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<CommonErrorDto> handleHttpMessageNotReadableException(
@@ -187,7 +175,6 @@ public class GlobalExceptionHandler {
 
     /**
      * MissingServletRequestParameterException 처리
-     * 필수 파라미터 누락 (400 Bad Request)
      */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<CommonErrorDto> handleMissingServletRequestParameterException(
@@ -202,7 +189,6 @@ public class GlobalExceptionHandler {
 
     /**
      * MethodArgumentTypeMismatchException 처리
-     * 타입 불일치 (400 Bad Request)
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<CommonErrorDto> handleMethodArgumentTypeMismatchException(
@@ -217,7 +203,6 @@ public class GlobalExceptionHandler {
 
     /**
      * NullPointerException 처리
-     * 500 Internal Server Error
      */
     @ExceptionHandler(NullPointerException.class)
     public ResponseEntity<CommonErrorDto> handleNullPointerException(NullPointerException e) {
@@ -230,8 +215,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * ✅ SSE 관련 비동기 에러 처리 (추가)
-     * 이미 연결이 끊긴 상태에서 발생하는 에러이므로 응답 없음
+     * SSE 관련 비동기 에러 처리
      */
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public void handleAsyncRequestNotUsableException(
@@ -240,13 +224,10 @@ public class GlobalExceptionHandler {
 
         String uri = request.getRequestURI();
         log.debug("비동기 요청 에러 (무시) - URI: {}, Message: {}", uri, ex.getMessage());
-
-        // SSE 연결이 끊긴 후 발생하는 에러이므로 아무 응답도 하지 않음
     }
 
     /**
-     * 일반 Exception 처리 (수정)
-     * 예상하지 못한 모든 예외 (500 Internal Server Error)
+     * 일반 Exception 처리
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonErrorDto> handleException(
@@ -256,13 +237,11 @@ public class GlobalExceptionHandler {
         String uri = request.getRequestURI();
         String contentType = request.getHeader("Accept");
 
-        // ✅ SSE 요청인 경우 에러 응답을 보낼 수 없으므로 무시
         if (contentType != null && contentType.contains("text/event-stream")) {
             log.debug("SSE 요청 에러 (무시) - URI: {}", uri);
             return null;
         }
 
-        // 일반 REST API 에러 처리
         log.error("Unexpected exception occurred - URI: {}", uri, e);
 
         CommonErrorDto errorDto = new CommonErrorDto(

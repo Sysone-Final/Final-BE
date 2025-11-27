@@ -1,3 +1,6 @@
+// 작성자: 황요한
+// 설명: DeviceType 관련 조회 기능을 제공하는 서비스 클래스
+
 package org.example.finalbe.domains.device.service;
 
 import lombok.RequiredArgsConstructor;
@@ -11,10 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 장치 타입 서비스
- * 장치 타입 조회 처리
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -24,14 +23,11 @@ public class DeviceTypeService {
     private final DeviceTypeRepository deviceTypeRepository;
 
     /**
-     * 모든 장치 타입 조회
+     * 모든 장치 타입을 조회하여 DTO 리스트로 반환
      */
     public List<DeviceTypeListResponse> getAllDeviceTypes() {
         log.info("Fetching all device types");
-
-        List<DeviceType> deviceTypes = deviceTypeRepository.findAll();
-
-        return deviceTypes.stream()
+        return deviceTypeRepository.findAll().stream()
                 .map(DeviceTypeListResponse::from)
                 .collect(Collectors.toList());
     }

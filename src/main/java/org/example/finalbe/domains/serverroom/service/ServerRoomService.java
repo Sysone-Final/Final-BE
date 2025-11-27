@@ -1,3 +1,7 @@
+// 작성자: 황요한
+// 서버실 생성/수정/삭제, 접근 권한 검증, 회사-서버실 매핑 관리,
+// Rack·장비·디바이스 연쇄 삭제, 히스토리 기록, 서버실 검색/조회 기능 제공
+
 package org.example.finalbe.domains.serverroom.service;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -115,19 +119,14 @@ public class ServerRoomService {
         List<ServerRoom> serverRooms;
 
         if (currentMember.getRole() == Role.ADMIN) {
-            // ADMIN은 모든 전산실 조회
             serverRooms = serverRoomRepository.findByDelYn(DelYN.N);
-            log.info("Admin user - returning all {} data centers", serverRooms.size());
         } else {
-            // 일반 사용자: CompanyServerRoom 매핑을 통해 접근 가능한 서버실만 조회
             List<CompanyServerRoom> mappings = companyServerRoomRepository
                     .findByCompanyId(currentMember.getCompany().getId());
 
             serverRooms = mappings.stream()
                     .map(CompanyServerRoom::getServerRoom)
                     .collect(Collectors.toList());
-
-            log.info("Non-admin user - returning {} accessible data centers", serverRooms.size());
         }
 
         return serverRooms.stream()
@@ -140,14 +139,6 @@ public class ServerRoomService {
      */
     public ServerRoomDetailResponse getServerRoomById(Long id) {
         Member currentMember = getCurrentMember();
-        log.info("Fetching data center by id: {} for user: {} (role: {})",
-                id, currentMember.getId(), currentMember.getRole());
-
-        if (id == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
-        }
-
-        // CompanyServerRoom 매핑으로 접근 권한 확인
         validateServerRoomAccess(currentMember, id);
 
         ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
@@ -157,23 +148,12 @@ public class ServerRoomService {
     }
 
     /**
-     * 서버실 생성 + CompanyServerRoom 매핑 자동 생성 + 히스토리 기록
+     * 서버실 생성 + CompanyServerRoom 자동 매핑 + 히스토리 기록
      */
     @Transactional
     public ServerRoomDetailResponse createServerRoom(ServerRoomCreateRequest request,
                                                      HttpServletRequest httpRequest) {
         Member currentMember = getCurrentMember();
-
-        log.info("===== CREATE SERVERROOM REQUEST =====");
-        log.info("Request DTO: {}", request);
-        log.info("Name: {}", request.name());
-        log.info("Description: {}", request.description());
-        log.info("Description class: {}", request.description() != null ? request.description().getClass() : "null");
-
-        log.info("Creating data center with code: {} by user: {} (role: {}, company: {})",
-                request.code(), currentMember.getId(), currentMember.getRole(),
-                currentMember.getCompany().getId());
-
         validateWritePermission(currentMember);
 
         if (request.name() == null || request.name().trim().isEmpty()) {
@@ -187,26 +167,16 @@ public class ServerRoomService {
             throw new DuplicateException("전산실 코드", request.code());
         }
 
-        // 전산실 생성
         ServerRoom serverRoom = request.toEntity();
 
-        log.info("===== AFTER toEntity() =====");
-        log.info("ServerRoom description: {}", serverRoom.getDescription());
-        // 데이터센터 설정
         if (request.dataCenterId() != null) {
             DataCenter dataCenter = dataCenterRepository.findActiveById(request.dataCenterId())
                     .orElseThrow(() -> new EntityNotFoundException("데이터센터", request.dataCenterId()));
             serverRoom.setDataCenter(dataCenter);
-            log.info("DataCenter {} assigned to ServerRoom", request.dataCenterId());
         }
 
         ServerRoom savedServerRoom = serverRoomRepository.save(serverRoom);
 
-        log.info("===== AFTER SAVE =====");
-        log.info("Saved ServerRoom ID: {}", savedServerRoom.getId());
-        log.info("Saved ServerRoom description: {}", savedServerRoom.getDescription());
-
-        // CompanyServerRoom 매핑 자동 생성
         CompanyServerRoom mapping = CompanyServerRoom.builder()
                 .company(currentMember.getCompany())
                 .serverRoom(savedServerRoom)
@@ -214,11 +184,7 @@ public class ServerRoomService {
                 .build();
         companyServerRoomRepository.save(mapping);
 
-        // 히스토리 기록
         serverRoomHistoryRecorder.recordCreate(savedServerRoom, currentMember);
-
-        log.info("Data center created successfully with id: {}, automatically mapped to company: {}",
-                savedServerRoom.getId(), currentMember.getCompany().getId());
 
         return ServerRoomDetailResponse.from(savedServerRoom);
     }
@@ -230,25 +196,18 @@ public class ServerRoomService {
     public ServerRoomDetailResponse updateServerRoom(Long id,
                                                      ServerRoomUpdateRequest request) {
         Member currentMember = getCurrentMember();
-        log.info("Updating data center with id: {} by user: {} (role: {})",
-                id, currentMember.getId(), currentMember.getRole());
-
-        if (id == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
-        }
-
         validateWritePermission(currentMember);
         validateServerRoomAccess(currentMember, id);
 
         ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
-        // 변경 전 복사
         ServerRoom oldServerRoom = copyServerRoom(serverRoom);
 
         if (request.code() != null
                 && !request.code().trim().isEmpty()
                 && !request.code().equals(serverRoom.getCode())) {
+
             if (serverRoomRepository.existsByCodeAndDelYn(request.code(), DelYN.N)) {
                 throw new DuplicateException("전산실 코드", request.code());
             }
@@ -272,83 +231,48 @@ public class ServerRoomService {
                 request.humidityMax()
         );
 
-        // 데이터센터 수정
         if (request.dataCenterId() != null) {
             DataCenter dataCenter = dataCenterRepository.findActiveById(request.dataCenterId())
                     .orElseThrow(() -> new EntityNotFoundException("데이터센터", request.dataCenterId()));
             serverRoom.setDataCenter(dataCenter);
-            log.info("DataCenter updated to {} for ServerRoom {}", request.dataCenterId(), id);
         }
 
         serverRoomHistoryRecorder.recordUpdate(oldServerRoom, serverRoom, currentMember);
-
-        log.info("Data center updated successfully with id: {}", id);
 
         return ServerRoomDetailResponse.from(serverRoom);
     }
 
     /**
-     * 서버실 삭제 (Soft Delete) + 히스토리 기록
-     * 서버실 삭제 시 포함된 모든 Rack, Equipment, Device도 함께 삭제
+     * 서버실 삭제 + 연관된 Rack/Equipment/Device Soft Delete + 히스토리 기록
      */
     @Transactional
     public void deleteServerRoom(Long id) {
         Member currentMember = getCurrentMember();
-        log.info("Deleting data center with id: {} by user: {} (role: {})",
-                id, currentMember.getId(), currentMember.getRole());
-
-        if (id == null) {
-            throw new IllegalArgumentException("전산실 ID를 입력해주세요.");
-        }
-
         validateWritePermission(currentMember);
         validateServerRoomAccess(currentMember, id);
 
         ServerRoom serverRoom = serverRoomRepository.findActiveById(id)
                 .orElseThrow(() -> new EntityNotFoundException("전산실", id));
 
-        // 1. 해당 서버실의 모든 활성 Rack 조회
         List<Rack> racks = rackRepository.findByServerRoomIdAndDelYn(id, DelYN.N);
-        log.info("Found {} racks in serverRoom {}", racks.size(), id);
 
         int totalEquipments = 0;
         int totalDevices = 0;
 
-        // 2. 각 Rack의 Equipment와 Device 삭제
         for (Rack rack : racks) {
-            // 2-1. Rack의 모든 활성 Equipment 삭제
             List<Equipment> equipments = equipmentRepository.findActiveByRackId(rack.getId());
-            if (!equipments.isEmpty()) {
-                equipments.forEach(equipment -> {
-                    equipment.setDelYn(DelYN.Y);
-                    log.debug("Equipment {} marked as deleted", equipment.getId());
-                });
-                totalEquipments += equipments.size();
-            }
+            equipments.forEach(e -> e.setDelYn(DelYN.Y));
+            totalEquipments += equipments.size();
 
-            // 2-2. Rack의 모든 활성 Device 삭제
             List<Device> devices = deviceRepository.findActiveByRackId(rack.getId());
-            if (!devices.isEmpty()) {
-                devices.forEach(device -> {
-                    device.setDelYn(DelYN.Y);
-                    log.debug("Device {} marked as deleted", device.getId());
-                });
-                totalDevices += devices.size();
-            }
+            devices.forEach(d -> d.setDelYn(DelYN.Y));
+            totalDevices += devices.size();
 
-            // 2-3. Rack 삭제
             rack.setDelYn(DelYN.Y);
-            log.debug("Rack {} marked as deleted", rack.getId());
         }
 
-        // 3. 서버실 히스토리 기록
         serverRoomHistoryRecorder.recordDelete(serverRoom, currentMember);
-
-        // 4. 서버실 소프트 삭제
         serverRoom.softDelete();
-
-        log.info("ServerRoom deleted successfully for id: {} (with {} racks, {} equipments, {} devices)",
-                id, racks.size(), totalEquipments, totalDevices);
     }
 
     /**
@@ -356,8 +280,6 @@ public class ServerRoomService {
      */
     public List<ServerRoomListResponse> searchServerRoomsByName(String name) {
         Member currentMember = getCurrentMember();
-        log.info("Searching data centers by name: {} for user: {} (role: {})",
-                name, currentMember.getId(), currentMember.getRole());
 
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("검색어를 입력해주세요.");
@@ -366,20 +288,15 @@ public class ServerRoomService {
         List<ServerRoom> searchResults;
 
         if (currentMember.getRole() == Role.ADMIN) {
-            // ADMIN은 전체 검색
             searchResults = serverRoomRepository.searchByName(name);
-            log.info("Admin user - searched all data centers, found: {}", searchResults.size());
         } else {
-            // 일반 사용자: 접근 가능한 전산실 중에서만 검색
             List<CompanyServerRoom> mappings = companyServerRoomRepository
                     .findByCompanyId(currentMember.getCompany().getId());
 
             searchResults = mappings.stream()
                     .map(CompanyServerRoom::getServerRoom)
-                    .filter(dc -> dc.getName().contains(name))
+                    .filter(sr -> sr.getName().contains(name))
                     .collect(Collectors.toList());
-
-            log.info("Non-admin user - searched accessible data centers, found: {}", searchResults.size());
         }
 
         return searchResults.stream()
@@ -388,7 +305,7 @@ public class ServerRoomService {
     }
 
     /**
-     * ServerRoom Deep Copy (변경 전 상태 저장용)
+     * ServerRoom Deep Copy (히스토리 기록용)
      */
     private ServerRoom copyServerRoom(ServerRoom original) {
         return ServerRoom.builder()
@@ -414,46 +331,33 @@ public class ServerRoomService {
     }
 
     /**
-     * CompanyServerRoom 매핑 테이블로 접근 가능한 서버실 목록 조회 (데이터센터별 그룹화)
+     * 접근 가능한 서버실 목록을 데이터센터 기준으로 그룹화하여 조회
      */
     public List<ServerRoomGroupedByDataCenterResponse> getAccessibleServerRoomsGroupedByDataCenter() {
         Member currentMember = getCurrentMember();
-        log.info("Fetching accessible server rooms grouped by datacenter for user: {} (role: {}, company: {})",
-                currentMember.getId(), currentMember.getRole(), currentMember.getCompany().getId());
 
         List<ServerRoom> serverRooms;
 
         if (currentMember.getRole() == Role.ADMIN) {
-            // ADMIN은 모든 서버실 조회
             serverRooms = serverRoomRepository.findByDelYn(DelYN.N);
-            log.info("Admin user - returning all {} server rooms", serverRooms.size());
         } else {
-            // 일반 사용자: CompanyServerRoom 매핑을 통해 접근 가능한 서버실만 조회
             List<CompanyServerRoom> mappings = companyServerRoomRepository
                     .findByCompanyId(currentMember.getCompany().getId());
 
             serverRooms = mappings.stream()
                     .map(CompanyServerRoom::getServerRoom)
                     .collect(Collectors.toList());
-
-            log.info("Non-admin user - returning {} accessible server rooms", serverRooms.size());
         }
 
-        // 데이터센터별로 그룹화
-        Map<Long, List<ServerRoom>> groupedByDataCenter = serverRooms.stream()
+        Map<Long, List<ServerRoom>> grouped = serverRooms.stream()
                 .filter(sr -> sr.getDataCenter() != null)
-                .collect(Collectors.groupingBy(
-                        sr -> sr.getDataCenter().getId()
-                ));
+                .collect(Collectors.groupingBy(sr -> sr.getDataCenter().getId()));
 
-        // 응답 DTO 생성
-        List<ServerRoomGroupedByDataCenterResponse> result = groupedByDataCenter.entrySet().stream()
+        return grouped.entrySet().stream()
                 .map(entry -> {
-                    // 첫 번째 서버실에서 데이터센터 정보 추출
-                    DataCenter dataCenter = entry.getValue().get(0).getDataCenter();
+                    DataCenter dc = entry.getValue().get(0).getDataCenter();
 
-                    // 서버실 정보 리스트 생성
-                    List<ServerRoomGroupedByDataCenterResponse.ServerRoomInfo> serverRoomInfos =
+                    List<ServerRoomGroupedByDataCenterResponse.ServerRoomInfo> rooms =
                             entry.getValue().stream()
                                     .map(sr -> ServerRoomGroupedByDataCenterResponse.ServerRoomInfo.builder()
                                             .id(sr.getId())
@@ -466,18 +370,14 @@ public class ServerRoomService {
                                             .build())
                                     .collect(Collectors.toList());
 
-                    // 데이터센터별 응답 DTO 생성
                     return ServerRoomGroupedByDataCenterResponse.builder()
-                            .dataCenterId(dataCenter.getId())
-                            .dataCenterName(dataCenter.getName())
-                            .dataCenterCode(dataCenter.getCode())
-                            .dataCenterAddress(dataCenter.getAddress())
-                            .serverRooms(serverRoomInfos)
+                            .dataCenterId(dc.getId())
+                            .dataCenterName(dc.getName())
+                            .dataCenterCode(dc.getCode())
+                            .dataCenterAddress(dc.getAddress())
+                            .serverRooms(rooms)
                             .build();
                 })
                 .collect(Collectors.toList());
-
-        log.info("Found {} datacenters with server rooms", result.size());
-        return result;
     }
 }

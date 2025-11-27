@@ -1,3 +1,7 @@
+/**
+ * 작성자: 황요한
+ * JWT 인증을 처리하는 필터 (로그인/회원가입 제외 모든 요청 검증)
+ */
 package org.example.finalbe.domains.common.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,58 +34,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
         try {
-            String requestURI = request.getRequestURI();
+            String uri = request.getRequestURI();
             String method = request.getMethod();
 
-            // permitAll 경로는 JWT 필터 스킵
-            if (shouldSkipFilter(requestURI, method)) {
-                log.debug("Skipping JWT filter for public path: {} {}", method, requestURI);
+            // 인증 필요 없는 경로는 바로 패스
+            if (shouldSkipFilter(uri, method)) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
             String token = resolveToken(request);
 
-            if (token != null) {
-                if (!jwtTokenProvider.validateToken(token)) {
-                    log.warn("Invalid JWT token for request: {}", requestURI);
-                    sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
-                    return;
-                }
-
-                String userId = jwtTokenProvider.getUserId(token);
-                String role = jwtTokenProvider.getRole(token);
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userId,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                log.debug("User authenticated: userId={}, role={}", userId, role);
-            } else {
-                log.debug("No JWT token found for request: {}", requestURI);
-                // permitAll 경로가 아닌데 토큰이 없으면 401 반환
+            if (token == null) {
                 sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "인증이 필요합니다.");
                 return;
             }
 
+            if (!jwtTokenProvider.validateToken(token)) {
+                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다.");
+                return;
+            }
+
+            authenticateUser(token, request);
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {
-            log.error("JWT authentication failed for request: {}", request.getRequestURI(), e);
+            log.error("JWT 인증 실패: {}", request.getRequestURI(), e);
             SecurityContextHolder.clearContext();
 
-            // permitAll 경로는 예외가 발생해도 에러 응답 대신 필터 체인 계속 진행
-            String requestURI = request.getRequestURI();
-            String method = request.getMethod();
-            if (shouldSkipFilter(requestURI, method)) {
+            if (shouldSkipFilter(request.getRequestURI(), request.getMethod())) {
                 filterChain.doFilter(request, response);
             } else {
                 sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "인증에 실패했습니다.");
@@ -89,25 +77,47 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    private boolean shouldSkipFilter(String requestURI, String method) {
-        // 로그인, 회원가입만 인증 불필요
-        if (requestURI.startsWith("/api/auth/")) {
-            return true;
-        }
-
-        // 나머지 모든 API는 인증 필요
-        return false;
+    /**
+     * 인증 제외 경로
+     */
+    private boolean shouldSkipFilter(String uri, String method) {
+        return uri.startsWith("/api/auth/");
     }
 
+    /**
+     * 요청 헤더에서 토큰 추출
+     */
     private String resolveToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
+        String header = request.getHeader("Authorization");
+        return (StringUtils.hasText(header) && header.startsWith("Bearer "))
+                ? header.substring(7)
+                : null;
     }
 
-    private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+    /**
+     * 토큰 기반 사용자 인증
+     */
+    private void authenticateUser(String token, HttpServletRequest request) {
+        String userId = jwtTokenProvider.getUserId(token);
+        String role = jwtTokenProvider.getRole(token);
+
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        userId,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                );
+
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    /**
+     * 에러 응답 전송
+     */
+    private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message)
+            throws IOException {
+
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
